@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Central de Estoque — Multimídia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#14171a; --surface:#1c2024; --surface-2:#23282d; --border:#2e3438;
+    --text:#ecedee; --text-muted:#8a929a;
+    --red:#e4283c; --green:#3ddc84; --amber:#f5a623;
+    --font-display:'Bebas Neue', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body);}
+  #app{max-width:960px;margin:0 auto;padding:0 16px 60px;}
+
+  header{position:sticky;top:0;background:var(--bg);z-index:20;padding-top:20px;border-bottom:1px solid var(--border);}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px;justify-content:space-between;}
+  .brand-left{display:flex;align-items:center;gap:10px;}
+  .tally{width:11px;height:11px;border-radius:50%;background:#3a3f44;box-shadow:0 0 0 3px #1c2024;transition:all .25s;flex-shrink:0;}
+  .tally.on-green{background:var(--green);box-shadow:0 0 10px 2px var(--green);}
+  .tally.on-red{background:var(--red);box-shadow:0 0 10px 2px var(--red);}
+  h1{font-family:var(--font-display);letter-spacing:.5px;font-size:30px;margin:0;line-height:1;}
+  .sub{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-top:4px;letter-spacing:.5px;}
+  .gear{background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:7px;padding:7px 10px;cursor:pointer;font-size:13px;}
+  .gear:hover{color:var(--text);border-color:var(--text-muted);}
+
+  nav{display:flex;gap:2px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+  nav::-webkit-scrollbar{display:none;}
+  nav button{background:none;border:none;color:var(--text-muted);font-family:var(--font-body);font-weight:600;font-size:13px;
+    padding:12px 14px;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--text);border-bottom-color:var(--red);}
+
+  main{padding-top:22px;}
+  .view{display:none;}
+  .view.active{display:block;animation:fade .2s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  .grid-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:22px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .stat .n{font-family:var(--font-display);font-size:32px;line-height:1;}
+  .stat .l{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-top:6px;}
+  .stat.warn .n{color:var(--amber);}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:14px;}
+  .card h2{font-family:var(--font-display);font-size:20px;letter-spacing:.4px;margin:0 0 14px;}
+
+  label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:5px;margin-top:12px;font-weight:600;}
+  label:first-of-type{margin-top:0;}
+  input,select{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;color:var(--text);
+    padding:10px 12px;font-family:var(--font-body);font-size:14px;}
+  input:focus,select:focus{outline:none;border-color:var(--red);}
+  input[type="radio"]{width:auto;}
+
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:520px){.row{grid-template-columns:1fr;}}
+
+  button.btn{cursor:pointer;border:none;border-radius:7px;padding:11px 18px;font-family:var(--font-body);font-weight:700;font-size:14px;}
+  .btn-primary{background:var(--red);color:#fff;}
+  .btn-primary:hover{background:#c91f33;}
+  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+  .btn-ghost:hover{border-color:var(--text-muted);}
+  .btn-green{background:var(--green);color:#0c1a12;}
+  .btn-amber{background:var(--amber);color:#241800;}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:6px;}
+  .btn-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+    padding:8px 8px;border-bottom:1px solid var(--border);}
+  td{padding:10px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .code{font-family:var(--font-mono);color:var(--text-muted);font-size:12px;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;letter-spacing:.4px;}
+  .badge-low{background:rgba(245,166,35,.15);color:var(--amber);}
+  .badge-in{background:rgba(61,220,132,.15);color:var(--green);}
+  .badge-out{background:rgba(228,40,60,.15);color:var(--red);}
+
+  .empty{text-align:center;padding:40px 16px;color:var(--text-muted);}
+  .empty .big{font-family:var(--font-display);font-size:22px;color:var(--text);margin-bottom:6px;}
+
+  #qr-reader{width:100%;max-width:340px;margin:0 auto;border-radius:10px;overflow:hidden;}
+  .scan-box{text-align:center;}
+
+  .product-hit{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px;}
+  .product-hit .name{font-family:var(--font-display);font-size:22px;}
+  .product-hit .meta{font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .qty-now{font-family:var(--font-mono);font-size:13px;margin-top:8px;color:var(--text-muted);}
+  .qty-now b{color:var(--text);font-size:16px;}
+
+  .toggle-type{display:flex;gap:10px;margin-top:12px;}
+  .toggle-opt{flex:1;text-align:center;padding:12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-weight:700;}
+  .toggle-opt.sel-in{border-color:var(--green);background:rgba(61,220,132,.08);color:var(--green);}
+  .toggle-opt.sel-out{border-color:var(--red);background:rgba(228,40,60,.08);color:var(--red);}
+
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface-2);
+    border:1px solid var(--border);color:var(--text);padding:12px 18px;border-radius:8px;font-size:13px;opacity:0;
+    transition:all .25s;pointer-events:none;z-index:50;font-weight:600;max-width:80vw;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.ok{border-color:var(--green);}
+  #toast.err{border-color:var(--red);}
+
+  .search-bar{margin-bottom:14px;}
+
+  .qr-print-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-top:16px;}
+  .qr-card{background:#fff;color:#111;border-radius:8px;padding:14px;text-align:center;border:1px solid #ddd;}
+  .qr-card .qname{font-family:var(--font-body);font-weight:700;font-size:12px;margin-top:8px;line-height:1.2;}
+  .qr-card .qcode{font-family:var(--font-mono);font-size:11px;color:#555;margin-top:2px;}
+  .qr-card img, .qr-card canvas{margin:0 auto;}
+  .checklist{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;margin-top:10px;}
+  .check-row{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;}
+  .check-row input{width:auto;}
+
+  .hint{font-size:12px;color:var(--text-muted);margin-top:6px;}
+  .loading-note{text-align:center;padding:16px;color:var(--text-muted);}
+
+  #config-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
+  #config-overlay .card{max-width:440px;width:100%;margin:0;}
+
+  @media print{
+    header, nav, #view-imprimir .no-print, #toast, #config-overlay{display:none !important;}
+    body{background:#fff;}
+    #app{max-width:100%;padding:0;}
+    .view{display:none !important;}
+    #view-imprimir{display:block !important;}
+    #view-imprimir .card{border:none;background:none;padding:0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="config-overlay" style="display:none;">
+  <div class="card">
+    <h2>Conectar à planilha</h2>
+    <p class="hint" style="margin-bottom:10px;">Cole aqui a URL do App da Web do Apps Script (termina em <span class="code">/exec</span>). Isso fica guardado só neste navegador.</p>
+    <input id="cfg-url" placeholder="https://script.google.com/macros/s/.../exec" />
+    <div class="btn-row">
+      <button class="btn btn-primary" id="cfg-save">Salvar e conectar</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <div class="brand-left">
+        <div class="tally" id="tally"></div>
+        <div>
+          <h1>Central de Estoque</h1>
+          <div class="sub">SETOR DE MULTIMÍDIA · GOOGLE SHEETS</div>
+        </div>
+      </div>
+      <button class="gear" id="btn-settings" title="Configurar conexão">⚙</button>
+    </div>
+    <nav>
+      <button data-view="dashboard" class="active">Painel</button>
+      <button data-view="produtos">Produtos</button>
+      <button data-view="movimentar">Movimentar</button>
+      <button data-view="historico">Histórico</button>
+      <button data-view="imprimir">Imprimir QR</button>
+    </nav>
+  </header>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <div class="grid-stats" id="stats"></div>
+      <div class="card">
+        <h2>Últimas movimentações</h2>
+        <div id="dash-recent"></div>
+      </div>
+      <div class="card" id="dash-low-card">
+        <h2>Estoque baixo</h2>
+        <div id="dash-low"></div>
+      </div>
+    </section>
+
+    <!-- PRODUTOS -->
+    <section id="view-produtos" class="view">
+      <div class="card">
+        <h2 id="form-title">Novo produto</h2>
+        <form id="product-form">
+          <input type="hidden" id="p-id" />
+          <label>Nome do item</label>
+          <input id="p-name" required placeholder="Ex: Microfone Shure SM58" />
+          <div class="row">
+            <div>
+              <label>Código (SKU)</label>
+              <input id="p-sku" required placeholder="Gerado automaticamente" />
+            </div>
+            <div>
+              <label>Categoria</label>
+              <input id="p-cat" list="cat-list" placeholder="Ex: Áudio" />
+              <datalist id="cat-list">
+                <option value="Câmeras"></option>
+                <option value="Áudio"></option>
+                <option value="Vídeo"></option>
+                <option value="Cabos e Conectores"></option>
+                <option value="Iluminação"></option>
+                <option value="Acessórios"></option>
+                <option value="Informática"></option>
+                <option value="Outros"></option>
+              </datalist>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Quantidade atual</label>
+              <input id="p-qty" type="number" min="0" value="0" required />
+            </div>
+            <div>
+              <label>Estoque mínimo (alerta)</label>
+              <input id="p-min" type="number" min="0" value="1" required />
+            </div>
+          </div>
+          <label>Localização</label>
+          <input id="p-loc" placeholder="Ex: Sala de equipamentos, prateleira 3" />
+          <div class="btn-row">
+            <button type="submit" class="btn btn-primary">Salvar produto</button>
+            <button type="button" id="p-cancel" class="btn btn-ghost" style="display:none;">Cancelar edição</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Itens cadastrados</h2>
+        <div class="search-bar">
+          <input id="p-search" placeholder="Buscar por nome, código ou categoria..." />
+        </div>
+        <div id="product-list"></div>
+      </div>
+    </section>
+
+    <!-- MOVIMENTAR -->
+    <section id="view-movimentar" class="view">
+      <div class="card scan-box">
+        <h2>Localizar item</h2>
+        <div id="qr-reader"></div>
+        <div class="btn-row" style="justify-content:center;">
+          <button id="btn-start-scan" class="btn btn-primary">📷 Escanear QR code</button>
+          <button id="btn-stop-scan" class="btn btn-ghost" style="display:none;">Parar câmera</button>
+        </div>
+        <div class="hint" id="scan-hint">O navegador vai pedir permissão de câmera na primeira vez. Sem câmera? Digite o código abaixo.</div>
+        <div style="margin-top:16px;max-width:340px;margin-left:auto;margin-right:auto;">
+          <label style="text-align:left;">Código do item</label>
+          <div style="display:flex;gap:8px;">
+            <input id="manual-code" placeholder="Ex: EST-0007" />
+            <button id="btn-manual-find" class="btn btn-ghost">Buscar</button>
+          </div>
+        </div>
+
+        <div id="found-product" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section id="view-historico" class="view">
+      <div class="card">
+        <h2>Histórico de movimentações</h2>
+        <div class="row" style="margin-bottom:6px;">
+          <input id="h-search" placeholder="Buscar por item ou código..." />
+          <select id="h-filter">
+            <option value="">Todos os tipos</option>
+            <option value="entrada">Só entradas</option>
+            <option value="saida">Só saídas</option>
+          </select>
+        </div>
+        <div id="history-list"></div>
+      </div>
+    </section>
+
+    <!-- IMPRIMIR QR -->
+    <section id="view-imprimir" class="view">
+      <div class="card no-print">
+        <h2>Gerar etiquetas QR</h2>
+        <p class="hint">Selecione os itens e imprima. Cada etiqueta traz o QR code, o nome e o código do item — cole no produto físico.</p>
+        <div class="btn-row">
+          <button id="btn-select-all" class="btn btn-ghost btn-sm">Selecionar todos</button>
+          <button id="btn-select-none" class="btn btn-ghost btn-sm">Limpar seleção</button>
+        </div>
+        <div class="checklist" id="print-checklist"></div>
+        <div class="btn-row">
+          <button id="btn-generate-labels" class="btn btn-primary">Gerar etiquetas</button>
+          <button id="btn-print" class="btn btn-green" style="display:none;">🖨️ Imprimir</button>
+        </div>
+      </div>
+      <div class="card" id="print-preview-card" style="display:none;">
+        <h2 class="no-print">Pré-visualização</h2>
+        <div class="qr-print-grid" id="qr-print-grid"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ---------- conexão com a API (Google Apps Script) ----------
+const API_URL_KEY = 'estoque_api_url_v1';
+function getApiUrl(){ return localStorage.getItem(API_URL_KEY) || ''; }
+function setApiUrl(u){ localStorage.setItem(API_URL_KEY, u); }
+
+function showConfig(){ document.getElementById('config-overlay').style.display = 'flex'; }
+function hideConfig(){ document.getElementById('config-overlay').style.display = 'none'; }
+
+document.getElementById('btn-settings').addEventListener('click', ()=>{
+  document.getElementById('cfg-url').value = getApiUrl();
+  showConfig();
+});
+document.getElementById('cfg-save').addEventListener('click', async ()=>{
+  const url = document.getElementById('cfg-url').value.trim();
+  if(!url.startsWith('https://script.google.com/')){
+    toast('Cole a URL completa do App da Web (.../exec).', 'err');
+    return;
+  }
+  setApiUrl(url);
+  hideConfig();
+  toast('Conectado. Carregando dados...', 'ok');
+  await init();
+});
+
+async function apiGet(action){
+  const url = getApiUrl();
+  if(!url) throw new Error('Configure a URL da planilha primeiro (⚙ no topo).');
+  const res = await fetch(url + '?action=' + encodeURIComponent(action));
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+async function apiPost(action, payload){
+  const url = getApiUrl();
+  if(!url) throw new Error('Configure a URL da planilha primeiro (⚙ no topo).');
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({ action, payload })
+  });
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+
+let PRODUCTS = [];
+let MOVEMENTS = [];
+let selectedType = null; // 'entrada' | 'saida'
+let currentFoundProduct = null;
+let html5Qr = null;
+
+function toast(msg, kind){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (kind || '');
+  setTimeout(()=>{ t.className = ''; }, 2600);
+}
+function tally(color){
+  const el = document.getElementById('tally');
+  el.className = 'tally on-' + color;
+  setTimeout(()=>{ el.className='tally'; }, 900);
+}
+
+async function reloadData(){
+  const data = await apiGet('data');
+  PRODUCTS = data.products;
+  MOVEMENTS = data.movements;
+  renderDashboard();
+  renderProductList();
+  renderHistory();
+  renderPrintChecklist();
+}
+
+// ---------- navegação ----------
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    if(btn.dataset.view !== 'movimentar'){ stopScanner(); }
+  });
+});
+
+// ---------- dashboard ----------
+function renderDashboard(){
+  const totalItems = PRODUCTS.length;
+  const totalUnits = PRODUCTS.reduce((s,p)=>s+Number(p.qty||0),0);
+  const low = PRODUCTS.filter(p=>Number(p.qty) <= Number(p.min));
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="n">${totalItems}</div><div class="l">Itens cadastrados</div></div>
+    <div class="stat"><div class="n">${totalUnits}</div><div class="l">Unidades em estoque</div></div>
+    <div class="stat ${low.length? 'warn':''}"><div class="n">${low.length}</div><div class="l">Em estoque baixo</div></div>
+    <div class="stat"><div class="n">${MOVEMENTS.length}</div><div class="l">Movimentações registradas</div></div>
+  `;
+
+  const recent = [...MOVEMENTS].sort((a,b)=>b.ts-a.ts).slice(0,6);
+  const dashRecent = document.getElementById('dash-recent');
+  if(recent.length===0){
+    dashRecent.innerHTML = `<div class="empty"><div class="big">Nada por aqui ainda</div>Registre a primeira movimentação na aba Movimentar.</div>`;
+  } else {
+    dashRecent.innerHTML = `<table><tbody>` + recent.map(m=>{
+      const p = PRODUCTS.find(x=>x.id===m.productId);
+      const badge = m.type==='entrada' ? '<span class="badge badge-in">ENTRADA</span>' : '<span class="badge badge-out">SAÍDA</span>';
+      return `<tr><td>${badge}</td><td>${p? p.name : '(item removido)'}</td><td class="code">${m.qty} un.</td><td class="code">${fmtDate(m.ts)}</td></tr>`;
+    }).join('') + `</tbody></table>`;
+  }
+
+  const lowCard = document.getElementById('dash-low-card');
+  const lowDiv = document.getElementById('dash-low');
+  if(low.length===0){
+    lowCard.style.display='none';
+  } else {
+    lowCard.style.display='block';
+    lowDiv.innerHTML = `<table><tbody>` + low.map(p=>`
+      <tr><td>${p.name}</td><td class="code">${p.sku}</td><td><span class="badge badge-low">${p.qty} / mín. ${p.min}</span></td></tr>
+    `).join('') + `</tbody></table>`;
+  }
+}
+
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+
+// ---------- produtos ----------
+function nextSku(){
+  let max = 0;
+  PRODUCTS.forEach(p=>{
+    const m = /EST-(\d+)/.exec(p.sku||'');
+    if(m) max = Math.max(max, parseInt(m[1],10));
+  });
+  return 'EST-' + String(max+1).padStart(4,'0');
+}
+
+document.getElementById('p-sku').addEventListener('focus', function(){
+  if(!this.value && !document.getElementById('p-id').value){ this.value = nextSku(); }
+});
+
+document.getElementById('product-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+
+  const product = {
+    id: document.getElementById('p-id').value || null,
+    name: document.getElementById('p-name').value.trim(),
+    sku: (document.getElementById('p-sku').value.trim() || nextSku()),
+    category: document.getElementById('p-cat').value.trim() || 'Outros',
+    qty: Number(document.getElementById('p-qty').value || 0),
+    min: Number(document.getElementById('p-min').value || 0),
+    location: document.getElementById('p-loc').value.trim()
+  };
+
+  try{
+    await apiPost('upsertProduct', product);
+    tally('green');
+    toast('Produto salvo na planilha.', 'ok');
+    resetProductForm();
+    await reloadData();
+  }catch(err){
+    tally('red');
+    toast((err && err.message) || 'Erro ao salvar produto.', 'err');
+  }finally{
+    submitBtn.disabled = false;
+  }
+});
+
+document.getElementById('p-cancel').addEventListener('click', resetProductForm);
+
+function resetProductForm(){
+  document.getElementById('product-form').reset();
+  document.getElementById('p-id').value = '';
+  document.getElementById('p-min').value = 1;
+  document.getElementById('p-qty').value = 0;
+  document.getElementById('form-title').textContent = 'Novo produto';
+  document.getElementById('p-cancel').style.display = 'none';
+}
+
+function editProduct(id){
+  const p = PRODUCTS.find(x=>x.id===id);
+  if(!p) return;
+  document.getElementById('p-id').value = p.id;
+  document.getElementById('p-name').value = p.name;
+  document.getElementById('p-sku').value = p.sku;
+  document.getElementById('p-cat').value = p.category;
+  document.getElementById('p-qty').value = p.qty;
+  document.getElementById('p-min').value = p.min;
+  document.getElementById('p-loc').value = p.location;
+  document.getElementById('form-title').textContent = 'Editar produto';
+  document.getElementById('p-cancel').style.display = 'inline-block';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+async function deleteProduct(id){
+  if(!confirm('Remover este item do estoque? O histórico de movimentações será mantido.')) return;
+  try{
+    await apiPost('deleteProduct', { id });
+    tally('green');
+    toast('Item removido da planilha.', 'ok');
+    await reloadData();
+  }catch(err){
+    tally('red');
+    toast((err && err.message) || 'Erro ao remover item.', 'err');
+  }
+}
+
+document.getElementById('p-search').addEventListener('input', renderProductList);
+
+function renderProductList(){
+  const q = (document.getElementById('p-search').value||'').toLowerCase();
+  const list = PRODUCTS.filter(p=>
+    p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q)
+  ).sort((a,b)=>a.name.localeCompare(b.name));
+
+  const el = document.getElementById('product-list');
+  if(PRODUCTS.length===0){
+    el.innerHTML = `<div class="empty"><div class="big">Nenhum item cadastrado</div>Cadastre o primeiro produto no formulário acima.</div>`;
+    return;
+  }
+  if(list.length===0){
+    el.innerHTML = `<div class="empty">Nenhum item encontrado para essa busca.</div>`;
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Item</th><th>Código</th><th>Categoria</th><th>Qtd.</th><th></th></tr></thead><tbody>` +
+    list.map(p=>{
+      const low = Number(p.qty) <= Number(p.min);
+      return `<tr>
+        <td>${p.name}${p.location? '<br><span class="code">'+p.location+'</span>':''}</td>
+        <td class="code">${p.sku}</td>
+        <td>${p.category}</td>
+        <td>${p.qty}${low? ' <span class="badge badge-low">baixo</span>':''}</td>
+        <td style="text-align:right;white-space:nowrap;">
+          <button class="btn btn-ghost btn-sm" onclick="editProduct('${p.id}')">Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteProduct('${p.id}')">Excluir</button>
+        </td>
+      </tr>`;
+    }).join('') + `</tbody></table>`;
+}
+
+// ---------- movimentar ----------
+function findBySku(code){
+  if(!code) return null;
+  const c = code.trim().toLowerCase();
+  return PRODUCTS.find(p=>p.sku.toLowerCase()===c) || null;
+}
+
+document.getElementById('btn-manual-find').addEventListener('click', ()=>{
+  const code = document.getElementById('manual-code').value;
+  const p = findBySku(code);
+  if(!p){ toast('Nenhum item encontrado com esse código.', 'err'); return; }
+  showFoundProduct(p);
+});
+
+document.getElementById('btn-start-scan').addEventListener('click', startScanner);
+document.getElementById('btn-stop-scan').addEventListener('click', stopScanner);
+
+function startScanner(){
+  const readerDiv = document.getElementById('qr-reader');
+  readerDiv.style.display = 'block';
+  document.getElementById('btn-start-scan').style.display='none';
+  document.getElementById('btn-stop-scan').style.display='inline-block';
+  document.getElementById('scan-hint').textContent = 'Aponte a câmera para o QR code do item...';
+
+  html5Qr = new Html5Qrcode("qr-reader");
+  html5Qr.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 220 },
+    (decodedText)=>{
+      const p = findBySku(decodedText);
+      if(p){
+        stopScanner();
+        showFoundProduct(p);
+        toast('Item localizado.', 'ok');
+      }
+    },
+    ()=>{ /* frame sem QR, ignora */ }
+  ).catch(()=>{
+    document.getElementById('scan-hint').textContent = 'Não foi possível acessar a câmera. Digite o código manualmente.';
+    document.getElementById('btn-start-scan').style.display='inline-block';
+    document.getElementById('btn-stop-scan').style.display='none';
+  });
+}
+
+function stopScanner(){
+  if(html5Qr){
+    html5Qr.stop().then(()=>{ html5Qr.clear(); }).catch(()=>{});
+    html5Qr = null;
+  }
+  document.getElementById('btn-start-scan').style.display='inline-block';
+  document.getElementById('btn-stop-scan').style.display='none';
+  document.getElementById('scan-hint').textContent = 'O navegador vai pedir permissão de câmera na primeira vez. Sem câmera? Digite o código abaixo.';
+}
+
+function showFoundProduct(p){
+  currentFoundProduct = p;
+  selectedType = null;
+  const el = document.getElementById('found-product');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="product-hit">
+      <div class="name">${p.name}</div>
+      <div class="meta">${p.sku} · ${p.category}${p.location? ' · '+p.location:''}</div>
+      <div class="qty-now">Em estoque agora: <b>${p.qty}</b> un.</div>
+
+      <label style="text-align:left;">Tipo de movimentação</label>
+      <div class="toggle-type">
+        <div class="toggle-opt" id="opt-in" onclick="selectType('entrada')">↓ Entrada</div>
+        <div class="toggle-opt" id="opt-out" onclick="selectType('saida')">↑ Saída</div>
+      </div>
+
+      <label>Quantidade</label>
+      <input id="mv-qty" type="number" min="1" value="1" />
+
+      <label>Responsável / motivo</label>
+      <input id="mv-reason" placeholder="Ex: João - produção de evento" />
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-confirm-mv" onclick="confirmMovement()">Confirmar movimentação</button>
+        <button class="btn btn-ghost" onclick="clearFoundProduct()">Cancelar</button>
+      </div>
+    </div>
+  `;
+}
+
+function selectType(type){
+  selectedType = type;
+  document.getElementById('opt-in').className = 'toggle-opt' + (type==='entrada' ? ' sel-in':'');
+  document.getElementById('opt-out').className = 'toggle-opt' + (type==='saida' ? ' sel-out':'');
+}
+
+function clearFoundProduct(){
+  currentFoundProduct = null;
+  selectedType = null;
+  document.getElementById('found-product').style.display='none';
+  document.getElementById('manual-code').value = '';
+}
+
+async function confirmMovement(){
+  if(!currentFoundProduct){ return; }
+  if(!selectedType){ toast('Escolha entrada ou saída.', 'err'); return; }
+  const qty = Number(document.getElementById('mv-qty').value || 0);
+  if(qty <= 0){ toast('Informe uma quantidade válida.', 'err'); return; }
+
+  if(selectedType==='saida' && qty > currentFoundProduct.qty){
+    if(!confirm('A quantidade de saída é maior que o estoque atual (' + currentFoundProduct.qty + '). Deseja continuar mesmo assim?')) return;
+  }
+
+  const btn = document.getElementById('btn-confirm-mv');
+  if(btn) btn.disabled = true;
+
+  try{
+    await apiPost('addMovement', {
+      productId: currentFoundProduct.id,
+      type: selectedType,
+      qty,
+      reason: document.getElementById('mv-reason').value.trim()
+    });
+    tally(selectedType==='entrada' ? 'green' : 'red');
+    toast('Movimentação registrada na planilha.', 'ok');
+    clearFoundProduct();
+    await reloadData();
+  }catch(err){
+    tally('red');
+    toast((err && err.message) || 'Erro ao salvar movimentação.', 'err');
+    if(btn) btn.disabled = false;
+  }
+}
+
+// ---------- histórico ----------
+document.getElementById('h-search').addEventListener('input', renderHistory);
+document.getElementById('h-filter').addEventListener('change', renderHistory);
+
+function renderHistory(){
+  const q = (document.getElementById('h-search').value||'').toLowerCase();
+  const type = document.getElementById('h-filter').value;
+  let list = [...MOVEMENTS].sort((a,b)=>b.ts-a.ts);
+  if(type) list = list.filter(m=>m.type===type);
+  if(q){
+    list = list.filter(m=>{
+      const p = PRODUCTS.find(x=>x.id===m.productId);
+      const name = p? p.name.toLowerCase() : '';
+      const sku = p? p.sku.toLowerCase() : '';
+      return name.includes(q) || sku.includes(q);
+    });
+  }
+  const el = document.getElementById('history-list');
+  if(MOVEMENTS.length===0){
+    el.innerHTML = `<div class="empty"><div class="big">Nenhuma movimentação ainda</div>Registre entradas e saídas na aba Movimentar.</div>`;
+    return;
+  }
+  if(list.length===0){
+    el.innerHTML = `<div class="empty">Nada encontrado com esse filtro.</div>`;
+    return;
+  }
+  el.innerHTML = `<table><thead><tr><th>Tipo</th><th>Item</th><th>Qtd.</th><th>Responsável</th><th>Data</th></tr></thead><tbody>` +
+    list.map(m=>{
+      const p = PRODUCTS.find(x=>x.id===m.productId);
+      const badge = m.type==='entrada' ? '<span class="badge badge-in">ENTRADA</span>' : '<span class="badge badge-out">SAÍDA</span>';
+      return `<tr>
+        <td>${badge}</td>
+        <td>${p? p.name : '(item removido)'}<br><span class="code">${p? p.sku : ''}</span></td>
+        <td>${m.qty}</td>
+        <td>${m.reason || '—'}</td>
+        <td class="code">${fmtDate(m.ts)}</td>
+      </tr>`;
+    }).join('') + `</tbody></table>`;
+}
+
+// ---------- imprimir QR ----------
+function renderPrintChecklist(){
+  const el = document.getElementById('print-checklist');
+  if(PRODUCTS.length===0){
+    el.innerHTML = `<div class="empty">Cadastre produtos primeiro na aba Produtos.</div>`;
+    return;
+  }
+  el.innerHTML = [...PRODUCTS].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>`
+    <div class="check-row">
+      <input type="checkbox" class="print-check" value="${p.id}" />
+      <span>${p.name} <span class="code">(${p.sku})</span></span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('btn-select-all').addEventListener('click', ()=>{
+  document.querySelectorAll('.print-check').forEach(c=>c.checked = true);
+});
+document.getElementById('btn-select-none').addEventListener('click', ()=>{
+  document.querySelectorAll('.print-check').forEach(c=>c.checked = false);
+});
+
+document.getElementById('btn-generate-labels').addEventListener('click', ()=>{
+  const ids = [...document.querySelectorAll('.print-check:checked')].map(c=>c.value);
+  if(ids.length===0){ toast('Selecione ao menos um item.', 'err'); return; }
+  const grid = document.getElementById('qr-print-grid');
+  grid.innerHTML = '';
+  ids.forEach(id=>{
+    const p = PRODUCTS.find(x=>x.id===id);
+    if(!p) return;
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    const qrHolder = document.createElement('div');
+    card.appendChild(qrHolder);
+    const qname = document.createElement('div');
+    qname.className = 'qname';
+    qname.textContent = p.name;
+    const qcode = document.createElement('div');
+    qcode.className = 'qcode';
+    qcode.textContent = p.sku;
+    card.appendChild(qname);
+    card.appendChild(qcode);
+    grid.appendChild(card);
+    new QRCode(qrHolder, { text: p.sku, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M });
+  });
+  document.getElementById('print-preview-card').style.display = 'block';
+  document.getElementById('btn-print').style.display = 'inline-block';
+});
+
+document.getElementById('btn-print').addEventListener('click', ()=>{ window.print(); });
+
+// ---------- init ----------
+async function init(){
+  if(!getApiUrl()){ showConfig(); return; }
+  document.getElementById('stats').innerHTML = '<div class="loading-note">Carregando dados da planilha...</div>';
+  try{
+    await reloadData();
+  }catch(err){
+    toast((err && err.message) || 'Não foi possível carregar os dados da planilha.', 'err');
+  }
+}
+init();
+</script>
+</body>
+</html>
