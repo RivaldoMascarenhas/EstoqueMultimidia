@@ -157,47 +157,47 @@ export default function MovimentacoesPage() {
     switch (type) {
       case "ENTRY":
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30">
-            <ArrowDownLeft className="w-3 h-3 text-emerald-500" />
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30 whitespace-nowrap">
+            <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500" />
             Entrada
           </span>
         );
       case "EXIT":
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold border border-rose-500/30">
-            <ArrowUpRight className="w-3 h-3 text-rose-500" />
-            Saída / Baixa
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold border border-rose-500/30 whitespace-nowrap">
+            <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />
+            Saída
           </span>
         );
       case "TRANSFER":
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold border border-blue-500/30">
-            <ArrowRightLeft className="w-3 h-3 text-blue-500" />
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold border border-blue-500/30 whitespace-nowrap">
+            <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />
             Transferência
           </span>
         );
       case "ADJUSTMENT":
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/30">
-            <SlidersHorizontal className="w-3 h-3 text-amber-500" />
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/30 whitespace-nowrap">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
             Ajuste
           </span>
         );
       case "LOAN":
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-bold border border-purple-500/30">
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-bold border border-purple-500/30 whitespace-nowrap">
             Empréstimo
           </span>
         );
       case "RETURN":
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 font-bold border border-teal-500/30">
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 font-bold border border-teal-500/30 whitespace-nowrap">
             Devolução
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-accent text-foreground font-semibold border border-border">
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-accent text-foreground font-semibold border border-border whitespace-nowrap">
             {type}
           </span>
         );
@@ -333,7 +333,7 @@ export default function MovimentacoesPage() {
             {[
               { id: "ALL", label: "Todas as Movimentações" },
               { id: "ENTRY", label: "Entradas", badge: countEntry },
-              { id: "EXIT", label: "Saídas / Baixas", badge: countExit },
+              { id: "EXIT", label: "Saídas", badge: countExit },
               { id: "TRANSFER", label: "Transferências", badge: countTransfer },
               { id: "ADJUSTMENT", label: "Ajustes de Inventário" },
             ].map((tab) => {
@@ -412,9 +412,8 @@ export default function MovimentacoesPage() {
       </Card>
 
       {/* Tabela de Movimentações */}
-      <Card className="rounded-2xl border-border/80 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <Table className="min-w-[1050px] w-full">
+      <div className="rounded-2xl border-border/80 shadow-sm">
+        <Table className="min-w-[1050px] w-full">
             <TableHeader className="bg-muted/50 border-b border-border/80">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[170px]">
@@ -556,7 +555,6 @@ export default function MovimentacoesPage() {
             </TableBody>
           </Table>
         </div>
-      </Card>
     </div>
   );
 }
