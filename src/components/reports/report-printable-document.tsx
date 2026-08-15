@@ -200,17 +200,23 @@ export function ReportPrintableDocument({
         >
           {/* Cabeçalho Institucional */}
           <div className="border-b-2 border-neutral-800 pb-3 flex items-start justify-between gap-4">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 font-black text-sm uppercase tracking-wider text-neutral-900">
-                <Building2 className="w-5 h-5 text-neutral-800 inline-block" />
-                <span>CENTRO UNIVERSITÁRIO PARAÍSO • UNIFAP</span>
+            <div className="flex items-center gap-3">
+              <img
+                src="/brand/logo-unifap.png"
+                alt="UniFAP"
+                className="h-10 w-auto object-contain shrink-0"
+              />
+              <div className="space-y-0.5 border-l border-neutral-300 pl-3">
+                <div className="font-black text-sm uppercase tracking-wider text-neutral-900">
+                  CENTRO UNIVERSITÁRIO PARAÍSO • UNIFAP
+                </div>
+                <p className="text-[11px] font-semibold text-neutral-700">
+                  Setor de Suporte de TI & Multimídia
+                </p>
+                <p className="text-[10px] text-neutral-500">
+                  Juazeiro do Norte - CE • Sistema Integrado de Gestão de Estoque & Patrimônio
+                </p>
               </div>
-              <p className="text-[11px] font-semibold text-neutral-700">
-                Setor de Suporte de TI & Equipamentos Multimídia • Juazeiro do Norte - CE
-              </p>
-              <p className="text-[10px] text-neutral-500">
-                Sistema Integrado de Gestão de Estoque, Patrimônio & Armário Físico
-              </p>
             </div>
 
             <div className="text-right shrink-0">

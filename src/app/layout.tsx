@@ -7,13 +7,17 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: {
-    default: "UniFAP - Gestão de Estoque & TI",
-    template: "%s | UniFAP Estoque & TI",
+    default: "UniFAP • Estoque & Multimídia | Centro Universitário Paraíso",
+    template: "%s | UniFAP Suporte TI & Multimídia",
   },
   description:
-    "Sistema oficial de controle de estoque, patrimônio, armário físico, empréstimos e manutenção do Suporte de TI e Multimídia da UniFAP.",
-  keywords: ["UniFAP", "Estoque", "TI", "Multimídia", "Patrimônio", "Empréstimos", "Armário"],
-  authors: [{ name: "Suporte TI UniFAP" }],
+    "Sistema Integrado de Gestão de Estoque, Patrimônio, Armário Físico, Empréstimos e Manutenções do Setor de Suporte de TI & Multimídia do Centro Universitário Paraíso (UniFAP).",
+  keywords: ["UniFAP", "Centro Universitário Paraíso", "Estoque", "Suporte TI", "Multimídia", "Patrimônio", "Empréstimos", "Armário"],
+  authors: [{ name: "Suporte de TI & Multimídia - UniFAP" }],
+  icons: {
+    icon: "/brand/logo-unifap-quadrada.png",
+    apple: "/brand/logo-unifap-quadrada.png",
+  },
 };
 
 export const viewport: Viewport = {

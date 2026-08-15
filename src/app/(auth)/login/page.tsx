@@ -237,15 +237,30 @@ export default function LoginPage() {
       <div className="w-full max-w-md z-10 space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-gradient-to-tr from-primary-600 to-indigo-500 shadow-xl shadow-primary-500/20 border border-primary-400/30">
-            <Package className="w-8 h-8 text-white" />
+          <div className="flex items-center justify-center">
+            {isDarkMode ? (
+              <img
+                src="/brand/logo-unifap-negativa.png"
+                alt="UniFAP - Centro Universitário Paraíso"
+                className="h-14 w-auto object-contain drop-shadow-md"
+              />
+            ) : (
+              <img
+                src="/brand/logo-unifap.png"
+                alt="UniFAP - Centro Universitário Paraíso"
+                className="h-14 w-auto object-contain drop-shadow-sm"
+              />
+            )}
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center justify-center gap-2">
-              UniFAP <span className="text-primary font-light">Estoque & TI</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[11px] font-bold text-primary mb-1">
+              Suporte de TI & Multimídia
+            </div>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+              Estoque, Patrimônio & Empréstimos
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Gestão de Estoque, Patrimônio, Armário Físico & Empréstimos
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Centro Universitário Paraíso • Juazeiro do Norte - CE
             </p>
           </div>
         </div>
