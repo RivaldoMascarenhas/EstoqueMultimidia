@@ -68,7 +68,155 @@ export function LoanReceiptModal({
   const operatorName = session?.user?.name || loan.createdByUser?.name || "Suporte de TI - UniFAP";
 
   const handlePrint = () => {
-    window.print();
+    const printElement = document.getElementById("termo-unifap-sheet");
+    if (!printElement) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=850,height=1100");
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Termo de Cautela - ${protocolNumber}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm 15mm;
+            }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            }
+            body {
+              background: #ffffff;
+              color: #111827;
+              font-size: 11px;
+              line-height: 1.4;
+              padding: 10px;
+            }
+            .print-area {
+              background: #ffffff;
+              color: #111827;
+              padding: 24px;
+              border: 1px solid #d1d5db;
+              border-radius: 12px;
+            }
+            .border-b-2 { border-bottom: 2px solid #1f2937; }
+            .border-t-2 { border-top: 2px solid #d1d5db; }
+            .border { border: 1px solid #e5e7eb; }
+            .border-b { border-bottom: 1px solid #e5e7eb; }
+            .border-neutral-800 { border-color: #1f2937; }
+            .border-neutral-300 { border-color: #d1d5db; }
+            .border-neutral-200 { border-color: #e5e7eb; }
+            .bg-neutral-50 { background-color: #f9fafb; }
+            .bg-neutral-100 { background-color: #f3f4f6; }
+            .bg-emerald-100 { background-color: #d1fae5; }
+            .bg-amber-100 { background-color: #fef3c7; }
+            .text-emerald-800 { color: #065f46; }
+            .text-amber-800 { color: #92400e; }
+            .text-neutral-900 { color: #111827; }
+            .text-neutral-800 { color: #1f2937; }
+            .text-neutral-700 { color: #374151; }
+            .text-neutral-600 { color: #4b5563; }
+            .text-neutral-500 { color: #6b7280; }
+            .p-1 { padding: 4px; }
+            .p-1\\.5 { padding: 6px; }
+            .p-2 { padding: 8px; }
+            .p-2\\.5 { padding: 10px; }
+            .p-3 { padding: 12px; }
+            .p-4 { padding: 16px; }
+            .p-6 { padding: 24px; }
+            .p-8 { padding: 32px; }
+            .px-2 { padding-left: 8px; padding-right: 8px; }
+            .px-2\\.5 { padding-left: 10px; padding-right: 10px; }
+            .py-0\\.5 { padding-top: 2px; padding-bottom: 2px; }
+            .py-1 { padding-top: 4px; padding-bottom: 4px; }
+            .pb-0\\.5 { padding-bottom: 2px; }
+            .pb-1 { padding-bottom: 4px; }
+            .pb-4 { padding-bottom: 16px; }
+            .pt-1 { padding-top: 4px; }
+            .pt-4 { padding-top: 16px; }
+            .my-2\\.5 { margin-top: 10px; margin-bottom: 10px; }
+            .my-3 { margin-top: 12px; margin-bottom: 12px; }
+            .mt-0\\.5 { margin-top: 2px; }
+            .mt-2 { margin-top: 8px; }
+            .mt-6 { margin-top: 24px; }
+            .mb-1 { margin-bottom: 4px; }
+            .mb-4 { margin-bottom: 16px; }
+            .rounded { border-radius: 4px; }
+            .rounded-2xl { border-radius: 12px; }
+            .font-bold { font-weight: 700; }
+            .font-semibold { font-weight: 600; }
+            .font-black { font-weight: 900; }
+            .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+            .uppercase { text-transform: uppercase; }
+            .tracking-wider { letter-spacing: 0.05em; }
+            .tracking-wide { letter-spacing: 0.025em; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .flex { display: flex; }
+            .flex-col { flex-direction: column; }
+            .items-center { align-items: center; }
+            .items-end { align-items: flex-end; }
+            .justify-between { justify-content: space-between; }
+            .justify-center { justify-content: center; }
+            .grid { display: grid; }
+            .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+            .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+            .gap-1 { gap: 4px; }
+            .gap-2 { gap: 8px; }
+            .gap-4 { gap: 16px; }
+            .gap-x-4 { column-gap: 16px; }
+            .gap-y-1 { row-gap: 4px; }
+            .col-span-2 { grid-column: span 2 / span 2; }
+            .col-span-3 { grid-column: span 3 / span 3; }
+            .space-y-0\\.5 > * + * { margin-top: 2px; }
+            .space-y-1 > * + * { margin-top: 4px; }
+            .leading-tight { line-height: 1.25; }
+            .list-decimal { list-style-type: decimal; }
+            .list-inside { list-style-position: inside; }
+            .w-16 { width: 64px; }
+            .h-16 { height: 64px; }
+            .w-5 { width: 20px; }
+            .h-5 { height: 20px; }
+            .block { display: block; }
+            img { max-width: 100%; display: block; }
+            @media print {
+              body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; }
+              .print-area { border: none !important; box-shadow: none !important; padding: 0 !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-area">
+            ${printElement.innerHTML}
+          </div>
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+                setTimeout(function() { window.close(); }, 600);
+              }, 250);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   return (
@@ -96,7 +244,10 @@ export function LoanReceiptModal({
         </div>
 
         {/* FOLHA DO DOCUMENTO IMPRESSO (A4 FORMAT) */}
-        <div className="print-area bg-white text-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 shadow-sm print:border-none print:shadow-none print:p-4 text-xs font-sans">
+        <div 
+          id="termo-unifap-sheet"
+          className="print-area bg-white text-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 shadow-sm print:border-none print:shadow-none print:p-4 text-xs font-sans"
+        >
           {/* Cabeçalho Institucional */}
           <div className="flex items-center justify-between border-b-2 border-neutral-800 pb-4 mb-4">
             <div className="space-y-0.5">
@@ -182,7 +333,7 @@ export function LoanReceiptModal({
             </div>
           </div>
 
-          {/* Bloco 2: Identificação do Equipamento */}
+          {/* Bloco 2: Especificação do Equipamento */}
           <div className="my-3 space-y-1">
             <h3 className="font-bold text-[11px] uppercase tracking-wider text-neutral-800 border-b border-neutral-300 pb-0.5">
               2. Especificação do Equipamento & Acessórios
@@ -315,28 +466,6 @@ export function LoanReceiptModal({
             </div>
           </div>
         </div>
-
-        {/* Estilo CSS customizado para impressão nativa limpa */}
-        <style jsx global>{`
-          @media print {
-            body * {
-              visibility: hidden;
-            }
-            .print-area, .print-area * {
-              visibility: visible;
-            }
-            .print-area {
-              position: absolute;
-              left: 0;
-              top: 0;
-              width: 100%;
-              border: none !important;
-              box-shadow: none !important;
-              padding: 0 !important;
-              margin: 0 !important;
-            }
-          }
-        `}</style>
       </DialogContent>
     </Dialog>
   );
