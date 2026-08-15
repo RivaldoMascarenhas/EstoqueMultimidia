@@ -15,8 +15,7 @@ import {
   Moon, 
   Sun, 
   Eye, 
-  EyeOff,
-  UserCheck
+  EyeOff
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -58,12 +57,6 @@ function LoginForm() {
       toast.error("Erro inesperado ao realizar login. Tente novamente.");
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = (userEmail: string) => {
-    setEmail(userEmail);
-    setPassword("UniFAP@2026");
-    toast.info(`Credenciais preenchidas para ${userEmail.split("@")[0].toUpperCase()}`);
   };
 
   return (
@@ -141,52 +134,11 @@ function LoginForm() {
         </button>
       </form>
 
-      {/* Atalhos Rápidos para Teste de Perfis da Equipe */}
-      <div className="pt-4 border-t border-border/80 space-y-3">
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium">
-          <span className="flex items-center gap-1">
-            <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-            Acesso Rápido - Equipe TI:
-          </span>
-          <span className="text-[10px] text-muted-foreground font-mono">Senha: UniFAP@2026</span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("rivaldo@unifap.br")}
-            className="p-2 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/80 text-left transition-all group"
-          >
-            <div className="text-xs font-semibold text-foreground group-hover:text-primary">Rivaldo</div>
-            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold">ADMIN</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("rodrigo@unifap.br")}
-            className="p-2 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/80 text-left transition-all group"
-          >
-            <div className="text-xs font-semibold text-foreground group-hover:text-primary">Rodrigo</div>
-            <div className="text-[10px] text-blue-600 dark:text-blue-400 font-mono font-bold">GESTOR</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("thomas@unifap.br")}
-            className="p-2 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/80 text-left transition-all group"
-          >
-            <div className="text-xs font-semibold text-foreground group-hover:text-primary">Thomas</div>
-            <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-bold">OPERADOR</div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleQuickLogin("pedro@unifap.br")}
-            className="p-2 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/80 text-left transition-all group"
-          >
-            <div className="text-xs font-semibold text-foreground group-hover:text-primary">Pedro</div>
-            <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-bold">OPERADOR</div>
-          </button>
+      {/* Informação de Segurança Institucional */}
+      <div className="pt-4 border-t border-border/80 text-center">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <ShieldCheck className="w-4 h-4 text-emerald-500" />
+          <span>Ambiente Seguro • Suporte de TI & Multimídia UniFAP</span>
         </div>
       </div>
     </div>
