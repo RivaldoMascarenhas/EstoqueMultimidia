@@ -107,10 +107,10 @@ export function LoanReceiptModal({
             <div className="space-y-0.5">
               <div className="flex items-center gap-2 font-black text-sm uppercase tracking-wider text-neutral-900">
                 <Building2 className="w-5 h-5 text-neutral-800" />
-                <span>UNIVERSIDADE FEDERAL DO AMAPÁ - UNIFAP</span>
+                <span>CENTRO UNIVERSITÁRIO PARAÍSO - UNIFAP</span>
               </div>
               <p className="text-[11px] font-semibold text-neutral-700">
-                Pró-Reitoria de Administração • Coordenação de Tecnologia da Informação
+                Gerência de Operações & Tecnologia da Informação • Juazeiro do Norte - CE
               </p>
               <p className="text-[10px] text-neutral-600">
                 Setor de Suporte de TI & Equipamentos Multimídia • Armário Central
@@ -132,10 +132,10 @@ export function LoanReceiptModal({
             <h1 className="text-sm sm:text-base font-black uppercase tracking-wide text-neutral-900">
               {isReturned
                 ? "COMPROVANTE DE DEVOLUÇÃO E ENCERRAMENTO DE CAUTELA"
-                : "TERMO DE CAUTELA E RESPONSABILIDADE POR EQUIPAMENTO PÚBLICO"}
+                : "TERMO DE CAUTELA E RESPONSABILIDADE POR EQUIPAMENTO INSTITUCIONAL"}
             </h1>
             <p className="text-[10px] text-neutral-600">
-              Controle Patrimonial e Rastreabilidade Institucional de Ativos
+              Controle Patrimonial e Rastreabilidade Institucional de Ativos • UniFAP
             </p>
           </div>
 
@@ -272,7 +272,7 @@ export function LoanReceiptModal({
                 O solicitante declara ter recebido o equipamento e seus respectivos cabos/acessórios em perfeito estado de funcionamento e conservação.
               </li>
               <li>
-                Compromete-se a zelar pela guarda, integridade e uso estritamente institucional do bem público no local acordado, sendo vedada a cessão a terceiros sem autorização prévia.
+                Compromete-se a zelar pela guarda, integridade e uso estritamente acadêmico/institucional do bem no local acordado, sendo vedada a cessão a terceiros sem autorização prévia.
               </li>
               <li>
                 Oportunamente, compromete-se a restituir o equipamento ao Setor de Suporte de TI no horário e data estipulados neste termo.
