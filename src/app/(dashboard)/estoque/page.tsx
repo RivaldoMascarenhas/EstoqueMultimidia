@@ -363,12 +363,12 @@ export default function EstoquePage() {
 
                       {/* Ações */}
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-2">
                           {/* Botão Dar Baixa */}
                           {firstBox && (
                             <Button
                               size="sm"
-                              variant="destructive"
+                              variant="ghost"
                               onClick={() =>
                                 setSelectedItemForExit({
                                   item,
@@ -382,7 +382,7 @@ export default function EstoquePage() {
                                 })
                               }
                               disabled={firstBoxQty <= 0}
-                              className="h-8 px-2 text-xs rounded-xl gap-1 shadow-sm"
+                              className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
                               title={`Dar baixa de ${item.name} na Caixa ${firstBox.code}`}
                             >
                               <ArrowDownLeft className="w-3.5 h-3.5" />
@@ -394,17 +394,17 @@ export default function EstoquePage() {
                           {allBoxes.length > 0 && (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               onClick={() =>
                                 setSelectedItemForEntry({
                                   item,
                                   box: firstBox || allBoxes[0],
                                 })
                               }
-                              className="h-8 px-2 text-xs rounded-xl gap-1"
+                              className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/50 shadow-xs"
                               title="Adicionar entrada de estoque"
                             >
-                              <Plus className="w-3.5 h-3.5 text-emerald-500" />
+                              <Plus className="w-3.5 h-3.5" />
                               <span>Entrada</span>
                             </Button>
                           )}
