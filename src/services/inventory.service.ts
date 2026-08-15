@@ -9,10 +9,11 @@ export class InventoryService {
   static async getItems(params?: {
     search?: string;
     categoryId?: string;
+    boxId?: string;
     itemType?: ItemType;
     statusFilter?: "ALL" | "CRITICAL" | "LOW" | "NORMAL";
   }) {
-    const { search, categoryId, itemType, statusFilter } = params || {};
+    const { search, categoryId, boxId, itemType, statusFilter } = params || {};
 
     const whereClause: any = {
       active: true,
@@ -29,6 +30,15 @@ export class InventoryService {
 
     if (categoryId && categoryId !== "ALL") {
       whereClause.categoryId = categoryId;
+    }
+
+    if (boxId && boxId !== "ALL") {
+      whereClause.inventories = {
+        some: {
+          boxId: boxId,
+          quantity: { gt: 0 },
+        },
+      };
     }
 
     if (itemType) {
