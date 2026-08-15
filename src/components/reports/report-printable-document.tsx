@@ -32,14 +32,14 @@ interface ReportPrintableDocumentProps {
 const reportDocumentStyles = `
   @page {
     size: A4 portrait;
-    margin: 8mm 12mm;
+    margin: 5mm 10mm;
   }
   .print-area {
     background: #ffffff !important;
     color: #0f172a !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    font-size: 10px !important;
-    line-height: 1.35 !important;
+    font-size: 9.5px !important;
+    line-height: 1.25 !important;
     box-sizing: border-box !important;
   }
   .print-area * {
@@ -54,110 +54,110 @@ const reportDocumentStyles = `
     align-items: center !important;
     justify-content: space-between !important;
     border-bottom: 2px solid #0f172a !important;
-    padding-bottom: 8px !important;
-    margin-bottom: 10px !important;
-    gap: 16px !important;
+    padding-bottom: 5px !important;
+    margin-bottom: 6px !important;
+    gap: 12px !important;
   }
   .header-left {
     display: flex !important;
     align-items: center !important;
-    gap: 12px !important;
+    gap: 10px !important;
   }
   .logo-unifap {
-    height: 38px !important;
+    height: 32px !important;
     width: auto !important;
-    max-height: 40px !important;
+    max-height: 34px !important;
     object-fit: contain !important;
     flex-shrink: 0 !important;
   }
   .inst-info {
     border-left: 2px solid #cbd5e1 !important;
-    padding-left: 10px !important;
+    padding-left: 8px !important;
   }
   .inst-name {
     font-weight: 900 !important;
-    font-size: 12px !important;
+    font-size: 11.5px !important;
     text-transform: uppercase !important;
     letter-spacing: 0.03em !important;
     color: #0f172a !important;
   }
   .inst-sector {
-    font-size: 10px !important;
+    font-size: 9.5px !important;
     font-weight: 700 !important;
     color: #0369a1 !important;
   }
   .inst-sub {
-    font-size: 8.5px !important;
+    font-size: 8px !important;
     color: #64748b !important;
   }
   .doc-tag {
     text-align: right !important;
-    flex-shrink: 0 !important;
-    min-width: 130px !important;
+    flex-shrink: 0;
+    min-width: 120px !important;
   }
   .doc-badge {
     display: inline-block !important;
     background: #f1f5f9 !important;
     border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
-    padding: 3px 8px !important;
+    border-radius: 4px !important;
+    padding: 2px 6px !important;
     font-family: monospace !important;
     font-weight: 800 !important;
-    font-size: 10px !important;
+    font-size: 9px !important;
     color: #0f172a !important;
   }
   .doc-date {
-    font-size: 8.5px !important;
+    font-size: 8px !important;
     color: #64748b !important;
-    margin-top: 2px !important;
+    margin-top: 1px !important;
   }
 
   /* Título do Relatório */
   .report-title-banner {
     text-align: center !important;
-    padding: 6px 0 8px !important;
-    margin-bottom: 10px !important;
+    padding: 3px 0 5px !important;
+    margin-bottom: 6px !important;
     border-bottom: 1px solid #e2e8f0 !important;
   }
   .report-title-banner h1 {
-    font-size: 13px !important;
+    font-size: 12px !important;
     font-weight: 900 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.03em !important;
     color: #0f172a !important;
   }
   .report-title-banner p {
-    font-size: 8.5px !important;
+    font-size: 8px !important;
     color: #64748b !important;
-    margin-top: 2px !important;
+    margin-top: 1px !important;
   }
 
   /* Grid de KPIs */
   .kpi-container {
     display: flex !important;
-    gap: 8px !important;
-    margin-bottom: 12px !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
     width: 100% !important;
   }
   .kpi-card {
     flex: 1 !important;
     background: #f8fafc !important;
     border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
-    padding: 6px 4px !important;
+    border-radius: 5px !important;
+    padding: 4px 3px !important;
     text-align: center !important;
   }
   .kpi-label {
-    font-size: 7.5px !important;
+    font-size: 7px !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
     color: #64748b !important;
     display: block !important;
-    margin-bottom: 2px !important;
+    margin-bottom: 1px !important;
     letter-spacing: 0.025em !important;
   }
   .kpi-value {
-    font-size: 13px !important;
+    font-size: 12px !important;
     font-weight: 900 !important;
     color: #0f172a !important;
     display: block !important;
@@ -168,53 +168,53 @@ const reportDocumentStyles = `
 
   /* Cabeçalho da Porta */
   .door-section {
-    margin-bottom: 12px !important;
+    margin-bottom: 8px !important;
     border: 1px solid #cbd5e1 !important;
-    border-radius: 6px !important;
+    border-radius: 5px !important;
     overflow: hidden !important;
   }
   .door-header {
     background: #0f172a !important;
     color: #ffffff !important;
-    padding: 4px 10px !important;
-    font-size: 9.5px !important;
+    padding: 3px 8px !important;
+    font-size: 9px !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
-    letter-spacing: 0.04em !important;
+    letter-spacing: 0.03em !important;
   }
   .door-header span:last-child {
-    font-size: 8px !important;
+    font-size: 7.5px !important;
     font-weight: 700 !important;
     background: rgba(255,255,255,0.2) !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
+    padding: 1px 5px !important;
+    border-radius: 3px !important;
   }
 
   /* Tabelas Formatadas */
   .report-table {
     width: 100% !important;
     border-collapse: collapse !important;
-    font-size: 9px !important;
+    font-size: 8.5px !important;
   }
   .report-table th {
     background: #f1f5f9 !important;
     color: #334155 !important;
-    font-size: 8px !important;
+    font-size: 7.5px !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
-    padding: 4px 6px !important;
+    padding: 3px 5px !important;
     border: 1px solid #cbd5e1 !important;
     text-align: left !important;
   }
   .report-table td {
-    padding: 4px 6px !important;
+    padding: 3px 5px !important;
     border: 1px solid #e2e8f0 !important;
     vertical-align: top !important;
     color: #1e293b !important;
-    line-height: 1.25 !important;
+    line-height: 1.2 !important;
   }
   .report-table tr:nth-child(even) td {
     background-color: #f8fafc !important;
@@ -225,11 +225,11 @@ const reportDocumentStyles = `
     display: inline-block !important;
     background: #f1f5f9 !important;
     border: 1px solid #cbd5e1 !important;
-    border-radius: 4px !important;
-    padding: 1px 4px !important;
+    border-radius: 3px !important;
+    padding: 0.5px 3px !important;
     font-family: monospace !important;
-    font-size: 8px !important;
-    margin: 1px 2px 1px 0 !important;
+    font-size: 7.5px !important;
+    margin: 0.5px 1.5px 0.5px 0 !important;
   }
   .tag-green { background: #dcfce7 !important; color: #166534 !important; border-color: #bbf7d0 !important; font-weight: 700 !important; }
   .tag-red { background: #fee2e2 !important; color: #991b1b !important; border-color: #fecaca !important; font-weight: 700 !important; }
@@ -237,43 +237,43 @@ const reportDocumentStyles = `
 
   /* Assinaturas */
   .signature-container {
-    margin-top: 20px !important;
+    margin-top: 10px !important;
     display: flex !important;
     justify-content: space-between !important;
-    gap: 24px !important;
-    padding-top: 10px !important;
+    gap: 16px !important;
+    padding-top: 6px !important;
   }
   .signature-box {
     flex: 1 !important;
     text-align: center !important;
   }
   .signature-line {
-    border-top: 1.5px solid #334155 !important;
-    padding-top: 4px !important;
+    border-top: 1.2px solid #334155 !important;
+    padding-top: 3px !important;
     margin: 0 auto !important;
-    width: 85% !important;
+    width: 80% !important;
   }
   .signature-name {
-    font-size: 9.5px !important;
+    font-size: 9px !important;
     font-weight: 800 !important;
     color: #0f172a !important;
   }
   .signature-role {
-    font-size: 8px !important;
+    font-size: 7.5px !important;
     color: #64748b !important;
   }
   .signature-inst {
-    font-size: 7.5px !important;
+    font-size: 7px !important;
     color: #94a3b8 !important;
   }
 
   /* Rodapé */
   .footer-info {
     border-top: 1px dashed #cbd5e1 !important;
-    margin-top: 14px !important;
-    padding-top: 4px !important;
+    margin-top: 8px !important;
+    padding-top: 3px !important;
     text-align: center !important;
-    font-size: 7.5px !important;
+    font-size: 7px !important;
     color: #94a3b8 !important;
   }
 
