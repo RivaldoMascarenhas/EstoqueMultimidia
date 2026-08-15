@@ -212,15 +212,23 @@ export default function UsuariosPage() {
               {filteredUsers.map((user) => (
                 <TableRow key={user.id} className="hover:bg-muted/20">
                   
-                  {/* Nome e E-mail */}
+                  {/* Nome e E-mail com Avatar */}
                   <TableCell className="text-xs py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary font-black text-sm">
-                        {user.name.charAt(0).toUpperCase()}
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-500 font-black text-sm text-white shadow-xs overflow-hidden ring-1 ring-primary/20">
+                        {user.avatarUrl ? (
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+                        )}
                       </div>
-                      <div>
-                        <strong className="text-foreground text-xs block">{user.name}</strong>
-                        <span className="text-[11px] text-muted-foreground font-mono">{user.email}</span>
+                      <div className="min-w-0">
+                        <strong className="text-foreground text-xs block truncate">{user.name}</strong>
+                        <span className="text-[11px] text-muted-foreground font-mono truncate block">{user.email}</span>
                       </div>
                     </div>
                   </TableCell>
