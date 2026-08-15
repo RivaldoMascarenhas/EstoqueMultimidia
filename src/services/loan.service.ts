@@ -8,7 +8,7 @@ export class LoanService {
    */
   static async getLoans(params?: {
     search?: string;
-    status?: "ALL" | "ACTIVE" | "OVERDUE" | "RETURNED" | "RETURNED_DAMAGED";
+    status?: "ALL" | "ACTIVE" | "ON_TIME" | "OVERDUE" | "RETURNED" | "RETURNED_DAMAGED";
     assetId?: string;
     borrowerName?: string;
   }) {
@@ -30,6 +30,8 @@ export class LoanService {
         whereClause.status = LoanStatus.ACTIVE;
         whereClause.expectedReturnDate = { lt: now };
       } else if (status === "ACTIVE") {
+        whereClause.status = LoanStatus.ACTIVE;
+      } else if (status === "ON_TIME") {
         whereClause.status = LoanStatus.ACTIVE;
         whereClause.expectedReturnDate = { gte: now };
       } else if (status === "RETURNED") {
