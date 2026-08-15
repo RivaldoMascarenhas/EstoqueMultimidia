@@ -31,3 +31,4 @@ postgres_data/
 .vscode/
 .idea/
 Thumbs.db
+*.tsbuildinfo

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { AssetStatus } from "@prisma/client";
+import { AssetStatus, MaintenanceStatus } from "@prisma/client";
 import { AssetCreateInput, AssetStatusUpdateInput } from "@/schemas/asset.schema";
 
 export class AssetService {
@@ -59,7 +59,7 @@ export class AssetService {
           take: 1,
         },
         maintenances: {
-          where: { status: "OPEN" },
+          where: { status: { in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS] } },
           take: 1,
         },
       },
@@ -97,17 +97,17 @@ export class AssetService {
         },
         loans: {
           include: {
-            user: { select: { name: true, email: true } },
+            createdByUser: { select: { name: true, email: true } },
           },
           orderBy: { createdAt: "desc" },
         },
         maintenances: {
           include: {
-            user: { select: { name: true, email: true } },
+            createdByUser: { select: { name: true, email: true } },
           },
           orderBy: { createdAt: "desc" },
         },
-        histories: {
+        history: {
           orderBy: { createdAt: "desc" },
         },
       },
@@ -119,7 +119,7 @@ export class AssetService {
   /**
    * Cadastra um novo equipamento patrimonial
    */
-  static async createAsset(data: AssetCreateInput, userId: string) {
+  static async createAsset(data: AssetCreateInput, userId: string, userName?: string) {
     const cleanTag = data.assetTag.toUpperCase().trim();
 
     // 1. Verificar unicidade de Patrimônio
@@ -142,6 +142,9 @@ export class AssetService {
       }
     }
 
+    const rawDate = data.acquisitionDate || data.purchaseDate;
+    const rawValue = data.acquisitionValue !== undefined ? data.acquisitionValue : data.purchaseValue;
+
     return await prisma.$transaction(async (tx) => {
       // Criar o ativo
       const asset = await tx.asset.create({
@@ -152,9 +155,8 @@ export class AssetService {
           model: data.model?.trim() || null,
           currentBoxId: data.currentBoxId || null,
           status: AssetStatus.AVAILABLE,
-          purchaseDate: data.purchaseDate ? new Date(data.purchaseDate) : null,
-          purchaseValue: data.purchaseValue || null,
-          warrantyExpiry: data.warrantyExpiry ? new Date(data.warrantyExpiry) : null,
+          acquisitionDate: rawDate ? new Date(rawDate) : null,
+          acquisitionValue: rawValue !== undefined && rawValue !== null ? rawValue : null,
           notes: data.notes?.trim() || null,
         },
         include: {
@@ -165,13 +167,22 @@ export class AssetService {
         },
       });
 
+      const boxLocation = asset.currentBox
+        ? `${asset.currentBox.name} (${asset.currentBox.door.name})`
+        : "Sem caixa atribuída";
+
       // Criar primeiro registro na Linha do Tempo (AssetHistory)
       await tx.assetHistory.create({
         data: {
           assetId: asset.id,
-          event: "AQUISIÇÃO / CADASTRO",
-          description: `Equipamento ${asset.item.name} (#${asset.assetTag}) cadastrado no acervo do Suporte de TI da UniFAP. Local inicial: ${asset.currentBox ? `${asset.currentBox.name} (${asset.currentBox.door.name})` : "Sem caixa atribuída"}.`,
+          action: "CADASTRADO",
+          fromStatus: null,
+          toStatus: AssetStatus.AVAILABLE,
+          fromLocation: null,
+          toLocation: boxLocation,
           userId,
+          userName: userName || "Admin",
+          observation: `Equipamento ${asset.item.name} (#${asset.assetTag}) cadastrado no acervo do Suporte de TI da UniFAP. Local inicial: ${boxLocation}.`,
         },
       });
 
@@ -201,8 +212,23 @@ export class AssetService {
   static async updateAssetStatus(
     id: string,
     data: AssetStatusUpdateInput,
-    userId: string
+    userId: string,
+    userName?: string
   ) {
+    // Normalizar status
+    let mappedStatus: AssetStatus = AssetStatus.AVAILABLE;
+    if (data.status === "MAINTENANCE" || data.status === "IN_MAINTENANCE") {
+      mappedStatus = AssetStatus.IN_MAINTENANCE;
+    } else if (data.status === "RETIRED" || data.status === "WRITTEN_OFF") {
+      mappedStatus = AssetStatus.WRITTEN_OFF;
+    } else if (data.status === "LOANED") {
+      mappedStatus = AssetStatus.LOANED;
+    } else if (data.status === "DAMAGED") {
+      mappedStatus = AssetStatus.DAMAGED;
+    } else if (data.status === "LOST") {
+      mappedStatus = AssetStatus.LOST;
+    }
+
     return await prisma.$transaction(async (tx) => {
       const asset = await tx.asset.findUnique({
         where: { id },
@@ -218,7 +244,7 @@ export class AssetService {
       }
 
       // Regra de validação: Se estiver com empréstimo ativo, não pode alterar para AVAILABLE diretamente
-      if (asset.status === AssetStatus.LOANED && data.status === AssetStatus.AVAILABLE && asset.loans.length > 0) {
+      if (asset.status === AssetStatus.LOANED && mappedStatus === AssetStatus.AVAILABLE && asset.loans.length > 0) {
         throw new Error(
           "Este equipamento possui um empréstimo ativo. Realize a devolução formal no módulo de Empréstimos para liberá-lo."
         );
@@ -229,7 +255,7 @@ export class AssetService {
       const updatedAsset = await tx.asset.update({
         where: { id },
         data: {
-          status: data.status,
+          status: mappedStatus,
           currentBoxId: data.currentBoxId !== undefined ? data.currentBoxId : asset.currentBoxId,
         },
         include: {
@@ -238,13 +264,22 @@ export class AssetService {
         },
       });
 
+      const boxLocation = updatedAsset.currentBox
+        ? `${updatedAsset.currentBox.name} (${updatedAsset.currentBox.door.name})`
+        : "Sem caixa atribuída";
+
       // Registrar evento no histórico
       await tx.assetHistory.create({
         data: {
           assetId: id,
-          event: `ALTERAÇÃO DE STATUS (${prevStatus} ➔ ${data.status})`,
-          description: data.reason,
+          action: `ALTERAÇÃO DE STATUS (${prevStatus} ➔ ${mappedStatus})`,
+          fromStatus: prevStatus,
+          toStatus: mappedStatus,
+          fromLocation: asset.currentBox ? `${asset.currentBox.name} (${asset.currentBox.door.name})` : null,
+          toLocation: boxLocation,
           userId,
+          userName: userName || "Operador",
+          observation: data.reason,
         },
       });
 
@@ -258,7 +293,7 @@ export class AssetService {
           details: {
             assetTag: asset.assetTag,
             oldStatus: prevStatus,
-            newStatus: data.status,
+            newStatus: mappedStatus,
             reason: data.reason,
           },
         },
@@ -276,7 +311,7 @@ export class AssetService {
       prisma.asset.count({ where: { active: true } }),
       prisma.asset.count({ where: { active: true, status: AssetStatus.AVAILABLE } }),
       prisma.asset.count({ where: { active: true, status: AssetStatus.LOANED } }),
-      prisma.asset.count({ where: { active: true, status: AssetStatus.MAINTENANCE } }),
+      prisma.asset.count({ where: { active: true, status: AssetStatus.IN_MAINTENANCE } }),
       prisma.asset.count({ where: { active: true, status: AssetStatus.DAMAGED } }),
     ]);
 

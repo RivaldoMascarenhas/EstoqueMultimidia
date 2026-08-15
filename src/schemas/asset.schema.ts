@@ -6,14 +6,16 @@ export const assetCreateSchema = z.object({
   serialNumber: z.string().optional(),
   model: z.string().optional(),
   currentBoxId: z.string().optional(),
-  purchaseDate: z.string().optional(), // ISO date string
-  purchaseValue: z.number().nonnegative().optional(),
+  acquisitionDate: z.string().optional(),
+  purchaseDate: z.string().optional(), // alias
+  acquisitionValue: z.number().nonnegative().optional(),
+  purchaseValue: z.number().nonnegative().optional(), // alias
   warrantyExpiry: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const assetStatusUpdateSchema = z.object({
-  status: z.enum(["AVAILABLE", "LOANED", "MAINTENANCE", "DAMAGED", "RETIRED"]),
+  status: z.enum(["AVAILABLE", "LOANED", "IN_MAINTENANCE", "MAINTENANCE", "DAMAGED", "WRITTEN_OFF", "RETIRED", "LOST"]),
   reason: z.string().min(2, "Informe a justificativa da alteração de status"),
   currentBoxId: z.string().optional(),
 });

@@ -43,6 +43,13 @@ Sistema oficial para controle de materiais a granel, equipamentos patrimoniais, 
   - Regra de bloqueio contra empréstimo se o item estiver danificado ou em manutenção;
   - QR Code individual de patrimônio e etiquetas adesivas institucionais;
   - Atalho de criação rápida de modelo de catálogo.
+- [x] **FASE 6: Módulo Completo de Empréstimos & Devoluções**:
+  - **Checkout de Empréstimo**: Seleção de equipamentos disponíveis, bloqueio anti-duplo empréstimo, dados do solicitante, destino e atalhos rápidos de prazo;
+  - **Triagem de Devolução (Check-in)**: Conferência de conservação física (🟢 *Perfeito Estado* vs 🔴 *Com Avaria*), alocação na caixa física e bloqueio de itens danificados para manutenção;
+  - **Controle de Prazos & Alerta de Atraso**: Cálculo dinâmico em tempo real de itens vencidos (`OVERDUE`) com contadores de horas/dias de atraso;
+  - **Prorrogação de Prazo (Renovação)**: Extensão de data prevista com registro de justificativa no histórico;
+  - **Termo Oficial de Responsabilidade & Cautela UniFAP**: Layout institucional formatado para impressão (`window.print()` e `@media print` A4) com QR Code de autenticidade e assinaturas formais;
+  - **Notificação WhatsApp**: Gerador de mensagem personalizada e link direto `wa.me` para cobrança e alinhamento com solicitantes.
 
 ---
 
@@ -91,13 +98,13 @@ Acesse: **[http://localhost:3000](http://localhost:3000)**
 
 ---
 
-## 🔮 Próximas Fases Planejadas (Fases 6 a 13)
+## 🔮 Próximas Fases Planejadas (Fases 7 a 13)
 
-- **FASE 6**: Módulo de Empréstimos & Devoluções (Protocolo, Notificação de Atraso e Termo de Responsabilidade)
-- **FASE 7**: Manutenção & Chamados Técnicos
+- **FASE 7**: Manutenção & Chamados Técnicos (Orçamentos, Laudos, Troca de Lâmpadas, Peças e Fornecedores)
 - **FASE 8**: Dashboard Consolidado com Métricas Reais & Busca Global
 - **FASE 9**: Scanner Mobile Dedicado com Câmera
 - **FASE 10**: Relatórios, Inventário Periódico & Exportação PDF/Excel
 - **FASE 11**: API REST para n8n, WhatsApp e Agentes IA
 - **FASE 12**: Auditoria, Segurança & RBAC
 - **FASE 13**: Produção, Docker Final & Backup Automatizado
+
