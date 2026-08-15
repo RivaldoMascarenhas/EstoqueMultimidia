@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Package, Plus, Loader2, Check, X, Tag } from "lucide-react";
+import { Package, Plus, Loader2, Check, X, Tag, Monitor, Layers, Box, CheckCircle2, Sliders } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +45,7 @@ const STANDARD_UNITS = [
   { value: "L", label: "Litro (L)" },
   { value: "KIT", label: "Kit (KIT)" },
   { value: "PCT", label: "Pacote (PCT)" },
-  { value: "CUSTOM", label: "✏️ Outra (Digitar...)" },
+  { value: "CUSTOM", label: "✏️ Outra Unidade..." },
 ];
 
 export function ItemFormModal({
@@ -186,242 +186,331 @@ export function ItemFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-6 rounded-3xl bg-card border-border shadow-2xl">
-        <DialogHeader>
-          <div className="flex items-center gap-2 text-primary">
-            <Package className="w-5 h-5" />
-            <DialogTitle className="text-base font-bold text-foreground">
-              Cadastrar Novo Item no Catálogo
-            </DialogTitle>
+      <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[90vh] overflow-y-auto p-6 sm:p-8 rounded-3xl bg-card border-border shadow-2xl space-y-6">
+        <DialogHeader className="space-y-1">
+          <div className="flex items-center gap-2.5 text-primary">
+            <div className="p-2 rounded-2xl bg-primary/10 border border-primary/20">
+              <Package className="w-5 h-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-bold text-foreground">
+                Cadastrar Novo Item no Catálogo
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Adicione materiais de estoque, cabos, periféricos ou equipamentos para o setor de TI & Multimídia.
+              </DialogDescription>
+            </div>
           </div>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Cadastre materiais de estoque ou tipos de equipamentos para o setor de Suporte TI & Multimídia.
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 my-2">
-          {/* Nome e SKU */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Nome do Item <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Cabo HDMI 10 metros"
-                required
-                className="text-xs rounded-xl"
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 1. SELEÇÃO VISUAL DO TIPO DE ITEM (NATUREZA) */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground">
+              <Layers className="w-3.5 h-3.5 text-primary" />
+              <span>1. Tipo / Natureza do Item</span>
+            </label>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Código / SKU <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                value={sku}
-                onChange={(e) => setSku(e.target.value.toUpperCase())}
-                placeholder="CAB-HDMI-10M"
-                required
-                className="font-mono uppercase font-bold text-xs rounded-xl"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Opção 1: Material em Quantidade */}
+              <button
+                type="button"
+                onClick={() => setItemType("MATERIAL")}
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all ${
+                  itemType === "MATERIAL"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-sm"
+                    : "border-border/80 bg-muted/30 hover:bg-muted/60"
+                }`}
+              >
+                <div className={`p-2 rounded-xl mt-0.5 ${
+                  itemType === "MATERIAL" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
+                  <Package className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-foreground">Material / Insumo</span>
+                    {itemType === "MATERIAL" && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Cabos, pilhas, adaptadores e itens estocados por quantidade/saldo.
+                  </p>
+                </div>
+              </button>
+
+              {/* Opção 2: Equipamento Patrimonial */}
+              <button
+                type="button"
+                onClick={() => setItemType("ASSET_EQUIPMENT")}
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all ${
+                  itemType === "ASSET_EQUIPMENT"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-sm"
+                    : "border-border/80 bg-muted/30 hover:bg-muted/60"
+                }`}
+              >
+                <div className={`p-2 rounded-xl mt-0.5 ${
+                  itemType === "ASSET_EQUIPMENT" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
+                  <Monitor className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-foreground">Equipamento Patrimonial</span>
+                    {itemType === "ASSET_EQUIPMENT" && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Projetores, caixas ativas e aparelhos com etiqueta de patrimônio.
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
 
-          {/* Categoria, Tipo e Unidade */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Categoria com Botão Inline de Criar */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
+          {/* 2. IDENTIFICAÇÃO DO ITEM */}
+          <div className="space-y-3 pt-1 border-t border-border/60">
+            <label className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground">
+              <Tag className="w-3.5 h-3.5 text-primary" />
+              <span>2. Identificação do Item</span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  Categoria <span className="text-rose-500">*</span>
+                  Nome do Item <span className="text-rose-500">*</span>
                 </label>
-                {!isCreatingCategory && (
-                  <button
-                    type="button"
-                    onClick={() => setIsCreatingCategory(true)}
-                    className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-0.5"
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: Cabo HDMI 10 metros com blindagem"
+                  required
+                  className="h-11 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Código / SKU <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value.toUpperCase())}
+                  placeholder="CAB-HDMI-10M"
+                  required
+                  className="h-11 font-mono uppercase font-bold text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Categoria e Unidade de Medida (2 Colunas Espaçosas) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              {/* Categoria com Botão Inline */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Categoria <span className="text-rose-500">*</span>
+                  </label>
+                  {!isCreatingCategory && (
+                    <button
+                      type="button"
+                      onClick={() => setIsCreatingCategory(true)}
+                      className="text-[11px] text-primary hover:underline font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>+ Nova Categoria</span>
+                    </button>
+                  )}
+                </div>
+
+                {isCreatingCategory ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Nome da categoria..."
+                      className="h-11 text-xs rounded-xl"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      onClick={handleCreateCategory}
+                      disabled={isSavingCategory}
+                      className="h-11 w-11 shrink-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                      title="Salvar nova categoria"
+                    >
+                      {isSavingCategory ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setIsCreatingCategory(false)}
+                      className="h-11 w-11 shrink-0 rounded-xl text-muted-foreground"
+                      title="Cancelar"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    required
+                    className="w-full h-11 px-3 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-2 focus:ring-primary outline-none font-medium"
                   >
-                    <Plus className="w-3 h-3" />
-                    <span>Nova</span>
-                  </button>
+                    {categoryList.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
 
-              {isCreatingCategory ? (
-                <div className="flex items-center gap-1">
-                  <Input
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="Nome da categoria..."
-                    className="h-10 text-xs rounded-xl"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    onClick={handleCreateCategory}
-                    disabled={isSavingCategory}
-                    className="h-10 w-10 shrink-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
-                  >
-                    {isSavingCategory ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setIsCreatingCategory(false)}
-                    className="h-10 w-10 shrink-0 rounded-xl text-muted-foreground"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
+              {/* Unidade de Medida */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-foreground">
+                    Unidade de Medida
+                  </label>
+                  {unitSelect !== "CUSTOM" ? (
+                    <button
+                      type="button"
+                      onClick={() => setUnitSelect("CUSTOM")}
+                      className="text-[11px] text-primary hover:underline font-bold flex items-center gap-1"
+                    >
+                      <span>+ Digitar Outra</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setUnitSelect("UN")}
+                      className="text-[11px] text-muted-foreground hover:underline"
+                    >
+                      Lista padrão
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  required
-                  className="w-full h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-2 focus:ring-primary outline-none font-medium"
-                >
-                  {categoryList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
 
-            {/* Tipo do Item */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Tipo do Item
-              </label>
-              <select
-                value={itemType}
-                onChange={(e) => setItemType(e.target.value as any)}
-                className="w-full h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-2 focus:ring-primary outline-none font-medium"
-              >
-                <option value="MATERIAL">📦 Material em Quantidade</option>
-                <option value="ASSET_EQUIPMENT">🏷️ Equipamento Patrimonial</option>
-              </select>
-            </div>
-
-            {/* Unidade de Medida com Opção Personalizada */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Unidade de Medida
-              </label>
-              {unitSelect === "CUSTOM" ? (
-                <div className="flex items-center gap-1">
-                  <Input
-                    value={customUnit}
-                    onChange={(e) => setCustomUnit(e.target.value.toUpperCase())}
-                    placeholder="Ex: ROLO, PAR, KIT"
-                    maxLength={8}
-                    className="h-10 text-xs font-mono uppercase font-bold rounded-xl"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    onClick={() => setUnitSelect("UN")}
-                    className="h-10 w-10 shrink-0 rounded-xl text-muted-foreground"
-                    title="Voltar para lista padrão"
+                {unitSelect === "CUSTOM" ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={customUnit}
+                      onChange={(e) => setCustomUnit(e.target.value.toUpperCase())}
+                      placeholder="Ex: ROLO, PAR, KIT, TUBO..."
+                      maxLength={10}
+                      className="h-11 text-xs font-mono uppercase font-bold rounded-xl"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setUnitSelect("UN")}
+                      className="h-11 w-11 shrink-0 rounded-xl text-muted-foreground"
+                      title="Voltar para lista"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <select
+                    value={unitSelect}
+                    onChange={(e) => setUnitSelect(e.target.value)}
+                    className="w-full h-11 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-mono focus:ring-2 focus:ring-primary outline-none font-medium"
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <select
-                  value={unitSelect}
-                  onChange={(e) => setUnitSelect(e.target.value)}
-                  className="w-full h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-mono focus:ring-2 focus:ring-primary outline-none font-medium"
-                >
-                  {STANDARD_UNITS.map((u) => (
-                    <option key={u.value} value={u.value}>
-                      {u.label}
-                    </option>
-                  ))}
-                </select>
-              )}
+                    {STANDARD_UNITS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Estoque Mínimo e Ideal */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Estoque Mínimo (Alerta de Atenção)
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={minStock}
-                onChange={(e) => setMinStock(parseInt(e.target.value) || 0)}
-                className="text-xs rounded-xl"
-              />
+          {/* 3. METAS DE ESTOQUE & DADOS DO FABRICANTE */}
+          <div className="space-y-3 pt-1 border-t border-border/60">
+            <label className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase tracking-wider text-muted-foreground">
+              <Sliders className="w-3.5 h-3.5 text-primary" />
+              <span>3. Metas de Estoque & Fabricante</span>
+            </label>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Estoque Mínimo (Alerta de Atenção)
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={minStock}
+                  onChange={(e) => setMinStock(parseInt(e.target.value) || 0)}
+                  className="h-11 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Estoque Ideal (Meta de Armazenamento)
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={idealStock}
+                  onChange={(e) => setIdealStock(parseInt(e.target.value) || 0)}
+                  className="h-11 text-xs rounded-xl"
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Estoque Ideal (Meta)
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={idealStock}
-                onChange={(e) => setIdealStock(parseInt(e.target.value) || 0)}
-                className="text-xs rounded-xl"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Fabricante / Marca (Opcional)
+                </label>
+                <Input
+                  value={manufacturer}
+                  onChange={(e) => setManufacturer(e.target.value)}
+                  placeholder="Ex: PlusCable, Epson, Shure, Sony"
+                  className="h-11 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Modelo / Versão (Opcional)
+                </label>
+                <Input
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder="Ex: High Speed 2.0 / X49"
+                  className="h-11 text-xs rounded-xl"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Fabricante e Modelo */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Fabricante (Opcional)
-              </label>
-              <Input
-                value={manufacturer}
-                onChange={(e) => setManufacturer(e.target.value)}
-                placeholder="Ex: PlusCable, Epson, Shure"
-                className="text-xs rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Modelo (Opcional)
-              </label>
-              <Input
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                placeholder="Ex: High Speed 2.0 / X49"
-                className="text-xs rounded-xl"
-              />
-            </div>
-          </div>
-
-          {/* Estoque Inicial Opcional (Se for Material) */}
+          {/* 4. LOCAL DE ARMAZENAMENTO INICIAL (SE MATERIAL) */}
           {itemType === "MATERIAL" && (
-            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
-              <span className="text-xs font-bold text-foreground block">
-                Local de Armazenamento Inicial (Opcional)
-              </span>
+            <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
+              <div className="flex items-center gap-2">
+                <Box className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-foreground">
+                  Local de Armazenamento Inicial no Armário (Opcional)
+                </span>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] text-muted-foreground font-medium">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">
                     Caixa Física do Armário
                   </label>
                   <select
                     value={initialBoxId}
                     onChange={(e) => setInitialBoxId(e.target.value)}
-                    className="w-full h-9 px-2.5 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-2 focus:ring-primary outline-none"
+                    className="w-full h-11 px-3 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-2 focus:ring-primary outline-none font-medium"
                   >
                     <option value="">Nenhuma caixa inicial</option>
                     {boxes.map((b) => (
@@ -432,8 +521,8 @@ export function ItemFormModal({
                   </select>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[11px] text-muted-foreground font-medium">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground font-medium">
                     Quantidade Inicial ({finalUnit})
                   </label>
                   <Input
@@ -443,15 +532,15 @@ export function ItemFormModal({
                     onChange={(e) => setInitialQuantity(parseInt(e.target.value) || 0)}
                     disabled={!initialBoxId}
                     placeholder="0"
-                    className="h-9 text-xs rounded-xl"
+                    className="h-11 text-xs rounded-xl font-bold font-mono"
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Descrição */}
-          <div className="space-y-1.5">
+          {/* 5. DESCRIÇÃO / OBSERVAÇÕES TÉCNICAS */}
+          <div className="space-y-1.5 pt-1 border-t border-border/60">
             <label className="text-xs font-semibold text-foreground">
               Descrição / Observações Técnicas (Opcional)
             </label>
@@ -464,13 +553,13 @@ export function ItemFormModal({
             />
           </div>
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="pt-3 border-t border-border/80 flex items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               disabled={isLoading}
-              className="rounded-xl"
+              className="rounded-xl px-5 h-11"
             >
               Cancelar
             </Button>
@@ -478,7 +567,7 @@ export function ItemFormModal({
               type="submit"
               disabled={isLoading}
               isLoading={isLoading}
-              className="rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/25 gap-1.5"
+              className="rounded-xl bg-primary text-primary-foreground font-bold shadow-md shadow-primary/25 gap-2 px-6 h-11"
             >
               <Package className="w-4 h-4" />
               <span>Salvar Item no Catálogo</span>
