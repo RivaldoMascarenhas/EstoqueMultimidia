@@ -396,7 +396,7 @@ export default function ManutencaoPage() {
                 <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[140px]">
                   Situação & Custo
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-right w-[180px]">
+                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-center w-[230px]">
                   Ações
                 </TableHead>
               </TableRow>
@@ -546,8 +546,8 @@ export default function ManutencaoPage() {
                       </TableCell>
 
                       {/* Coluna 6: Ações */}
-                      <TableCell className="py-4 px-4 align-middle text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <TableCell className="py-4 px-4 align-middle text-center w-[230px]">
+                        <div className="flex items-center justify-center gap-1.5">
                           
                           {/* Imprimir OS */}
                           <Button
