@@ -62,86 +62,263 @@ export function ReportPrintableDocument({
           <style>
             @page {
               size: A4 portrait;
-              margin: 10mm 15mm;
+              margin: 8mm 12mm;
             }
             * {
               box-sizing: border-box;
               margin: 0;
               padding: 0;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             body {
               background: #ffffff;
-              color: #111827;
+              color: #0f172a;
               font-size: 10px;
               line-height: 1.35;
-              padding: 10px;
+              padding: 6px;
             }
             .print-area {
               background: #ffffff;
-              color: #111827;
-              padding: 20px;
+              color: #0f172a;
+              padding: 0;
             }
-            .border-b-2 { border-bottom: 2px solid #1f2937; }
-            .border-b { border-bottom: 1px solid #d1d5db; }
-            .border { border: 1px solid #d1d5db; }
-            .border-l-4 { border-left-width: 4px; }
-            .border-neutral-800 { border-color: #1f2937; }
-            .border-neutral-300 { border-color: #d1d5db; }
-            .border-neutral-200 { border-color: #e5e7eb; }
-            .bg-neutral-50 { background-color: #f9fafb; }
-            .bg-neutral-100 { background-color: #f3f4f6; }
-            .text-emerald-700 { color: #047857; }
-            .text-amber-700 { color: #b45309; }
-            .text-rose-700 { color: #be123c; }
-            .text-neutral-900 { color: #111827; }
-            .text-neutral-700 { color: #374151; }
-            .text-neutral-500 { color: #6b7280; }
-            .font-bold { font-weight: 700; }
-            .font-semibold { font-weight: 600; }
-            .font-black { font-weight: 900; }
-            .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-            .uppercase { text-transform: uppercase; }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-            .text-left { text-align: left; }
-            .flex { display: flex; }
-            .items-center { align-items: center; }
-            .justify-between { justify-content: space-between; }
-            .grid { display: grid; }
-            .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-            .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
-            .gap-2 { gap: 8px; }
-            .gap-3 { gap: 12px; }
-            .p-2 { padding: 8px; }
-            .p-3 { padding: 12px; }
-            .px-2 { padding-left: 8px; padding-right: 8px; }
-            .px-3 { padding-left: 12px; padding-right: 12px; }
-            .py-1 { padding-top: 4px; padding-bottom: 4px; }
-            .py-2 { padding-top: 8px; padding-bottom: 8px; }
-            .pb-2 { padding-bottom: 8px; }
-            .pb-3 { padding-bottom: 12px; }
-            .pt-6 { padding-top: 24px; }
-            .my-2 { margin-top: 8px; margin-bottom: 8px; }
-            .mb-2 { margin-bottom: 8px; }
-            .rounded { border-radius: 4px; }
-            .rounded-lg { border-radius: 8px; }
-            .rounded-2xl { border-radius: 12px; }
-            .w-full { width: 100%; }
-            table { width: 100%; border-collapse: collapse; }
-            td { vertical-align: top; }
-            img { max-width: 100%; display: block; }
-            .logo-unifap { height: 38px !important; width: auto !important; max-height: 40px !important; object-fit: contain !important; flex-shrink: 0 !important; }
-            .h-9 { height: 36px !important; }
-            .h-10 { height: 40px !important; }
-            .w-auto { width: auto !important; }
-            .shrink-0 { flex-shrink: 0 !important; }
-            .whitespace-nowrap { white-space: nowrap !important; }
-            svg { display: none; }
+            
+            /* Logo & Cabeçalho */
+            .header-bar {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              border-bottom: 2px solid #0f172a;
+              padding-bottom: 8px;
+              margin-bottom: 10px;
+              gap: 16px;
+            }
+            .header-left {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo-unifap {
+              height: 38px !important;
+              width: auto !important;
+              max-height: 40px !important;
+              object-fit: contain !important;
+              flex-shrink: 0 !important;
+            }
+            .inst-info {
+              border-left: 2px solid #cbd5e1;
+              padding-left: 10px;
+            }
+            .inst-name {
+              font-weight: 900;
+              font-size: 12px;
+              text-transform: uppercase;
+              letter-spacing: 0.03em;
+              color: #0f172a;
+            }
+            .inst-sector {
+              font-size: 10px;
+              font-weight: 700;
+              color: #0369a1;
+            }
+            .inst-sub {
+              font-size: 8.5px;
+              color: #64748b;
+            }
+            .doc-tag {
+              text-align: right;
+              flex-shrink: 0;
+              min-width: 130px;
+            }
+            .doc-badge {
+              display: inline-block;
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              border-radius: 6px;
+              padding: 3px 8px;
+              font-family: monospace;
+              font-weight: 800;
+              font-size: 10px;
+              color: #0f172a;
+            }
+            .doc-date {
+              font-size: 8.5px;
+              color: #64748b;
+              margin-top: 2px;
+            }
+
+            /* Título do Relatório */
+            .report-title-banner {
+              text-align: center;
+              padding: 6px 0 8px;
+              margin-bottom: 10px;
+              border-bottom: 1px solid #e2e8f0;
+            }
+            .report-title-banner h1 {
+              font-size: 13px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.04em;
+              color: #0f172a;
+            }
+            .report-title-banner p {
+              font-size: 8.5px;
+              color: #64748b;
+              margin-top: 2px;
+            }
+
+            /* Grid de KPIs */
+            .kpi-container {
+              display: flex;
+              gap: 8px;
+              margin-bottom: 12px;
+              width: 100%;
+            }
+            .kpi-card {
+              flex: 1;
+              background: #f8fafc;
+              border: 1px solid #cbd5e1;
+              border-radius: 6px;
+              padding: 6px 4px;
+              text-align: center;
+            }
+            .kpi-label {
+              font-size: 7.5px;
+              font-weight: 800;
+              text-transform: uppercase;
+              color: #64748b;
+              display: block;
+              margin-bottom: 2px;
+              letter-spacing: 0.025em;
+            }
+            .kpi-value {
+              font-size: 13px;
+              font-weight: 900;
+              color: #0f172a;
+              display: block;
+            }
+            .kpi-value-green { color: #047857 !important; }
+            .kpi-value-red { color: #b91c1c !important; }
+            .kpi-value-amber { color: #b45309 !important; }
+
+            /* Cabeçalho da Porta */
+            .door-section {
+              margin-bottom: 12px;
+              border: 1px solid #cbd5e1;
+              border-radius: 6px;
+              overflow: hidden;
+            }
+            .door-header {
+              background: #0f172a;
+              color: #ffffff;
+              padding: 4px 10px;
+              font-size: 9.5px;
+              font-weight: 800;
+              text-transform: uppercase;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              letter-spacing: 0.04em;
+            }
+            .door-header span:last-child {
+              font-size: 8px;
+              font-weight: 700;
+              background: rgba(255,255,255,0.2);
+              padding: 2px 6px;
+              border-radius: 4px;
+            }
+
+            /* Tabelas Formatadas */
+            .report-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 9px;
+            }
+            .report-table th {
+              background: #f1f5f9;
+              color: #334155;
+              font-size: 8px;
+              font-weight: 800;
+              text-transform: uppercase;
+              padding: 4px 6px;
+              border: 1px solid #cbd5e1;
+              text-align: left;
+            }
+            .report-table td {
+              padding: 4px 6px;
+              border: 1px solid #e2e8f0;
+              vertical-align: top;
+              color: #1e293b;
+              line-height: 1.25;
+            }
+            .report-table tr:nth-child(even) td {
+              background-color: #f8fafc;
+            }
+
+            /* Badges & Tags */
+            .tag-pill {
+              display: inline-block;
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              border-radius: 4px;
+              padding: 1px 4px;
+              font-family: monospace;
+              font-size: 8px;
+              margin: 1px 2px 1px 0;
+            }
+            .tag-green { background: #dcfce7; color: #166534; border-color: #bbf7d0; font-weight: 700; }
+            .tag-red { background: #fee2e2; color: #991b1b; border-color: #fecaca; font-weight: 700; }
+            .tag-amber { background: #fef3c7; color: #92400e; border-color: #fde68a; font-weight: 700; }
+
+            /* Assinaturas */
+            .signature-container {
+              margin-top: 20px;
+              display: flex;
+              justify-content: space-between;
+              gap: 24px;
+              padding-top: 10px;
+            }
+            .signature-box {
+              flex: 1;
+              text-align: center;
+            }
+            .signature-line {
+              border-top: 1.5px solid #334155;
+              padding-top: 4px;
+              margin: 0 auto;
+              width: 85%;
+            }
+            .signature-name {
+              font-size: 9.5px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .signature-role {
+              font-size: 8px;
+              color: #64748b;
+            }
+            .signature-inst {
+              font-size: 7.5px;
+              color: #94a3b8;
+            }
+
+            /* Rodapé */
+            .footer-info {
+              border-top: 1px dashed #cbd5e1;
+              margin-top: 14px;
+              padding-top: 4px;
+              text-align: center;
+              font-size: 7.5px;
+              color: #94a3b8;
+            }
+
             @media print {
-              body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; }
+              body { padding: 0 !important; }
               .print-area { border: none !important; box-shadow: none !important; padding: 0 !important; }
-              .logo-unifap { height: 38px !important; width: auto !important; max-height: 40px !important; }
+              .door-section { break-inside: avoid; }
+              .signature-container { break-inside: avoid; }
             }
           </style>
         </head>
@@ -202,206 +379,204 @@ export function ReportPrintableDocument({
         {/* FOLHA DO DOCUMENTO IMPRESSO (A4 FORMAT) */}
         <div 
           id="report-unifap-sheet"
-          className="print-area bg-white text-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 shadow-sm print:border-none print:shadow-none print:p-4 text-xs font-sans space-y-4"
+          className="print-area bg-white text-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 text-xs font-sans space-y-3"
         >
           {/* Cabeçalho Institucional */}
-          <div className="border-b-2 border-neutral-800 pb-3 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="header-bar">
+            <div className="header-left">
               <img
                 src="/brand/logo-unifap.png"
                 alt="UniFAP"
-                className="logo-unifap h-9 w-auto object-contain shrink-0"
+                className="logo-unifap"
                 style={{ height: "36px", width: "auto", maxHeight: "38px" }}
               />
-              <div className="space-y-0.5 border-l border-neutral-300 pl-3">
-                <div className="font-black text-xs sm:text-sm uppercase tracking-wider text-neutral-900">
+              <div className="inst-info">
+                <div className="inst-name">
                   CENTRO UNIVERSITÁRIO PARAÍSO • UNIFAP
                 </div>
-                <p className="text-[11px] font-semibold text-neutral-700">
+                <p className="inst-sector">
                   Setor de Suporte de TI & Multimídia
                 </p>
-                <p className="text-[10px] text-neutral-500">
+                <p className="inst-sub">
                   Juazeiro do Norte - CE • Sistema Integrado de Gestão de Estoque & Patrimônio
                 </p>
               </div>
             </div>
 
-            <div className="text-right shrink-0 min-w-[130px]">
-              <div className="px-2.5 py-1 bg-neutral-100 border border-neutral-300 rounded font-mono font-bold text-xs text-neutral-900">
+            <div className="doc-tag">
+              <div className="doc-badge">
                 RELATÓRIO OFICIAL
               </div>
-              <span className="text-[9px] text-neutral-500 block mt-0.5 whitespace-nowrap">
+              <span className="doc-date block">
                 Emitido: {formatDate(report.generatedAt)}
               </span>
             </div>
           </div>
 
           {/* Título do Relatório */}
-          <div className="text-center py-2 border-b border-neutral-200">
-            <h1 className="text-sm sm:text-base font-black uppercase tracking-wide text-neutral-900">
-              {report.title}
-            </h1>
-            <p className="text-[10px] text-neutral-500 mt-0.5">
+          <div className="report-title-banner">
+            <h1>{report.title}</h1>
+            <p>
               Documento gerado eletronicamente para fins de auditoria, controle patrimonial e planejamento.
             </p>
           </div>
 
           {/* Sumário Executivo de KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-neutral-50 p-3 rounded-lg border border-neutral-200 text-center">
+          <div className="kpi-container">
             {report.reportType === "INVENTORY" && (
               <>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Portas Ativas</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalDoors}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Portas Ativas</span>
+                  <strong className="kpi-value">{report.summary.totalDoors}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Caixas Físicas</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalBoxes}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Caixas Físicas</span>
+                  <strong className="kpi-value">{report.summary.totalBoxes}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Patrimônios Guardados</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalAssetsCount}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Patrimônios Guardados</span>
+                  <strong className="kpi-value">{report.summary.totalAssetsCount}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Total Unidades Material</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalMaterialsUnits}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Total Unidades Material</span>
+                  <strong className="kpi-value">{report.summary.totalMaterialsUnits}</strong>
                 </div>
               </>
             )}
 
             {report.reportType === "CRITICAL_STOCK" && (
               <>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Itens no Catálogo</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalCatalogItems}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Itens no Catálogo</span>
+                  <strong className="kpi-value">{report.summary.totalCatalogItems}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-rose-700">Estoque Crítico</span>
-                  <p className="text-sm font-extrabold text-rose-700">{report.summary.criticalCount}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Estoque Crítico</span>
+                  <strong className="kpi-value kpi-value-red">{report.summary.criticalCount}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-amber-700">Estoque Baixo</span>
-                  <p className="text-sm font-extrabold text-amber-700">{report.summary.lowCount}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Estoque Baixo</span>
+                  <strong className="kpi-value kpi-value-amber">{report.summary.lowCount}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Unidades p/ Reposição</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalUnitsNeeded}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Unidades p/ Reposição</span>
+                  <strong className="kpi-value">{report.summary.totalUnitsNeeded}</strong>
                 </div>
               </>
             )}
 
             {report.reportType === "LOANS" && (
               <>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Total Empréstimos</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalLoans}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Total Empréstimos</span>
+                  <strong className="kpi-value">{report.summary.totalLoans}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Ativos no Momento</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.activeCount}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Ativos no Momento</span>
+                  <strong className="kpi-value">{report.summary.activeCount}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-emerald-700">Taxa Pontualidade</span>
-                  <p className="text-sm font-extrabold text-emerald-700">{report.summary.punctualityRate}%</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Taxa Pontualidade</span>
+                  <strong className="kpi-value kpi-value-green">{report.summary.punctualityRate}%</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-rose-700">Devolvidos c/ Avaria</span>
-                  <p className="text-sm font-extrabold text-rose-700">{report.summary.returnedDamaged}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Devolvidos c/ Avaria</span>
+                  <strong className="kpi-value kpi-value-red">{report.summary.returnedDamaged}</strong>
                 </div>
               </>
             )}
 
             {report.reportType === "MAINTENANCE" && (
               <>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Total de Chamados</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalOrders}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Total de Chamados</span>
+                  <strong className="kpi-value">{report.summary.totalOrders}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-emerald-700">Concluídos</span>
-                  <p className="text-sm font-extrabold text-emerald-700">{report.summary.completedCount}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Concluídos</span>
+                  <strong className="kpi-value kpi-value-green">{report.summary.completedCount}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Lâmpadas Trocadas</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalLampsReplaced}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Lâmpadas Trocadas</span>
+                  <strong className="kpi-value">{report.summary.totalLampsReplaced}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Custo Total (R$)</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{formatCurrency(report.summary.totalCost)}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Custo Total</span>
+                  <strong className="kpi-value">{formatCurrency(report.summary.totalCost)}</strong>
                 </div>
               </>
             )}
 
             {report.reportType === "MOVEMENTS" && (
               <>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Movimentações</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalMovements}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Movimentações</span>
+                  <strong className="kpi-value">{report.summary.totalMovements}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-emerald-700">Entradas (Qtd)</span>
-                  <p className="text-sm font-extrabold text-emerald-700">+{report.summary.totalEntriesQty}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Entradas (Qtd)</span>
+                  <strong className="kpi-value kpi-value-green">+{report.summary.totalEntriesQty}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-rose-700">Saídas / Baixas (Qtd)</span>
-                  <p className="text-sm font-extrabold text-rose-700">-{report.summary.totalExitsQty}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Saídas / Baixas (Qtd)</span>
+                  <strong className="kpi-value kpi-value-red">-{report.summary.totalExitsQty}</strong>
                 </div>
-                <div>
-                  <span className="text-[9px] uppercase font-bold text-neutral-500">Transferências</span>
-                  <p className="text-sm font-extrabold text-neutral-900">{report.summary.totalTransfersQty}</p>
+                <div className="kpi-card">
+                  <span className="kpi-label">Transferências</span>
+                  <strong className="kpi-value">{report.summary.totalTransfersQty}</strong>
                 </div>
               </>
             )}
           </div>
 
-          {/* TABELAS DO RELATÓRIO COM BORDAS E LARGURAS FIXAS */}
+          {/* TABELAS DO RELATÓRIO FORMATADAS */}
 
           {/* 1. Inventário Físico */}
           {report.reportType === "INVENTORY" && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {report.data.map((door: any) => (
-                <div key={door.id} className="space-y-1.5">
-                  <div className="bg-neutral-100 px-3 py-1.5 font-bold text-[10px] uppercase text-neutral-900 border-l-4 border-neutral-800 flex items-center justify-between rounded-r">
+                <div key={door.id} className="door-section">
+                  <div className="door-header">
                     <span>{door.name} ({door.code})</span>
-                    <span className="text-[9px] text-neutral-500 font-mono">{door.boxes.length} Caixas</span>
+                    <span>{door.boxes.length} Caixas</span>
                   </div>
 
-                  <table className="w-full border-collapse border border-neutral-300 text-xs">
+                  <table className="report-table">
                     <thead>
-                      <tr className="bg-neutral-100">
-                        <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[65px]">Caixa</th>
-                        <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[170px]">Nome & Descrição</th>
-                        <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[220px]">Patrimônios Guardados</th>
-                        <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 min-w-[180px]">Materiais / Insumos</th>
+                      <tr>
+                        <th style={{ width: "55px" }}>Caixa</th>
+                        <th style={{ width: "160px" }}>Nome & Descrição</th>
+                        <th style={{ width: "220px" }}>Patrimônios Guardados</th>
+                        <th>Materiais / Insumos</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {door.boxes.map((box: any, idx: number) => (
-                        <tr key={box.id} className={idx % 2 === 1 ? "bg-neutral-50/70" : "bg-white"}>
-                          <td className="border border-neutral-300 px-2 py-1.5 font-mono font-bold text-neutral-900">{box.code}</td>
-                          <td className="border border-neutral-300 px-2 py-1.5">
-                            <strong className="text-neutral-900 block">{box.name}</strong>
-                            <p className="text-[9px] text-neutral-500">{box.description || "-"}</p>
+                      {door.boxes.map((box: any) => (
+                        <tr key={box.id}>
+                          <td style={{ fontFamily: "monospace", fontWeight: 800 }}>{box.code}</td>
+                          <td>
+                            <strong style={{ display: "block" }}>{box.name}</strong>
+                            <span style={{ fontSize: "8px", color: "#64748b" }}>{box.description || "-"}</span>
                           </td>
-                          <td className="border border-neutral-300 px-2 py-1.5">
+                          <td>
                             {box.assets.length === 0 ? (
-                              <span className="text-neutral-400 italic text-[9px]">Nenhum patrimônio</span>
+                              <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: "8.5px" }}>Nenhum patrimônio</span>
                             ) : (
                               box.assets.map((a: any) => (
-                                <span key={a.id} className="inline-block bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 rounded font-mono text-[9px] mr-1 mb-1">
+                                <span key={a.id} className="tag-pill">
                                   #{a.assetTag} ({a.item?.name})
                                 </span>
                               ))
                             )}
                           </td>
-                          <td className="border border-neutral-300 px-2 py-1.5">
+                          <td>
                             {box.inventories.length === 0 ? (
-                              <span className="text-neutral-400 italic text-[9px]">Nenhum material</span>
+                              <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: "8.5px" }}>Nenhum material</span>
                             ) : (
                               box.inventories.map((inv: any) => (
-                                <span key={inv.id} className="block text-[9.5px] text-neutral-800">
+                                <div key={inv.id} style={{ fontSize: "8.5px", marginBottom: "2px" }}>
                                   {inv.item?.name}: <strong>{inv.quantity} {inv.item?.unit}</strong>
-                                </span>
+                                </div>
                               ))
                             )}
                           </td>
@@ -416,171 +591,203 @@ export function ReportPrintableDocument({
 
           {/* 2. Estoque Crítico */}
           {report.reportType === "CRITICAL_STOCK" && (
-            <table className="w-full border-collapse border border-neutral-300 text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Item / Material</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">SKU</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[100px]">Categoria</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-right font-bold text-[9.5px] uppercase text-neutral-700 w-[75px]">Saldo Atual</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-right font-bold text-[9.5px] uppercase text-neutral-700 w-[60px]">Mínimo</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-right font-bold text-[9.5px] uppercase text-neutral-700 w-[60px]">Ideal</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-right font-bold text-[9.5px] uppercase text-neutral-700 w-[100px]">Sugestão Compra</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Localização</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.data.allItems.map((item: any, idx: number) => (
-                  <tr key={item.id} className={idx % 2 === 1 ? "bg-neutral-50/70" : "bg-white"}>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-bold text-neutral-900">{item.name}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-mono text-neutral-600">{item.sku}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-neutral-600">{item.category}</td>
-                    <td className={`border border-neutral-300 px-2 py-1.5 text-right font-bold font-mono ${item.status === "CRITICAL" ? "text-rose-700" : item.status === "LOW" ? "text-amber-700" : ""}`}>
-                      {item.currentStock} {item.unit}
-                    </td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-right font-mono text-neutral-600">{item.minStock}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-right font-mono text-neutral-600">{item.idealStock}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-right font-mono font-bold text-emerald-700">
-                      +{item.suggestedPurchase} {item.unit}
-                    </td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-[9px] text-neutral-600">{item.boxes || "Sem caixa"}</td>
+            <div className="door-section">
+              <div className="door-header">
+                <span>Catálogo Completo & Necessidade de Reposição</span>
+                <span>{report.data.allItems.length} Itens</span>
+              </div>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Item / Material</th>
+                    <th style={{ width: "70px" }}>SKU</th>
+                    <th style={{ width: "90px" }}>Categoria</th>
+                    <th style={{ width: "65px", textAlign: "right" }}>Saldo Atual</th>
+                    <th style={{ width: "50px", textAlign: "right" }}>Mínimo</th>
+                    <th style={{ width: "50px", textAlign: "right" }}>Ideal</th>
+                    <th style={{ width: "90px", textAlign: "right" }}>Sugestão Compra</th>
+                    <th>Localização</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {report.data.allItems.map((item: any) => (
+                    <tr key={item.id}>
+                      <td><strong>{item.name}</strong></td>
+                      <td style={{ fontFamily: "monospace", color: "#475569" }}>{item.sku}</td>
+                      <td style={{ color: "#475569" }}>{item.category}</td>
+                      <td style={{ textAlign: "right", fontWeight: 800, fontFamily: "monospace" }}>
+                        <span className={item.status === "CRITICAL" ? "tag-pill tag-red" : item.status === "LOW" ? "tag-pill tag-amber" : ""}>
+                          {item.currentStock} {item.unit}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", color: "#475569" }}>{item.minStock}</td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", color: "#475569" }}>{item.idealStock}</td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 800 }}>
+                        {item.suggestedPurchase > 0 ? (
+                          <span className="tag-pill tag-green">+{item.suggestedPurchase} {item.unit}</span>
+                        ) : (
+                          <span style={{ color: "#94a3b8" }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: "8px", color: "#475569" }}>{item.boxes || "Sem caixa"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* 3. Empréstimos */}
           {report.reportType === "LOANS" && (
-            <table className="w-full border-collapse border border-neutral-300 text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[110px]">Protocolo</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Solicitante</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Equipamento</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Patrimônio</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Retirada</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Prevista</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.data.map((loan: any, idx: number) => (
-                  <tr key={loan.id} className={idx % 2 === 1 ? "bg-neutral-50/70" : "bg-white"}>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-mono font-bold text-neutral-900">LOAN-{loan.id.slice(-8).toUpperCase()}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5">
-                      <strong className="text-neutral-900 block">{loan.borrowerName}</strong>
-                      <p className="text-[9px] text-neutral-500">{loan.destination}</p>
-                    </td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-neutral-900">{loan.asset?.item?.name}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-mono font-bold text-neutral-900">#{loan.asset?.assetTag}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-neutral-600">{formatDate(loan.loanDate)}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-neutral-600">{formatDate(loan.expectedReturnDate)}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-bold text-[9.5px]">{loan.status}</td>
+            <div className="door-section">
+              <div className="door-header">
+                <span>Histórico e Cautelas de Empréstimo</span>
+                <span>{report.data.length} Registros</span>
+              </div>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "80px" }}>Protocolo</th>
+                    <th>Solicitante & Contato</th>
+                    <th>Equipamento</th>
+                    <th style={{ width: "70px" }}>Patrimônio</th>
+                    <th style={{ width: "85px" }}>Devolução</th>
+                    <th style={{ width: "75px" }}>Situação</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {report.data.map((l: any) => (
+                    <tr key={l.id}>
+                      <td style={{ fontFamily: "monospace", fontWeight: 800 }}>{l.protocol}</td>
+                      <td>
+                        <strong>{l.borrowerName}</strong>
+                        <span style={{ fontSize: "8px", color: "#64748b", display: "block" }}>{l.borrowerContact || "-"}</span>
+                      </td>
+                      <td>{l.asset?.item?.name || "-"}</td>
+                      <td style={{ fontFamily: "monospace" }}>#{l.asset?.assetTag || "-"}</td>
+                      <td style={{ fontSize: "8.5px" }}>{formatDate(l.expectedReturnDate)}</td>
+                      <td>
+                        <span className={`tag-pill ${l.status === "ACTIVE" ? "tag-amber" : l.status === "RETURNED" ? "tag-green" : "tag-red"}`}>
+                          {l.status === "ACTIVE" ? "Ativo" : l.status === "RETURNED" ? "Devolvido" : "Atrasado"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* 4. Manutenção */}
           {report.reportType === "MAINTENANCE" && (
-            <table className="w-full border-collapse border border-neutral-300 text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[100px]">Nº OS</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Equipamento</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Patrimônio</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Defeito / Laudo</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[120px]">Prestador</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[110px]">Peças Trocadas</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Status</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-right font-bold text-[9.5px] uppercase text-neutral-700 w-[80px]">Custo (R$)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.data.map((m: any, idx: number) => (
-                  <tr key={m.id} className={idx % 2 === 1 ? "bg-neutral-50/70" : "bg-white"}>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-mono font-bold text-neutral-900">{m.orderNumber || `#OS-${m.id.slice(0, 8)}`}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-medium text-neutral-900">{m.asset?.item?.name}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-mono font-bold text-neutral-900">#{m.asset?.assetTag}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5">
-                      <p className="font-medium text-neutral-900">{m.issueDescription}</p>
-                      {m.solution && <p className="text-[9px] text-neutral-500">Laudo: {m.solution}</p>}
-                    </td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-neutral-700">{m.serviceProvider || "Laboratório UniFAP"}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-[9px] text-neutral-700">{m.replacedParts || "-"}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-bold text-[9.5px]">{m.status}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-right font-mono font-bold text-neutral-900">
-                      {m.cost ? formatCurrency(Number(m.cost)) : "R$ 0,00"}
-                    </td>
+            <div className="door-section">
+              <div className="door-header">
+                <span>Ordens de Serviço & Manutenções</span>
+                <span>{report.data.length} Chamados</span>
+              </div>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "75px" }}>Nº OS</th>
+                    <th>Equipamento / Tag</th>
+                    <th>Defeito Relatado</th>
+                    <th>Prestador</th>
+                    <th style={{ width: "75px" }}>Status</th>
+                    <th style={{ width: "65px", textAlign: "right" }}>Custo (R$)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {report.data.map((m: any) => (
+                    <tr key={m.id}>
+                      <td style={{ fontFamily: "monospace", fontWeight: 800 }}>{m.orderNumber || `#${m.id.slice(-6)}`}</td>
+                      <td>
+                        <strong>{m.asset?.item?.name}</strong>
+                        <span style={{ fontFamily: "monospace", fontSize: "8px", color: "#64748b", display: "block" }}>
+                          Tag #{m.asset?.assetTag}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: "8.5px" }}>{m.description}</td>
+                      <td style={{ fontSize: "8.5px" }}>{m.serviceProvider || "Interno"}</td>
+                      <td>
+                        <span className={`tag-pill ${m.status === "COMPLETED" ? "tag-green" : "tag-amber"}`}>
+                          {m.status === "COMPLETED" ? "Concluído" : "Em Andamento"}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 800 }}>
+                        {m.cost ? formatCurrency(Number(m.cost)) : "R$ 0,00"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* 5. Movimentações */}
           {report.reportType === "MOVEMENTS" && (
-            <table className="w-full border-collapse border border-neutral-300 text-xs">
-              <thead>
-                <tr className="bg-neutral-100">
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[110px]">Data/Hora</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[90px]">Tipo</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Item / Material</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-right font-bold text-[9.5px] uppercase text-neutral-700 w-[70px]">Qtd</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[100px]">Origem ➔ Destino</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700 w-[100px]">Operador</th>
-                  <th className="border border-neutral-300 px-2 py-1.5 text-left font-bold text-[9.5px] uppercase text-neutral-700">Justificativa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.data.map((mov: any, idx: number) => (
-                  <tr key={mov.id} className={idx % 2 === 1 ? "bg-neutral-50/70" : "bg-white"}>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-mono text-neutral-600">{formatDateTime(mov.createdAt)}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-bold text-[9.5px]">{mov.type}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 font-medium text-neutral-900">{mov.item?.name}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-right font-mono font-bold text-neutral-900">{mov.quantity} {mov.item?.unit}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-[9px] font-mono text-neutral-600">
-                      {mov.sourceBox?.code ? `${mov.sourceBox.code} ➔ ` : ""}
-                      {mov.destBox?.code ? mov.destBox.code : "-"}
-                    </td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-neutral-700">{mov.user?.name || "Sistema"}</td>
-                    <td className="border border-neutral-300 px-2 py-1.5 text-[9px] text-neutral-600">{mov.observation || "-"}</td>
+            <div className="door-section">
+              <div className="door-header">
+                <span>Registro de Entradas, Saídas e Transferências</span>
+                <span>{report.data.length} Movimentos</span>
+              </div>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "85px" }}>Data/Hora</th>
+                    <th style={{ width: "65px" }}>Tipo</th>
+                    <th>Item / Material</th>
+                    <th style={{ width: "65px", textAlign: "right" }}>Qtd</th>
+                    <th style={{ width: "100px" }}>Origem ➔ Destino</th>
+                    <th style={{ width: "80px" }}>Operador</th>
+                    <th>Motivo</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {report.data.map((mov: any) => (
+                    <tr key={mov.id}>
+                      <td style={{ fontFamily: "monospace", fontSize: "8px" }}>{formatDateTime(mov.createdAt)}</td>
+                      <td>
+                        <span className={`tag-pill ${mov.type === "ENTRY" ? "tag-green" : mov.type === "EXIT" ? "tag-red" : "tag-amber"}`}>
+                          {mov.type === "ENTRY" ? "Entrada" : mov.type === "EXIT" ? "Saída" : "Transf."}
+                        </span>
+                      </td>
+                      <td><strong>{mov.item?.name}</strong></td>
+                      <td style={{ textAlign: "right", fontFamily: "monospace", fontWeight: 800 }}>{mov.quantity} {mov.item?.unit}</td>
+                      <td style={{ fontFamily: "monospace", fontSize: "8px" }}>
+                        {mov.sourceBox?.code ? `${mov.sourceBox.code} ➔ ` : ""}
+                        {mov.destBox?.code ? mov.destBox.code : "-"}
+                      </td>
+                      <td style={{ fontSize: "8.5px" }}>{mov.user?.name || "Sistema"}</td>
+                      <td style={{ fontSize: "8px", color: "#64748b" }}>{mov.observation || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* ASSINATURAS FORMAIS */}
-          <div className="pt-8">
-            <table className="w-full text-center border-none">
-              <tbody>
-                <tr className="bg-transparent">
-                  <td className="w-1/2 px-6 align-top border-none bg-transparent">
-                    <div className="border-t border-neutral-600 pt-1.5">
-                      <p className="font-bold text-[11px] text-neutral-900">{operatorName}</p>
-                      <p className="text-[9px] text-neutral-500">Responsável pela Emissão do Relatório</p>
-                      <p className="text-[8px] text-neutral-400">UniFAP - Setor de TI</p>
-                    </div>
-                  </td>
-                  <td className="w-1/2 px-6 align-top border-none bg-transparent">
-                    <div className="border-t border-neutral-600 pt-1.5">
-                      <p className="font-bold text-[11px] text-neutral-900">Gerência de TI & Operações</p>
-                      <p className="text-[9px] text-neutral-500">Validação e Homologação</p>
-                      <p className="text-[8px] text-neutral-400">Centro Universitário Paraíso</p>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="signature-container">
+            <div className="signature-box">
+              <div className="signature-line">
+                <p className="signature-name">{operatorName}</p>
+                <p className="signature-role">Responsável pela Emissão do Relatório</p>
+                <p className="signature-inst">UniFAP - Setor de TI & Multimídia</p>
+              </div>
+            </div>
+            <div className="signature-box">
+              <div className="signature-line">
+                <p className="signature-name">Gerência de TI & Operações</p>
+                <p className="signature-role">Validação e Homologação</p>
+                <p className="signature-inst">Centro Universitário Paraíso • UniFAP</p>
+              </div>
+            </div>
           </div>
 
           {/* Rodapé Institucional */}
-          <div className="border-t border-dashed border-neutral-300 pt-3 text-center text-[8px] text-neutral-500 space-y-0.5">
-            <p>Documento emitido eletronicamente pelo Sistema de Gestão de Estoque & Patrimônio UniFAP.</p>
-            <p>Registro auditável com integridade de dados e rastreabilidade institucional.</p>
+          <div className="footer-info">
+            <p>Documento oficial emitido eletronicamente pelo Sistema Integrado de Gestão de Estoque & Patrimônio UniFAP.</p>
+            <p>Registro auditável com integridade de dados e rastreabilidade institucional • Juazeiro do Norte - CE.</p>
           </div>
         </div>
       </DialogContent>
