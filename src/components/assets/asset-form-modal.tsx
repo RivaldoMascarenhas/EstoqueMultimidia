@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Monitor, Plus, Loader2, Sparkles, FolderPlus } from "lucide-react";
+import { Monitor, Plus, Loader2, Sparkles, FolderPlus, ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -184,22 +184,25 @@ export function AssetFormModal({
                   </button>
                 </div>
 
-                <select
-                  value={itemId}
-                  onChange={(e) => setItemId(e.target.value)}
-                  required
-                  className="w-full h-10 px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground font-medium focus:ring-2 focus:ring-primary outline-none"
-                >
-                  {catalogItems.length === 0 ? (
-                    <option value="">Nenhum modelo cadastrado (clique em + Novo Modelo)</option>
-                  ) : (
-                    catalogItems.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} ({item.sku})
-                      </option>
-                    ))
-                  )}
-                </select>
+                <div className="relative">
+                  <select
+                    value={itemId}
+                    onChange={(e) => setItemId(e.target.value)}
+                    required
+                    className="w-full h-10 pl-3 pr-10 text-xs bg-background border border-input rounded-xl text-foreground font-medium focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer"
+                  >
+                    {catalogItems.length === 0 ? (
+                      <option value="">Nenhum modelo cadastrado (clique em + Novo Modelo)</option>
+                    ) : (
+                      catalogItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} ({item.sku})
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
             </div>
 
@@ -213,7 +216,7 @@ export function AssetFormModal({
                   value={serialNumber}
                   onChange={(e) => setSerialNumber(e.target.value)}
                   placeholder="Ex: SN-EPSON-4129"
-                  className="font-mono text-xs"
+                  className="font-mono text-xs rounded-xl"
                 />
               </div>
 
@@ -225,7 +228,7 @@ export function AssetFormModal({
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="Ex: PowerLite X49 (Branco)"
-                  className="text-xs"
+                  className="text-xs rounded-xl"
                 />
               </div>
             </div>
@@ -235,18 +238,21 @@ export function AssetFormModal({
               <label className="text-xs font-semibold text-foreground">
                 Localização / Caixa Física no Armário
               </label>
-              <select
-                value={currentBoxId}
-                onChange={(e) => setCurrentBoxId(e.target.value)}
-                className="w-full h-10 px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground font-semibold focus:ring-2 focus:ring-primary outline-none"
-              >
-                <option value="">Nenhuma (guardar avulso)</option>
-                {boxes.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.code} - {b.name} ({b.door?.name || "Porta"})
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={currentBoxId}
+                  onChange={(e) => setCurrentBoxId(e.target.value)}
+                  className="w-full h-10 pl-3 pr-10 text-xs bg-background border border-input rounded-xl text-foreground font-semibold focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">Nenhuma (guardar avulso)</option>
+                  {boxes.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.code} - {b.name} ({b.door?.name || "Porta"})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
             {/* Dados de Aquisição e Garantia */}
@@ -259,7 +265,7 @@ export function AssetFormModal({
                   type="date"
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="text-xs"
+                  className="text-xs rounded-xl"
                 />
               </div>
 
@@ -274,7 +280,7 @@ export function AssetFormModal({
                   value={purchaseValue || ""}
                   onChange={(e) => setPurchaseValue(parseFloat(e.target.value) || undefined)}
                   placeholder="3200.00"
-                  className="font-mono text-xs"
+                  className="font-mono text-xs rounded-xl"
                 />
               </div>
 
@@ -286,7 +292,7 @@ export function AssetFormModal({
                   type="date"
                   value={warrantyExpiry}
                   onChange={(e) => setWarrantyExpiry(e.target.value)}
-                  className="text-xs"
+                  className="text-xs rounded-xl"
                 />
               </div>
             </div>
@@ -301,15 +307,27 @@ export function AssetFormModal({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ex: Acompanha controle remoto, cabo de força e maleta de transporte..."
                 rows={2}
-                className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary transition-all resize-none"
+                className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} className="rounded-xl">
+            <DialogFooter className="pt-3 border-t border-border/80 flex items-center justify-end gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading}
+                className="h-10 px-4 text-xs font-semibold rounded-xl"
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isLoading} isLoading={isLoading} className="rounded-xl gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white">
+              <Button
+                type="submit"
+                disabled={isLoading}
+                isLoading={isLoading}
+                className="h-10 px-5 text-xs font-bold rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25 gap-1.5"
+              >
+                <Monitor className="w-4 h-4" />
                 <span>Cadastrar Equipamento</span>
               </Button>
             </DialogFooter>
