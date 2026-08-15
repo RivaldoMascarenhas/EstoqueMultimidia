@@ -377,7 +377,7 @@ export function LoanFormModal({
                 </label>
                 <Input
                   type="email"
-                  placeholder="Ex: joao.silva@unifap.br"
+                  placeholder="Ex: joao.silva@unifapce.edu.br"
                   value={borrowerEmail}
                   onChange={(e) => setBorrowerEmail(e.target.value)}
                   className="text-xs rounded-xl h-9"

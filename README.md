@@ -1,6 +1,6 @@
 # UniFAP - Sistema de Gestão de Estoque, Patrimônio & Armário Físico de TI
 
-Sistema oficial para controle de materiais a granel, equipamentos patrimoniais, empréstimos, manutenção e organização física do setor de **Suporte de TI e Multimídia da UniFAP**.
+Sistema oficial para controle de materiais a granel, equipamentos patrimoniais, empréstimos, manutenção e organização física do setor de **Suporte de TI e Multimídia do Centro Universitário Paraíso (UniFAP - Juazeiro do Norte/CE)** • [unifapce.edu.br](https://unifapce.edu.br/).
 
 ---
 
