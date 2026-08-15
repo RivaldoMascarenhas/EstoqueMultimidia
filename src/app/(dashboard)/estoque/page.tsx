@@ -37,6 +37,7 @@ export default function EstoquePage() {
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("ALL");
+  const [selectedBox, setSelectedBox] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState<"ALL" | "CRITICAL" | "LOW" | "NORMAL">("ALL");
 
   // Modais de Ação
@@ -51,6 +52,7 @@ export default function EstoquePage() {
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (selectedCategory !== "ALL") params.append("categoryId", selectedCategory);
+      if (selectedBox !== "ALL") params.append("boxId", selectedBox);
       if (selectedStatus !== "ALL") params.append("status", selectedStatus);
 
       const [itemsRes, catRes, boxesRes] = await Promise.all([
@@ -76,7 +78,7 @@ export default function EstoquePage() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCategory, selectedStatus]);
+  }, [selectedCategory, selectedBox, selectedStatus]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,27 +153,49 @@ export default function EstoquePage() {
       </div>
 
       {/* Barra de Busca e Filtros */}
-      <Card className="p-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-          <form onSubmit={handleSearchSubmit} className="flex-1 w-full flex gap-2">
-            <Input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nome, SKU, modelo ou fabricante..."
-              icon={<Search className="w-4 h-4 text-primary" />}
-              className="text-xs"
-            />
-            <Button type="submit" size="sm" variant="outline" className="rounded-xl shrink-0">
-              Buscar
+      <Card className="p-3.5 shadow-sm">
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por nome, SKU, modelo ou fabricante..."
+                icon={<Search className="w-4 h-4 text-primary" />}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-10 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-all shrink-0 gap-1.5"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Buscar</span>
             </Button>
           </form>
 
-          {/* Filtro por Categoria */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Filtros Dropdown */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            {/* Filtro por Caixa */}
+            <select
+              value={selectedBox}
+              onChange={(e) => setSelectedBox(e.target.value)}
+              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[160px]"
+            >
+              <option value="ALL">📦 Todas as Caixas</option>
+              {allBoxes.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.code} - {b.name} ({b.door?.name || "Porta"})
+                </option>
+              ))}
+            </select>
+
+            {/* Filtro por Categoria */}
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto"
+              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[150px]"
             >
               <option value="ALL">Todas as Categorias</option>
               {categories.map((c) => (
@@ -185,13 +209,32 @@ export default function EstoquePage() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value as any)}
-              className="px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto"
+              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[130px]"
             >
               <option value="ALL">Todos os Níveis</option>
               <option value="CRITICAL">🔴 Crítico</option>
               <option value="LOW">🟡 Baixo</option>
               <option value="NORMAL">🟢 Normal</option>
             </select>
+
+            {/* Limpar Filtros */}
+            {(searchTerm || selectedCategory !== "ALL" || selectedBox !== "ALL" || selectedStatus !== "ALL") && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm("");
+                  setSelectedCategory("ALL");
+                  setSelectedBox("ALL");
+                  setSelectedStatus("ALL");
+                }}
+                className="h-10 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl shrink-0"
+                title="Limpar filtros"
+              >
+                Limpar
+              </Button>
+            )}
           </div>
         </div>
       </Card>

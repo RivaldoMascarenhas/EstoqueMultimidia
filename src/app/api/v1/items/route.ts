@@ -9,11 +9,13 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || undefined;
     const categoryId = searchParams.get("categoryId") || undefined;
+    const boxId = searchParams.get("boxId") || undefined;
     const statusFilter = (searchParams.get("status") as any) || undefined;
 
     const items = await InventoryService.getItems({
       search,
       categoryId,
+      boxId,
       statusFilter,
     });
 
