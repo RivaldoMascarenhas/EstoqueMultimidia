@@ -1,0 +1,56 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { CabinetService } from "@/services/cabinet.service";
+import { boxCreateSchema } from "@/schemas/cabinet.schema";
+
+export async function GET() {
+  try {
+    const boxes = await CabinetService.getAllBoxes();
+    return NextResponse.json({
+      success: true,
+      data: boxes,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Erro ao consultar caixas." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { success: false, error: "Não autorizado." },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== "ADMIN" && session.user.role !== "GESTOR") {
+      return NextResponse.json(
+        { success: false, error: "Apenas ADMIN ou GESTOR podem criar caixas." },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const validatedData = boxCreateSchema.parse(body);
+
+    const box = await CabinetService.createBox(validatedData, session.user.id);
+
+    return NextResponse.json({
+      success: true,
+      message: `Caixa '${box.code}' cadastrada com sucesso na porta ${box.door.name}!`,
+      data: box,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || "Erro ao cadastrar caixa." },
+      { status: 400 }
+    );
+  }
+}

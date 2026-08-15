@@ -1,0 +1,352 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------
+// ENUMS
+// ----------------------------------------------------
+
+enum Role {
+  ADMIN
+  GESTOR
+  OPERADOR
+  CONSULTA
+}
+
+enum ItemType {
+  MATERIAL        // Material em quantidade (Cabos, Adaptadores, Pilhas)
+  ASSET_EQUIPMENT // Equipamento individual rastreado por patrimônio (Projetor, Notebook)
+}
+
+enum AssetStatus {
+  AVAILABLE       // Disponível
+  LOANED          // Emprestado
+  IN_MAINTENANCE  // Em manutenção
+  DAMAGED         // Danificado
+  WRITTEN_OFF     // Baixado / Descartado
+  LOST            // Perdido
+}
+
+enum MovementType {
+  ENTRY           // Entrada
+  EXIT            // Saída
+  TRANSFER        // Transferência entre caixas
+  LOAN            // Empréstimo
+  RETURN          // Devolução
+  MAINTENANCE_IN  // Envio para manutenção
+  MAINTENANCE_OUT // Retorno da manutenção
+  ADJUSTMENT      // Ajuste de inventário
+  ASSET_REGISTER  // Cadastro inicial de patrimônio
+  WRITE_OFF       // Baixa definitiva
+}
+
+enum LoanStatus {
+  ACTIVE          // Em andamento
+  RETURNED        // Devolvido normalmente
+  OVERDUE         // Atrasado
+  RETURNED_DAMAGED // Devolvido com avaria
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ----------------------------------------------------
+// USUÁRIOS E AUTORIZAÇÃO
+// ----------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(OPERADOR)
+  active        Boolean   @default(true)
+  avatarUrl     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  movements     StockMovement[]
+  loansCreated  Loan[]            @relation("LoanCreator")
+  loansReceived Loan[]            @relation("LoanReceiver")
+  maintenances  Maintenance[]     @relation("MaintenanceCreator")
+  maintenancesClosed Maintenance[] @relation("MaintenanceCloser")
+  auditLogs     AuditLog[]
+  apiKeys       ApiKey[]
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String    @unique
+  keyPrefix   String
+  role        Role      @default(OPERADOR)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+}
+
+// ----------------------------------------------------
+// ESTRUTURA FÍSICA DO ARMÁRIO
+// ----------------------------------------------------
+
+model Door {
+  id          String    @id @default(cuid())
+  code        String    @unique // ex: "PORTA-1", "PORTA-2", "PORTA-3"
+  name        String    // ex: "Porta 1"
+  description String?
+  orderIndex  Int       @default(0)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  boxes       Box[]
+}
+
+model Box {
+  id          String    @id @default(cuid())
+  doorId      String
+  door        Door      @relation(fields: [doorId], references: [id], onDelete: Restrict)
+  code        String    @unique // ex: "C001", "C017"
+  name        String    // ex: "Caixa 017"
+  description String?
+  qrCodeUrl   String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  inventories Inventory[]
+  assets      Asset[]
+  sourceMovements StockMovement[] @relation("SourceBox")
+  destMovements   StockMovement[] @relation("DestBox")
+
+  @@index([doorId])
+  @@index([code])
+}
+
+// ----------------------------------------------------
+// CATÁLOGO DE ITENS E ESTOQUE QUANTITATIVO
+// ----------------------------------------------------
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique // ex: "Cabos", "Adaptadores", "Projetores"
+  slug        String    @unique
+  description String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items       Item[]
+}
+
+model Item {
+  id            String    @id @default(cuid())
+  name          String    // ex: "Cabo HDMI 10m"
+  sku           String    @unique // Código interno / SKU
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  itemType      ItemType  @default(MATERIAL)
+  unit          String    @default("UN") // UN, M, CX, PC
+  description   String?
+  minStock      Int       @default(0)
+  idealStock    Int       @default(0)
+  manufacturer  String?
+  model         String?
+  notes         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  inventories   Inventory[]
+  assets        Asset[]
+  movements     StockMovement[]
+
+  @@index([categoryId])
+  @@index([sku])
+  @@index([name])
+}
+
+model Inventory {
+  id          String    @id @default(cuid())
+  itemId      String
+  item        Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  boxId       String
+  box         Box       @relation(fields: [boxId], references: [id], onDelete: Restrict)
+  quantity    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([itemId, boxId])
+  @@index([boxId])
+  @@index([itemId])
+}
+
+// ----------------------------------------------------
+// PATRIMÔNIO E EQUIPAMENTOS INDIVIDUAIS
+// ----------------------------------------------------
+
+model Asset {
+  id               String       @id @default(cuid())
+  itemId           String
+  item             Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  assetTag         String       @unique // Número de Patrimônio (ex: "123456")
+  serialNumber     String?      // Número de Série
+  model            String?
+  status           AssetStatus  @default(AVAILABLE)
+  currentBoxId     String?      // Localização física atual (quando guardado)
+  currentBox       Box?         @relation(fields: [currentBoxId], references: [id], onDelete: SetNull)
+  acquisitionDate  DateTime?
+  acquisitionValue Decimal?     @db.Decimal(10, 2)
+  notes            String?
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  loans            Loan[]
+  maintenances     Maintenance[]
+  history          AssetHistory[]
+
+  @@index([assetTag])
+  @@index([serialNumber])
+  @@index([status])
+  @@index([currentBoxId])
+}
+
+model AssetHistory {
+  id               String       @id @default(cuid())
+  assetId          String
+  asset            Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  action           String       // ex: "CADASTRADO", "EMPRESTADO", "DEVOLVIDO", "MANUTENCAO"
+  fromStatus       AssetStatus?
+  toStatus         AssetStatus
+  fromLocation     String?
+  toLocation       String?
+  userId           String?
+  userName         String?
+  observation      String?
+  createdAt        DateTime     @default(now())
+
+  @@index([assetId])
+}
+
+// ----------------------------------------------------
+// EMPRÉSTIMOS E DEVOLUÇÕES
+// ----------------------------------------------------
+
+model Loan {
+  id                 String       @id @default(cuid())
+  assetId            String
+  asset              Asset        @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  borrowerName       String       // Nome do responsável (ex: "João Silva")
+  borrowerEmail      String?
+  borrowerPhone      String?
+  borrowerDepartment String?      // ex: "Coordenação de Medicina", "Diretoria"
+  destination        String       // ex: "Sala 203", "Auditório Principal"
+  loanDate           DateTime     @default(now())
+  expectedReturnDate DateTime     // Data prevista de devolução
+  actualReturnDate   DateTime?    // Data real da devolução
+  status             LoanStatus   @default(ACTIVE)
+  notes              String?
+  returnNotes        String?
+  returnedCondition  String?      // ex: "Perfeito estado", "Cabo HDMI danificado"
+  createdByUserId    String
+  createdByUser      User         @relation("LoanCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  receivedByUserId   String?
+  receivedByUser     User?        @relation("LoanReceiver", fields: [receivedByUserId], references: [id], onDelete: SetNull)
+  returnBoxId        String?      // Caixa onde foi guardado na devolução
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@index([assetId])
+  @@index([status])
+  @@index([expectedReturnDate])
+}
+
+// ----------------------------------------------------
+// MANUTENÇÃO DE EQUIPAMENTOS
+// ----------------------------------------------------
+
+model Maintenance {
+  id                String            @id @default(cuid())
+  assetId           String
+  asset             Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  issueDescription  String            // ex: "Lâmpada com defeito", "Sem sinal HDMI"
+  entryDate         DateTime          @default(now())
+  exitDate          DateTime?
+  status            MaintenanceStatus @default(IN_PROGRESS)
+  serviceProvider   String?           // Técnico / Empresa responsável
+  cost              Decimal?          @db.Decimal(10, 2)
+  technicalNotes    String?           // Laudo / Solução aplicada
+  createdByUserId   String
+  createdByUser     User              @relation("MaintenanceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  completedByUserId String?
+  completedByUser   User?             @relation("MaintenanceCloser", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([assetId])
+  @@index([status])
+}
+
+// ----------------------------------------------------
+// MOVIMENTAÇÕES DE ESTOQUE (HISTÓRICO INALTERÁVEL)
+// ----------------------------------------------------
+
+model StockMovement {
+  id              String       @id @default(cuid())
+  type            MovementType
+  itemId          String
+  item            Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  sourceBoxId     String?
+  sourceBox       Box?         @relation("SourceBox", fields: [sourceBoxId], references: [id], onDelete: SetNull)
+  destBoxId       String?
+  destBox         Box?         @relation("DestBox", fields: [destBoxId], references: [id], onDelete: SetNull)
+  quantity        Int
+  balanceBefore   Int
+  balanceAfter    Int
+  observation     String?
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt       DateTime     @default(now())
+
+  @@index([itemId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// ----------------------------------------------------
+// AUDITORIA DO SISTEMA
+// ----------------------------------------------------
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String    // ex: "LOGIN", "CREATE_ITEM", "STOCK_EXIT", "LOAN_CREATE"
+  entity      String    // ex: "Item", "Asset", "Loan", "Inventory"
+  entityId    String?
+  details     Json?     // Payload com estado antes e depois (diff)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+}

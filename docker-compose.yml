@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: unifap_estoque_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: unifap_secure_password_2026
+      POSTGRES_DB: unifap_estoque
+    ports:
+      - "5432:5432"
+    volumes:
+      - unifap_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d unifap_estoque"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  unifap_postgres_data:
+    driver: local
