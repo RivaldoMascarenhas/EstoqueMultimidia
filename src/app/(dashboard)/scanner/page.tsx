@@ -20,7 +20,8 @@ import {
   VolumeX,
   Keyboard,
   ArrowRight,
-  ShieldCheck
+  ShieldCheck,
+  FlipHorizontal
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export default function ScannerPage() {
   // Estados do Scanner
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [selectedMode, setSelectedMode] = useState<ScanMode>("LOOKUP");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [manualCode, setManualCode] = useState("");
@@ -88,19 +90,38 @@ export default function ScannerPage() {
   };
 
   // Iniciar Leitura da Câmera
-  const startCamera = async () => {
+  const startCamera = async (targetFacing?: "environment" | "user") => {
     try {
       setCameraError(null);
       setIsScanning(true);
+
+      const modeToUse = targetFacing || facingMode;
+
+      // Parar qualquer instância anterior ativa
+      if (scannerRef.current) {
+        try {
+          if (scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+          }
+          await scannerRef.current.clear();
+        } catch (e) {}
+      }
 
       const html5QrCode = new Html5Qrcode("scanner-viewfinder");
       scannerRef.current = html5QrCode;
 
       await html5QrCode.start(
-        { facingMode: "environment" },
+        { facingMode: modeToUse },
         {
-          fps: 15,
-          qrbox: { width: 260, height: 260 },
+          fps: 20,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const qrboxSize = Math.floor(minEdge * 0.72);
+            return {
+              width: qrboxSize,
+              height: qrboxSize,
+            };
+          },
           aspectRatio: 1.0,
         },
         (decodedText) => {
@@ -113,19 +134,31 @@ export default function ScannerPage() {
     } catch (err: any) {
       console.warn("Erro câmera:", err);
       setCameraError(
-        "Não foi possível iniciar a câmera traseira. Conceda permissão no navegador ou digite o código do patrimônio/caixa no campo abaixo."
+        "Não foi possível acessar a câmera. Verifique a permissão do navegador ou digite o código no campo abaixo."
       );
       setIsScanning(false);
     }
   };
 
   const stopCamera = async () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
+    if (scannerRef.current) {
       try {
-        await scannerRef.current.stop();
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
       } catch (e) {}
     }
     setIsScanning(false);
+  };
+
+  // Alternar entre câmera traseira e frontal
+  const handleToggleFacingMode = async () => {
+    const nextMode = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(nextMode);
+    await stopCamera();
+    setTimeout(() => {
+      startCamera(nextMode);
+    }, 200);
   };
 
   useEffect(() => {
@@ -227,6 +260,20 @@ export default function ScannerPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Alternar Câmera (Frontal / Traseira) */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleToggleFacingMode}
+            className="rounded-xl text-xs h-9 gap-1.5"
+            title="Alternar Câmera (Traseira/Frontal)"
+          >
+            <FlipHorizontal className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden sm:inline">
+              {facingMode === "environment" ? "Traseira" : "Frontal"}
+            </span>
+          </Button>
+
           {/* Som Ativar/Desativar */}
           <Button
             variant="outline"
@@ -245,13 +292,13 @@ export default function ScannerPage() {
             size="sm"
             onClick={() => {
               stopCamera();
-              setTimeout(startCamera, 200);
+              setTimeout(() => startCamera(), 200);
             }}
             className="rounded-xl text-xs h-9 gap-1.5"
             title="Reiniciar Câmera"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reiniciar Câmera</span>
+            <span className="hidden sm:inline">Reiniciar</span>
           </Button>
         </div>
       </div>
@@ -297,21 +344,35 @@ export default function ScannerPage() {
             {/* Laser e Mira Holográfica se estiver escaneando */}
             {isScanning && !scanResult && (
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-                {/* Moldura de Foco */}
-                <div className="w-56 h-56 border-2 border-primary/80 rounded-2xl relative animate-pulse shadow-[0_0_20px_rgba(59,130,246,0.5)]">
-                  {/* Cantoneiras */}
-                  <div className="absolute -top-1 -left-1 w-4 h-4 border-t-4 border-l-4 border-primary rounded-tl" />
-                  <div className="absolute -top-1 -right-1 w-4 h-4 border-t-4 border-r-4 border-primary rounded-tr" />
-                  <div className="absolute -bottom-1 -left-1 w-4 h-4 border-b-4 border-l-4 border-primary rounded-bl" />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 border-b-4 border-r-4 border-primary rounded-br" />
+                {/* Moldura de Foco com Cantoneiras & Laser Animado */}
+                <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-3xl overflow-hidden flex items-center justify-center">
+                  
+                  {/* Borda HUD com brilho pulsante */}
+                  <div className="absolute inset-0 rounded-3xl border-2 border-primary/60 scanner-frame-hud" />
 
-                  {/* Linha Laser Animada */}
-                  <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-rose-500 to-transparent absolute top-1/2 -translate-y-1/2 animate-bounce shadow-[0_0_8px_#f43f5e]" />
+                  {/* Cantoneiras Futuristas */}
+                  <div className="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-primary rounded-tl-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+                  <div className="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-primary rounded-tr-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+                  <div className="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-primary rounded-bl-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+                  <div className="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-primary rounded-br-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+
+                  {/* Mira central / Crosshair reticle */}
+                  <div className="absolute w-4 h-4 border border-white/25 rounded-full flex items-center justify-center">
+                    <div className="w-1 h-1 bg-white/40 rounded-full" />
+                  </div>
+
+                  {/* Feixe Laser Animado (Varredura Contínua) */}
+                  <div className="scanner-laser-line" />
+                  <div className="scanner-laser-glow" />
                 </div>
 
-                <span className="text-[11px] font-semibold text-white/80 bg-black/60 px-3 py-1 rounded-full mt-4 backdrop-blur-md">
-                  Posicione o QR Code dentro do quadro
-                </span>
+                {/* Indicador de Status & Instrução */}
+                <div className="mt-4 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/70 border border-white/10 backdrop-blur-md shadow-lg">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-[11px] font-medium text-white/90">
+                    Posicione o QR Code dentro do enquadramento
+                  </span>
+                </div>
               </div>
             )}
 
@@ -322,7 +383,7 @@ export default function ScannerPage() {
                 <p className="text-xs text-slate-300 font-medium">{cameraError}</p>
                 <Button
                   size="sm"
-                  onClick={startCamera}
+                  onClick={() => startCamera()}
                   className="rounded-xl text-xs gap-1.5 bg-primary text-primary-foreground"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />

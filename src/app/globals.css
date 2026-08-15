@@ -111,8 +111,105 @@
     print-color-adjust: exact !important;
   }
 
-  nav, aside, header, .print\\:hidden, button {
+  nav, aside, header, .print\:hidden, button {
     display: none !important;
   }
+}
+
+/* ==========================================================================
+   ESTILOS & ANIMAÇÕES DO SCANNER MOBILE & QR CODE
+   ========================================================================== */
+#scanner-viewfinder {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+#scanner-viewfinder video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+/* Ocultar elementos brutos e cantoneiras padrão do html5-qrcode para visual limpo */
+#qr-shaded-region {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+#qr-shaded-region > div {
+  display: none !important;
+}
+
+/* Animações fluidas do Laser do Scanner */
+@keyframes laserSweep {
+  0% {
+    top: 4%;
+    opacity: 0.85;
+  }
+  50% {
+    top: 96%;
+    opacity: 1;
+  }
+  100% {
+    top: 4%;
+    opacity: 0.85;
+  }
+}
+
+@keyframes laserGlowSweep {
+  0% {
+    top: 2%;
+    opacity: 0.15;
+  }
+  50% {
+    top: 80%;
+    opacity: 0.45;
+  }
+  100% {
+    top: 2%;
+    opacity: 0.15;
+  }
+}
+
+@keyframes hudPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3), inset 0 0 15px rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.6), inset 0 0 22px rgba(99, 102, 241, 0.3);
+    border-color: rgba(99, 102, 241, 0.85);
+  }
+}
+
+.scanner-laser-line {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, #f43f5e 15%, #ff2d55 50%, #f43f5e 85%, transparent 100%);
+  box-shadow: 0 0 10px #f43f5e, 0 0 20px #ff2d55, 0 0 35px #ff2d55;
+  border-radius: 9999px;
+  animation: laserSweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.scanner-laser-glow {
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  height: 40px;
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.3) 0%, rgba(244, 63, 94, 0) 100%);
+  border-radius: 12px;
+  animation: laserGlowSweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  z-index: 9;
+  pointer-events: none;
+}
+
+.scanner-frame-hud {
+  animation: hudPulse 3s ease-in-out infinite;
 }
 

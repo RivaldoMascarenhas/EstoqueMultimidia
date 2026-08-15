@@ -71,12 +71,20 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name;
         token.role = user.role;
         token.mustChangePassword = user.mustChangePassword;
-        token.avatarUrl = (user.avatarUrl && !user.avatarUrl.startsWith("data:")) ? user.avatarUrl : null;
+        token.avatarUrl = user.avatarUrl
+          ? user.avatarUrl.startsWith("data:")
+            ? `/api/v1/users/${user.id}/avatar`
+            : user.avatarUrl
+          : null;
       }
       if (trigger === "update" && session?.user) {
         if (session.user.name) token.name = session.user.name;
         if (session.user.avatarUrl !== undefined) {
-          token.avatarUrl = (session.user.avatarUrl && !session.user.avatarUrl.startsWith("data:")) ? session.user.avatarUrl : null;
+          token.avatarUrl = session.user.avatarUrl
+            ? session.user.avatarUrl.startsWith("data:")
+              ? `/api/v1/users/${token.id}/avatar?v=${Date.now()}`
+              : session.user.avatarUrl
+            : null;
         }
         if (session.user.mustChangePassword !== undefined) token.mustChangePassword = session.user.mustChangePassword;
       }

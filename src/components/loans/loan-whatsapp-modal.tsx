@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   MessageSquare, 
   Copy, 
@@ -9,7 +9,11 @@ import {
   Phone, 
   User, 
   AlertTriangle, 
-  Clock 
+  Clock,
+  Package,
+  MapPin,
+  Calendar,
+  Send
 } from "lucide-react";
 import {
   Dialog,
@@ -20,8 +24,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface LoanWhatsAppModalProps {
@@ -36,23 +41,35 @@ export function LoanWhatsAppModal({
   loan,
 }: LoanWhatsAppModalProps) {
   const [hasCopied, setHasCopied] = useState(false);
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    if (loan) {
+      setPhone(loan.borrowerPhone || "");
+    }
+  }, [loan, isOpen]);
 
   if (!loan) return null;
 
   const isOverdue =
-    loan.status === "ACTIVE" && new Date(loan.expectedReturnDate) < new Date();
+    loan.diffHours !== undefined ||
+    loan.status === "OVERDUE" ||
+    (loan.status === "ACTIVE" && new Date(loan.expectedReturnDate) < new Date());
+
+  const assetName = loan.asset?.item?.name || loan.itemName || "Equipamento";
+  const assetTag = loan.asset?.assetTag || loan.assetTag || "";
+  const protocol = loan.protocol || (loan.id ? `LOAN-${loan.id.slice(-8).toUpperCase()}` : "LOAN");
+  const returnDateStr = loan.expectedReturnDate ? formatDateTime(loan.expectedReturnDate) : "Data não definida";
+  const loanDateStr = loan.loanDate ? formatDateTime(loan.loanDate) : null;
 
   // Limpar telefone para link wa.me (apenas dígitos)
-  const cleanPhone = loan.borrowerPhone ? loan.borrowerPhone.replace(/\D/g, "") : "";
-  const phoneForWhatsApp = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+  const cleanPhone = phone ? phone.replace(/\D/g, "") : "";
+  const phoneForWhatsApp = cleanPhone.length >= 10
+    ? (cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`)
+    : "";
 
   // Gerar mensagem personalizada
   const generateMessageText = () => {
-    const assetName = loan.asset?.item?.name || "Equipamento";
-    const assetTag = loan.asset?.assetTag || "";
-    const protocol = `LOAN-${loan.id.slice(-8).toUpperCase()}`;
-    const returnDateStr = formatDateTime(loan.expectedReturnDate);
-
     if (isOverdue) {
       return `Olá, ${loan.borrowerName}! Tudo bem? 
 
@@ -74,7 +91,7 @@ Aqui é do Setor de Suporte de TI & Multimídia da UniFAP.
 
 Passando apenas para confirmar os dados do seu empréstimo:
 📦 *Equipamento:* ${assetName} (Patrimônio #${assetTag})
-📍 *Local de Uso:* ${loan.destination}
+📍 *Local de Uso:* ${loan.destination || "Não especificado"}
 ⏰ *Devolução Prevista:* ${returnDateStr}
 📄 *Protocolo:* ${protocol}
 
@@ -94,68 +111,133 @@ Atenciosamente,
   };
 
   const handleOpenWhatsApp = () => {
-    if (!cleanPhone) {
-      toast.error("Este solicitante não possui número de telefone/WhatsApp cadastrado.");
-      return;
+    let url = "";
+    if (phoneForWhatsApp) {
+      url = `https://wa.me/${phoneForWhatsApp}?text=${encodeURIComponent(messageText)}`;
+    } else {
+      url = `https://wa.me/?text=${encodeURIComponent(messageText)}`;
     }
-    const url = `https://wa.me/${phoneForWhatsApp}?text=${encodeURIComponent(messageText)}`;
     window.open(url, "_blank");
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-6 rounded-3xl">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-6 rounded-3xl bg-card border-border/80 shadow-2xl">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
-                Notificação WhatsApp
+              <DialogTitle className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                <span>Cobrar / Notificar Solicitante</span>
+                {isOverdue ? (
+                  <Badge variant="destructive" className="text-[10px]">
+                    {loan.diffHours ? `Atrasado há ${loan.diffHours}h` : "Em Atraso"}
+                  </Badge>
+                ) : (
+                  <Badge variant="loaned" className="text-[10px]">
+                    No Prazo
+                  </Badge>
+                )}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Envie um lembrete rápido de devolução ou alinhamento com o solicitante.
+                Envie uma cobrança ou lembrete rápido via WhatsApp direto para o solicitante.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-4 pt-1">
-          {/* Informações do Contato */}
-          <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 flex items-center justify-between text-xs">
-            <div className="space-y-0.5">
-              <div className="font-bold text-foreground flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-primary" />
-                <span>{loan.borrowerName}</span>
+          
+          {/* Card Detalhado do Pedido em Atraso */}
+          <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
+            
+            {/* Linha 1: Solicitante & Protocolo */}
+            <div className="flex items-start justify-between gap-2 border-b border-border/60 pb-2.5">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Solicitante
+                </span>
+                <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span>{loan.borrowerName}</span>
+                </p>
                 {loan.borrowerDepartment && (
-                  <span className="text-[11px] text-muted-foreground font-normal">
-                    ({loan.borrowerDepartment})
-                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Departamento/Setor: {loan.borrowerDepartment}
+                  </p>
                 )}
               </div>
-              <div className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <Phone className="w-3 h-3 text-emerald-500" />
-                <span>{loan.borrowerPhone || "Sem telefone cadastrado"}</span>
+
+              <div className="text-right">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Protocolo
+                </span>
+                <p className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg w-max ml-auto mt-0.5">
+                  {protocol}
+                </p>
               </div>
             </div>
 
-            {isOverdue ? (
-              <Badge variant="damaged" dot className="text-[10px]">
-                Atrasado
-              </Badge>
-            ) : (
-              <Badge variant="loaned" dot className="text-[10px]">
-                No Prazo
-              </Badge>
-            )}
+            {/* Linha 2: Equipamento & Local */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Equipamento
+                </span>
+                <p className="font-semibold text-foreground truncate flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <span>{assetName}</span>
+                </p>
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  Patrimônio: #{assetTag}
+                </p>
+              </div>
+
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Local / Destino
+                </span>
+                <p className="font-semibold text-foreground truncate flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span>{loan.destination || "Não informado"}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Devolução: <strong className={isOverdue ? "text-rose-500" : "text-foreground"}>{returnDateStr}</strong>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Campo de Telefone / WhatsApp Editável */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                Telefone / WhatsApp do Solicitante
+              </span>
+              <span className="text-[10px] text-muted-foreground font-normal">
+                {phoneForWhatsApp ? "Pronto para envio direto" : "Opcional (ou selecione no WhatsApp)"}
+              </span>
+            </label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Ex: (96) 99123-4567"
+              className="h-10 rounded-xl text-xs bg-background"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Se o número estiver preenchido, abrirá a conversa diretamente com o solicitante. Se vazio, você poderá escolher o contato na lista do WhatsApp.
+            </p>
           </div>
 
           {/* Prévia da Mensagem */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-bold uppercase tracking-wider text-muted-foreground">
-                Texto Formatado
+              <span className="font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Send className="w-3 h-3 text-primary" />
+                Prévia da Mensagem
               </span>
               <Button
                 type="button"
@@ -178,17 +260,18 @@ Atenciosamente,
               </Button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 text-xs font-mono whitespace-pre-line text-foreground/90 leading-relaxed max-h-56 overflow-y-auto">
+            <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 text-xs font-mono whitespace-pre-line text-foreground/90 leading-relaxed max-h-48 overflow-y-auto select-text">
               {messageText}
             </div>
           </div>
 
+          {/* Rodapé / Ações */}
           <DialogFooter className="flex items-center justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="rounded-xl text-xs"
+              className="rounded-xl text-xs h-10 px-4"
             >
               Fechar
             </Button>
@@ -196,11 +279,11 @@ Atenciosamente,
             <Button
               type="button"
               onClick={handleOpenWhatsApp}
-              disabled={!cleanPhone}
-              className="gap-1.5 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20"
+              className="gap-2 rounded-xl text-xs h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-500/25 transition-all"
             >
-              <ExternalLink className="w-4 h-4" />
-              <span>Abrir WhatsApp Web</span>
+              <MessageSquare className="w-4 h-4" />
+              <span>Cobrar no WhatsApp</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
             </Button>
           </DialogFooter>
         </div>
