@@ -372,12 +372,12 @@ export default function EmprestimosPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="text-xs font-bold uppercase py-3 pl-6">Protocolo & Equipamento</TableHead>
-                <TableHead className="text-xs font-bold uppercase py-3 px-4">Solicitante & Contato</TableHead>
-                <TableHead className="text-xs font-bold uppercase py-3 px-4">Destino / Sala</TableHead>
-                <TableHead className="text-xs font-bold uppercase py-3 px-4">Datas & Prazo</TableHead>
-                <TableHead className="text-xs font-bold uppercase py-3 px-4">Situação</TableHead>
-                <TableHead className="text-xs font-bold uppercase py-3 pr-6 text-right w-[160px]">Ações</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3.5 pl-6">Protocolo & Equipamento</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3.5 px-4">Solicitante & Contato</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3.5 px-4">Destino / Sala</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3.5 px-4">Datas & Prazo</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3.5 px-4">Situação</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3.5 px-4 text-center w-[170px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -507,8 +507,8 @@ export default function EmprestimosPage() {
                       </TableCell>
 
                       {/* Ações */}
-                      <TableCell className="py-3.5 pr-6 text-right w-[160px]">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <TableCell className="py-3.5 px-4 text-center w-[170px]">
+                        <div className="flex items-center justify-center gap-1.5">
                           {isActive && (
                             <Button
                               onClick={() => setSelectedLoanForReturn(loan)}
