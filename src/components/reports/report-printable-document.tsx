@@ -128,14 +128,20 @@ export function ReportPrintableDocument({
             .rounded-lg { border-radius: 8px; }
             .rounded-2xl { border-radius: 12px; }
             .w-full { width: 100%; }
-            table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 10px; border: 1px solid #d1d5db; }
-            th { background: #f3f4f6; text-align: left; padding: 6px 8px; font-size: 9px; font-weight: 700; text-transform: uppercase; border: 1px solid #d1d5db; color: #374151; }
-            td { padding: 5px 8px; font-size: 9.5px; border: 1px solid #e5e7eb; vertical-align: top; color: #111827; }
-            tr:nth-child(even) { background-color: #fafafa; }
+            table { width: 100%; border-collapse: collapse; }
+            td { vertical-align: top; }
+            img { max-width: 100%; display: block; }
+            .logo-unifap { height: 38px !important; width: auto !important; max-height: 40px !important; object-fit: contain !important; flex-shrink: 0 !important; }
+            .h-9 { height: 36px !important; }
+            .h-10 { height: 40px !important; }
+            .w-auto { width: auto !important; }
+            .shrink-0 { flex-shrink: 0 !important; }
+            .whitespace-nowrap { white-space: nowrap !important; }
             svg { display: none; }
             @media print {
               body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; }
               .print-area { border: none !important; box-shadow: none !important; padding: 0 !important; }
+              .logo-unifap { height: 38px !important; width: auto !important; max-height: 40px !important; }
             }
           </style>
         </head>
@@ -168,15 +174,15 @@ export function ReportPrintableDocument({
         {/* Barra superior de ações */}
         <div className="flex items-center justify-between pb-3 border-b border-border print:hidden pr-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <FileText className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-base font-bold text-foreground">
-                Documento Oficial de Relatório • UniFAP
+                Relatório Oficial do Sistema • UniFAP
               </h2>
               <p className="text-[11px] text-muted-foreground">
-                Visualização formatada para papel A4 e auditoria institucional
+                Documento de auditoria e prestação de contas do setor de TI & Multimídia
               </p>
             </div>
           </div>
@@ -199,15 +205,16 @@ export function ReportPrintableDocument({
           className="print-area bg-white text-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 shadow-sm print:border-none print:shadow-none print:p-4 text-xs font-sans space-y-4"
         >
           {/* Cabeçalho Institucional */}
-          <div className="border-b-2 border-neutral-800 pb-3 flex items-start justify-between gap-4">
+          <div className="border-b-2 border-neutral-800 pb-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img
                 src="/brand/logo-unifap.png"
                 alt="UniFAP"
-                className="h-10 w-auto object-contain shrink-0"
+                className="logo-unifap h-9 w-auto object-contain shrink-0"
+                style={{ height: "36px", width: "auto", maxHeight: "38px" }}
               />
               <div className="space-y-0.5 border-l border-neutral-300 pl-3">
-                <div className="font-black text-sm uppercase tracking-wider text-neutral-900">
+                <div className="font-black text-xs sm:text-sm uppercase tracking-wider text-neutral-900">
                   CENTRO UNIVERSITÁRIO PARAÍSO • UNIFAP
                 </div>
                 <p className="text-[11px] font-semibold text-neutral-700">
@@ -219,12 +226,12 @@ export function ReportPrintableDocument({
               </div>
             </div>
 
-            <div className="text-right shrink-0">
+            <div className="text-right shrink-0 min-w-[130px]">
               <div className="px-2.5 py-1 bg-neutral-100 border border-neutral-300 rounded font-mono font-bold text-xs text-neutral-900">
                 RELATÓRIO OFICIAL
               </div>
-              <span className="text-[9px] text-neutral-500 block mt-0.5">
-                Emitido em: {formatDateTime(report.generatedAt)}
+              <span className="text-[9px] text-neutral-500 block mt-0.5 whitespace-nowrap">
+                Emitido: {formatDate(report.generatedAt)}
               </span>
             </div>
           </div>

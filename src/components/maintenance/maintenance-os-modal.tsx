@@ -214,10 +214,17 @@ export function MaintenanceOsModal({
             table { width: 100%; border-collapse: collapse; }
             td { vertical-align: top; }
             img { max-width: 100%; display: block; }
+            .logo-unifap { height: 38px !important; width: auto !important; max-height: 40px !important; object-fit: contain !important; flex-shrink: 0 !important; }
+            .h-9 { height: 36px !important; }
+            .h-10 { height: 40px !important; }
+            .w-auto { width: auto !important; }
+            .shrink-0 { flex-shrink: 0 !important; }
+            .whitespace-nowrap { white-space: nowrap !important; }
             svg { display: none; }
             @media print {
               body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 0 !important; }
               .print-area { border: none !important; box-shadow: none !important; padding: 0 !important; }
+              .logo-unifap { height: 38px !important; width: auto !important; max-height: 40px !important; }
             }
           </style>
         </head>
@@ -308,15 +315,16 @@ export function MaintenanceOsModal({
           className="print-area bg-white text-neutral-900 p-6 sm:p-8 rounded-2xl border border-neutral-300 shadow-sm print:border-none print:shadow-none print:p-4 text-xs font-sans space-y-4"
         >
           {/* Cabeçalho Institucional */}
-          <div className="border-b-2 border-neutral-800 pb-3 flex items-start justify-between gap-4">
+          <div className="border-b-2 border-neutral-800 pb-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <img
                 src="/brand/logo-unifap.png"
                 alt="UniFAP"
-                className="h-10 w-auto object-contain shrink-0"
+                className="logo-unifap h-9 w-auto object-contain shrink-0"
+                style={{ height: "36px", width: "auto", maxHeight: "38px" }}
               />
               <div className="space-y-0.5 border-l border-neutral-300 pl-3">
-                <div className="font-black text-sm uppercase tracking-wider text-neutral-900">
+                <div className="font-black text-xs sm:text-sm uppercase tracking-wider text-neutral-900">
                   CENTRO UNIVERSITÁRIO PARAÍSO • UNIFAP
                 </div>
                 <p className="text-[11px] font-semibold text-neutral-700">
@@ -328,12 +336,12 @@ export function MaintenanceOsModal({
               </div>
             </div>
 
-            <div className="text-right shrink-0">
+            <div className="text-right shrink-0 min-w-[120px]">
               <div className="px-2.5 py-1 bg-neutral-100 border border-neutral-300 rounded font-mono font-bold text-xs text-neutral-900">
                 {orderNum}
               </div>
-              <span className="text-[9px] text-neutral-500 block mt-0.5">
-                Emitido em: {formatDateTime(maintenance.entryDate)}
+              <span className="text-[9px] text-neutral-500 block mt-0.5 whitespace-nowrap">
+                Emitido: {formatDate(maintenance.entryDate)}
               </span>
             </div>
           </div>
