@@ -21,7 +21,8 @@ import {
   Globe,
   Terminal,
   Code2,
-  ExternalLink
+  ExternalLink,
+  Edit
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BoxFormModal } from "@/components/cabinet/box-form-modal";
 import { DoorFormModal } from "@/components/cabinet/door-form-modal";
+import { CategoryFormModal } from "@/components/categories/category-form-modal";
 import { toast } from "sonner";
 
 export default function ConfiguracoesPage() {
@@ -38,6 +40,8 @@ export default function ConfiguracoesPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [isBoxModalOpen, setIsBoxModalOpen] = useState(false);
   const [isDoorModalOpen, setIsDoorModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Playground de Teste de API
@@ -74,6 +78,37 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleOpenCreateCategory = () => {
+    setCategoryToEdit(null);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat: any) => {
+    setCategoryToEdit(cat);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleDeleteCategory = async (cat: any) => {
+    if (!confirm(`Deseja realmente excluir a categoria "${cat.name}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/v1/categories/${cat.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success("Categoria excluída com sucesso!");
+        fetchData();
+      } else {
+        toast.error(json.error || "Erro ao excluir categoria.");
+      }
+    } catch (err) {
+      toast.error("Erro na comunicação com o servidor.");
+    }
+  };
 
   const handleTestQuery = async () => {
     try {
@@ -290,46 +325,89 @@ export default function ConfiguracoesPage() {
 
         {/* ABA: Categorias */}
         <TabsContent value="categorias" className="space-y-4 pt-4">
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <Card className="shadow-xs rounded-2xl sm:rounded-3xl border-border/80">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
               <div>
-                <CardTitle className="text-sm font-bold text-foreground">
-                  Categorias do Catálogo ({categories.length})
+                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-primary" />
+                  <span>Categorias do Catálogo ({categories.length})</span>
                 </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Segmentação dos materiais e equipamentos de TI
+                <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                  Segmentação dos materiais, insumos e equipamentos de TI
                 </CardDescription>
               </div>
+
+              <Button
+                onClick={handleOpenCreateCategory}
+                size="sm"
+                className="h-9 px-3.5 gap-1.5 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 text-white font-semibold text-xs shadow-md shadow-primary/20 shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nova Categoria</span>
+              </Button>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Itens Vinculados</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {categories.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="font-bold text-xs text-foreground">
-                        {c.name}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        {c.slug}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {c.description || "-"}
-                      </TableCell>
-                      <TableCell className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                        {c._count?.items || 0} itens
-                      </TableCell>
+            <CardContent className="p-0 sm:p-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="text-xs font-bold py-3 px-4">Nome</TableHead>
+                      <TableHead className="text-xs font-bold py-3 px-4">Slug</TableHead>
+                      <TableHead className="text-xs font-bold py-3 px-4">Descrição</TableHead>
+                      <TableHead className="text-xs font-bold py-3 px-4">Itens Vinculados</TableHead>
+                      <TableHead className="text-xs font-bold py-3 px-4 text-right">Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-xs text-muted-foreground">
+                          Nenhuma categoria cadastrada. Clique em "Nova Categoria" para começar.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      categories.map((c) => (
+                        <TableRow key={c.id} className="hover:bg-muted/20">
+                          <TableCell className="font-bold text-xs text-foreground py-3 px-4">
+                            {c.name}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground py-3 px-4">
+                            {c.slug}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground py-3 px-4 max-w-xs truncate">
+                            {c.description || "-"}
+                          </TableCell>
+                          <TableCell className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 py-3 px-4">
+                            {c._count?.items || 0} itens
+                          </TableCell>
+                          <TableCell className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEditCategory(c)}
+                                className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-foreground"
+                                title="Editar categoria"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteCategory(c)}
+                                className="h-8 w-8 p-0 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                                title="Excluir categoria"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -614,6 +692,13 @@ export default function ConfiguracoesPage() {
       <DoorFormModal
         isOpen={isDoorModalOpen}
         onClose={() => setIsDoorModalOpen(false)}
+        onSuccess={fetchData}
+      />
+
+      <CategoryFormModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        categoryToEdit={categoryToEdit}
         onSuccess={fetchData}
       />
     </div>
