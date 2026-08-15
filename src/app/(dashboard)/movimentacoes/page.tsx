@@ -16,7 +16,10 @@ import {
   User, 
   Boxes,
   FileSpreadsheet,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  RotateCcw,
+  X
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,14 +39,22 @@ export default function MovimentacoesPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const fetchMovements = async () => {
+  const isFilterActive = searchTerm.trim() !== "" || typeFilter !== "ALL" || startDate !== "" || endDate !== "";
+
+  const fetchMovements = async (overrideSearch?: string, overrideType?: string, overrideStart?: string, overrideEnd?: string) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
-      if (typeFilter !== "ALL") params.append("type", typeFilter);
-      if (startDate) params.append("startDate", startDate);
-      if (endDate) params.append("endDate", endDate);
+      
+      const sTerm = overrideSearch !== undefined ? overrideSearch : searchTerm;
+      const tFilter = overrideType !== undefined ? overrideType : typeFilter;
+      const sDate = overrideStart !== undefined ? overrideStart : startDate;
+      const eDate = overrideEnd !== undefined ? overrideEnd : endDate;
+
+      if (sTerm.trim()) params.append("search", sTerm.trim());
+      if (tFilter !== "ALL") params.append("type", tFilter);
+      if (sDate) params.append("startDate", sDate);
+      if (eDate) params.append("endDate", eDate);
 
       const res = await fetch(`/api/v1/movements?${params.toString()}`);
       const json = await res.json();
@@ -67,6 +78,14 @@ export default function MovimentacoesPage() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     fetchMovements();
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setTypeFilter("ALL");
+    setStartDate("");
+    setEndDate("");
+    fetchMovements("", "ALL", "", "");
   };
 
   // Exportar para CSV formatado com UTF-8 BOM
@@ -228,7 +247,7 @@ export default function MovimentacoesPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchMovements}
+            onClick={() => fetchMovements()}
             className="gap-1.5 rounded-xl text-xs h-9"
             title="Atualizar lista"
           >
@@ -362,50 +381,81 @@ export default function MovimentacoesPage() {
           </div>
 
           {/* Search, Type e Datas */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-1">
-            <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-xl">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Buscar por item, SKU, operador, caixa (ex: C001) ou justificativa..."
-                className="pl-10 h-10 rounded-xl text-xs bg-background w-full shadow-xs"
-              />
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+            <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 flex-1 max-w-xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por item, SKU, operador, caixa (ex: C001) ou justificativa..."
+                  className="pl-10 h-10 rounded-xl text-xs bg-background w-full shadow-xs"
+                />
+              </div>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-10 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground shadow-xs shrink-0"
+              >
+                Buscar
+              </Button>
             </form>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               {/* Filtro de Tipo Específico */}
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs"
-              >
-                <option value="ALL">Todos os Tipos</option>
-                <option value="ENTRY">Entrada</option>
-                <option value="EXIT">Saída / Baixa</option>
-                <option value="TRANSFER">Transferência</option>
-                <option value="ADJUSTMENT">Ajuste</option>
-                <option value="LOAN">Empréstimo</option>
-                <option value="RETURN">Devolução</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="h-10 pl-3 pr-9 rounded-xl border border-input bg-background text-xs font-medium text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs appearance-none cursor-pointer"
+                >
+                  <option value="ALL">Todos os Tipos</option>
+                  <option value="ENTRY">Entrada</option>
+                  <option value="EXIT">Saída</option>
+                  <option value="TRANSFER">Transferência</option>
+                  <option value="ADJUSTMENT">Ajuste</option>
+                  <option value="LOAN">Empréstimo</option>
+                  <option value="RETURN">Devolução</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
 
               {/* Data Inicial */}
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-10 px-3 rounded-xl text-xs bg-background w-36 shadow-xs"
-                title="Data inicial"
-              />
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-10 px-3 rounded-xl text-xs bg-background w-36 shadow-xs font-medium"
+                  title="Data inicial"
+                />
+              </div>
 
               {/* Data Final */}
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-10 px-3 rounded-xl text-xs bg-background w-36 shadow-xs"
-                title="Data final"
-              />
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-10 px-3 rounded-xl text-xs bg-background w-36 shadow-xs font-medium"
+                  title="Data final"
+                />
+              </div>
+
+              {/* Botão Limpar Filtros */}
+              {isFilterActive && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="h-10 px-3 rounded-xl text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground bg-background hover:bg-muted shadow-xs"
+                  title="Limpar todos os filtros"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Limpar Filtros</span>
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>

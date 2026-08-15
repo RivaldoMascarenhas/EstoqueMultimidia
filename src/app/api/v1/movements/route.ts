@@ -23,11 +23,13 @@ export async function GET(req: NextRequest) {
 
     if (startDate || endDate) {
       whereClause.createdAt = {};
-      if (startDate) whereClause.createdAt.gte = new Date(startDate);
+      if (startDate) {
+        const start = new Date(`${startDate}T00:00:00`);
+        whereClause.createdAt.gte = isNaN(start.getTime()) ? new Date(startDate) : start;
+      }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        whereClause.createdAt.lte = end;
+        const end = new Date(`${endDate}T23:59:59.999`);
+        whereClause.createdAt.lte = isNaN(end.getTime()) ? new Date(endDate) : end;
       }
     }
 
