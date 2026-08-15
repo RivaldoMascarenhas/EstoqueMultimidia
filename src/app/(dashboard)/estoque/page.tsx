@@ -364,7 +364,7 @@ export default function EstoquePage() {
                       {/* Ações */}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {/* Botão Dar Baixa */}
+                          {/* Botão Saída */}
                           {firstBox && (
                             <Button
                               size="sm"
@@ -383,10 +383,10 @@ export default function EstoquePage() {
                               }
                               disabled={firstBoxQty <= 0}
                               className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
-                              title={`Dar baixa de ${item.name} na Caixa ${firstBox.code}`}
+                              title={`Registrar saída de ${item.name} na Caixa ${firstBox.code}`}
                             >
                               <ArrowDownLeft className="w-3.5 h-3.5" />
-                              <span>Baixar</span>
+                              <span>Saída</span>
                             </Button>
                           )}
 

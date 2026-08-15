@@ -214,7 +214,7 @@ export default function BoxDetailsPage() {
               Operação Rápida no Armário:
             </span>
             <p className="text-muted-foreground text-[11px] leading-relaxed">
-              Use os botões <strong>"Dar Baixa"</strong> para registrar a retirada de cabos/materiais pelo setor, <strong>"Entrada"</strong> para adicionar novas compras ou <strong>"Transferir"</strong> para mover itens para outra caixa.
+              Use os botões <strong>"Saída"</strong> para registrar a retirada de cabos/materiais pelo setor, <strong>"Entrada"</strong> para adicionar novas compras ou <strong>"Transferir"</strong> para mover itens para outra caixa.
             </p>
           </div>
         </div>
@@ -282,7 +282,7 @@ export default function BoxDetailsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* BOTÃO DAR BAIXA */}
+                        {/* BOTÃO SAÍDA */}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -302,7 +302,7 @@ export default function BoxDetailsPage() {
                           className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
                         >
                           <ArrowDownLeft className="w-3.5 h-3.5" />
-                          <span>Baixar</span>
+                          <span>Saída</span>
                         </Button>
 
                         {/* BOTÃO ENTRADA */}

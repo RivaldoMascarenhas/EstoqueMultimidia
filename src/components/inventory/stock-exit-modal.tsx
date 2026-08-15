@@ -119,7 +119,7 @@ export function StockExitModal({
             </div>
             <div>
               <DialogTitle className="text-base font-bold text-foreground">
-                Dar Baixa / Saída de Material
+                Registrar Saída de Material
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 Registrar retirada física de itens desta caixa
@@ -246,7 +246,7 @@ export function StockExitModal({
                 className="rounded-xl gap-1.5 font-bold shadow-md shadow-rose-600/20"
               >
                 <ArrowDownLeft className="w-4 h-4" />
-                <span>Confirmar Baixa ({quantity} {item.unit})</span>
+                <span>Confirmar Saída ({quantity} {item.unit})</span>
               </Button>
             </DialogFooter>
           </form>
