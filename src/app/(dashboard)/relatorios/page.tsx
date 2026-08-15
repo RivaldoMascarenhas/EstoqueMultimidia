@@ -86,12 +86,12 @@ export default function RelatoriosPage() {
       const today = new Date().toISOString().slice(0, 10);
       let filename = `relatorio-unifap-${selectedReportType.toLowerCase()}-${today}.csv`;
 
-      if (selectedReportType === "INVENTORY") {
-        headers = ["Porta", "Código Caixa", "Nome Caixa", "Patrimônios Guardados", "Materiais Guardados"];
+      if (reportData.reportType === "INVENTORY" && Array.isArray(reportData.data)) {
+        headers = ["Porta", "Código Caixa", "Nome Caixa", "Patrimônios Armazenados", "Materiais e Insumos"];
         reportData.data.forEach((door: any) => {
-          door.boxes.forEach((box: any) => {
-            const assetsList = box.assets.map((a: any) => `#${a.assetTag} (${a.item?.name})`).join(" | ");
-            const invList = box.inventories.map((inv: any) => `${inv.item?.name}: ${inv.quantity} ${inv.item?.unit}`).join(" | ");
+          door.boxes?.forEach((box: any) => {
+            const assetsList = box.assets?.map((a: any) => `#${a.assetTag} (${a.item?.name})`).join(" | ");
+            const invList = box.inventories?.map((i: any) => `${i.item?.name}: ${i.quantity} ${i.item?.unit}`).join(" | ");
             rows.push([
               `"${door.name}"`,
               `"${box.code}"`,
@@ -101,7 +101,7 @@ export default function RelatoriosPage() {
             ].join(";"));
           });
         });
-      } else if (selectedReportType === "CRITICAL_STOCK") {
+      } else if (reportData.reportType === "CRITICAL_STOCK" && Array.isArray(reportData.data?.allItems)) {
         headers = ["Item / Material", "SKU", "Categoria", "Saldo Atual", "Estoque Mínimo", "Estoque Ideal", "Sugestão de Compra", "Localização Armário"];
         reportData.data.allItems.forEach((item: any) => {
           rows.push([
@@ -115,7 +115,7 @@ export default function RelatoriosPage() {
             `"${item.boxes || "-"}"`
           ].join(";"));
         });
-      } else if (selectedReportType === "LOANS") {
+      } else if (reportData.reportType === "LOANS" && Array.isArray(reportData.data)) {
         headers = ["Protocolo", "Solicitante", "Equipamento", "Patrimônio", "Destino", "Data Retirada", "Data Prevista", "Status"];
         reportData.data.forEach((loan: any) => {
           rows.push([
@@ -129,7 +129,7 @@ export default function RelatoriosPage() {
             `"${loan.status}"`
           ].join(";"));
         });
-      } else if (selectedReportType === "MAINTENANCE") {
+      } else if (reportData.reportType === "MAINTENANCE" && Array.isArray(reportData.data)) {
         headers = ["Nº Ordem de Serviço", "Equipamento", "Patrimônio", "Defeito", "Prestador", "Peças Substituídas", "Status", "Custo (R$)"];
         reportData.data.forEach((m: any) => {
           rows.push([
@@ -143,7 +143,7 @@ export default function RelatoriosPage() {
             m.cost ? Number(m.cost).toFixed(2) : "0.00"
           ].join(";"));
         });
-      } else if (selectedReportType === "MOVEMENTS") {
+      } else if (reportData.reportType === "MOVEMENTS" && Array.isArray(reportData.data)) {
         headers = ["Data/Hora", "Tipo", "Item", "Quantidade", "Origem", "Destino", "Operador", "Justificativa"];
         reportData.data.forEach((mov: any) => {
           rows.push([
@@ -386,118 +386,118 @@ export default function RelatoriosPage() {
             
             {/* 1. KPIs do Relatório */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {selectedReportType === "INVENTORY" && (
+              {reportData.reportType === "INVENTORY" && reportData.summary && (
                 <>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Portas Ativas</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalDoors}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalDoors || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Caixas Físicas</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalBoxes}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalBoxes || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-primary">Patrimônios Guardados</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalAssetsCount}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalAssetsCount || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Total Unidades Material</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalMaterialsUnits}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalMaterialsUnits || 0}</p>
                   </div>
                 </>
               )}
 
-              {selectedReportType === "CRITICAL_STOCK" && (
+              {reportData.reportType === "CRITICAL_STOCK" && reportData.summary && (
                 <>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Itens no Catálogo</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalCatalogItems}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalCatalogItems || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400">Estoque Crítico</span>
-                    <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">{reportData.summary.criticalCount}</p>
+                    <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">{reportData.summary.criticalCount || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">Estoque Baixo</span>
-                    <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">{reportData.summary.lowCount}</p>
+                    <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">{reportData.summary.lowCount || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Unidades p/ Reposição</span>
-                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">+{reportData.summary.totalUnitsNeeded}</p>
+                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">+{reportData.summary.totalUnitsNeeded || 0}</p>
                   </div>
                 </>
               )}
 
-              {selectedReportType === "LOANS" && (
+              {reportData.reportType === "LOANS" && reportData.summary && (
                 <>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Empréstimos</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalLoans}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalLoans || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-purple-600 dark:text-purple-400">Ativos em Uso</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.activeCount}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.activeCount || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Taxa Pontualidade</span>
-                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{reportData.summary.punctualityRate}%</p>
+                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{reportData.summary.punctualityRate || 0}%</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400">Devoluções c/ Avaria</span>
-                    <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">{reportData.summary.returnedDamaged}</p>
+                    <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">{reportData.summary.returnedDamaged || 0}</p>
                   </div>
                 </>
               )}
 
-              {selectedReportType === "MAINTENANCE" && (
+              {reportData.reportType === "MAINTENANCE" && reportData.summary && (
                 <>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Total Chamados</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalOrders}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalOrders || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Concluídos</span>
-                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{reportData.summary.completedCount}</p>
+                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">{reportData.summary.completedCount || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-blue-600 dark:text-blue-400">Lâmpadas Trocadas</span>
-                    <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{reportData.summary.totalLampsReplaced}</p>
+                    <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{reportData.summary.totalLampsReplaced || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">Custo Total (R$)</span>
-                    <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">{formatCurrency(reportData.summary.totalCost)}</p>
+                    <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">{formatCurrency(reportData.summary.totalCost || 0)}</p>
                   </div>
                 </>
               )}
 
-              {selectedReportType === "MOVEMENTS" && (
+              {reportData.reportType === "MOVEMENTS" && reportData.summary && (
                 <>
                   <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/60 text-center">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Movimentações</span>
-                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalMovements}</p>
+                    <p className="text-xl font-extrabold text-foreground mt-0.5">{reportData.summary.totalMovements || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Entradas (Qtd)</span>
-                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">+{reportData.summary.totalEntriesQty}</p>
+                    <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">+{reportData.summary.totalEntriesQty || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400">Saídas / Baixas (Qtd)</span>
-                    <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">-{reportData.summary.totalExitsQty}</p>
+                    <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400 mt-0.5">-{reportData.summary.totalExitsQty || 0}</p>
                   </div>
                   <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-center">
                     <span className="text-[10px] font-bold uppercase text-blue-600 dark:text-blue-400">Transferências</span>
-                    <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{reportData.summary.totalTransfersQty}</p>
+                    <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-0.5">{reportData.summary.totalTransfersQty || 0}</p>
                   </div>
                 </>
               )}
             </div>
 
             {/* 2. Tabela com Dados do Relatório */}
-            <div className="overflow-x-auto border border-border/80 rounded-2xl">
+            <div className="border border-border/80 rounded-2xl">
               <Table className="min-w-[900px]">
                 <TableHeader className="bg-muted/40">
                   <TableRow>
-                    {selectedReportType === "INVENTORY" && (
+                    {reportData.reportType === "INVENTORY" && (
                       <>
                         <TableHead className="text-xs font-bold">Porta & Caixa</TableHead>
                         <TableHead className="text-xs font-bold">Identificação</TableHead>
@@ -505,7 +505,7 @@ export default function RelatoriosPage() {
                         <TableHead className="text-xs font-bold">Materiais e Insumos</TableHead>
                       </>
                     )}
-                    {selectedReportType === "CRITICAL_STOCK" && (
+                    {reportData.reportType === "CRITICAL_STOCK" && (
                       <>
                         <TableHead className="text-xs font-bold">Item / Material</TableHead>
                         <TableHead className="text-xs font-bold">SKU</TableHead>
@@ -516,7 +516,7 @@ export default function RelatoriosPage() {
                         <TableHead className="text-xs font-bold text-right">Sugestão Compra</TableHead>
                       </>
                     )}
-                    {selectedReportType === "LOANS" && (
+                    {reportData.reportType === "LOANS" && (
                       <>
                         <TableHead className="text-xs font-bold">Protocolo</TableHead>
                         <TableHead className="text-xs font-bold">Solicitante</TableHead>
@@ -526,7 +526,7 @@ export default function RelatoriosPage() {
                         <TableHead className="text-xs font-bold">Status</TableHead>
                       </>
                     )}
-                    {selectedReportType === "MAINTENANCE" && (
+                    {reportData.reportType === "MAINTENANCE" && (
                       <>
                         <TableHead className="text-xs font-bold">Nº OS</TableHead>
                         <TableHead className="text-xs font-bold">Equipamento</TableHead>
@@ -536,7 +536,7 @@ export default function RelatoriosPage() {
                         <TableHead className="text-xs font-bold text-right">Custo (R$)</TableHead>
                       </>
                     )}
-                    {selectedReportType === "MOVEMENTS" && (
+                    {reportData.reportType === "MOVEMENTS" && (
                       <>
                         <TableHead className="text-xs font-bold">Data/Hora</TableHead>
                         <TableHead className="text-xs font-bold">Tipo</TableHead>
@@ -549,8 +549,8 @@ export default function RelatoriosPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {selectedReportType === "INVENTORY" && reportData.data.map((door: any) =>
-                    door.boxes.map((box: any) => (
+                  {reportData.reportType === "INVENTORY" && Array.isArray(reportData.data) && reportData.data.map((door: any) =>
+                    door.boxes?.map((box: any) => (
                       <TableRow key={box.id} className="hover:bg-muted/20">
                         <TableCell className="font-mono text-xs font-bold text-primary">
                           {door.name} / {box.code}
@@ -559,10 +559,10 @@ export default function RelatoriosPage() {
                           {box.name}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {box.assets.length === 0 ? (
+                          {box.assets?.length === 0 ? (
                             <span className="text-muted-foreground italic text-[11px]">Nenhum patrimônio</span>
                           ) : (
-                            box.assets.map((a: any) => (
+                            box.assets?.map((a: any) => (
                               <span key={a.id} className="inline-block bg-primary/10 text-primary px-1.5 py-0.5 rounded font-mono text-[10px] mr-1 mb-1">
                                 #{a.assetTag}
                               </span>
@@ -570,10 +570,10 @@ export default function RelatoriosPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {box.inventories.length === 0 ? (
+                          {box.inventories?.length === 0 ? (
                             <span className="text-muted-foreground italic text-[11px]">Nenhum material</span>
                           ) : (
-                            box.inventories.map((inv: any) => (
+                            box.inventories?.map((inv: any) => (
                               <span key={inv.id} className="block text-[11px] text-muted-foreground">
                                 {inv.item?.name}: <strong className="text-foreground font-mono">{inv.quantity} {inv.item?.unit}</strong>
                               </span>
@@ -584,7 +584,7 @@ export default function RelatoriosPage() {
                     ))
                   )}
 
-                  {selectedReportType === "CRITICAL_STOCK" && reportData.data.allItems.map((item: any) => (
+                  {reportData.reportType === "CRITICAL_STOCK" && Array.isArray(reportData.data?.allItems) && reportData.data.allItems.map((item: any) => (
                     <TableRow key={item.id} className="hover:bg-muted/20">
                       <TableCell className="text-xs font-bold">{item.name}</TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground">{item.sku}</TableCell>
@@ -600,7 +600,7 @@ export default function RelatoriosPage() {
                     </TableRow>
                   ))}
 
-                  {selectedReportType === "LOANS" && reportData.data.map((loan: any) => (
+                  {reportData.reportType === "LOANS" && Array.isArray(reportData.data) && reportData.data.map((loan: any) => (
                     <TableRow key={loan.id} className="hover:bg-muted/20">
                       <TableCell className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400">LOAN-{loan.id.slice(-8).toUpperCase()}</TableCell>
                       <TableCell className="text-xs font-semibold">{loan.borrowerName}</TableCell>
@@ -611,7 +611,7 @@ export default function RelatoriosPage() {
                     </TableRow>
                   ))}
 
-                  {selectedReportType === "MAINTENANCE" && reportData.data.map((m: any) => (
+                  {reportData.reportType === "MAINTENANCE" && Array.isArray(reportData.data) && reportData.data.map((m: any) => (
                     <TableRow key={m.id} className="hover:bg-muted/20">
                       <TableCell className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">{m.orderNumber || m.id.slice(0, 8)}</TableCell>
                       <TableCell className="text-xs font-semibold">{m.asset?.item?.name} (#{m.asset?.assetTag})</TableCell>
@@ -622,7 +622,7 @@ export default function RelatoriosPage() {
                     </TableRow>
                   ))}
 
-                  {selectedReportType === "MOVEMENTS" && reportData.data.map((mov: any) => (
+                  {reportData.reportType === "MOVEMENTS" && Array.isArray(reportData.data) && reportData.data.map((mov: any) => (
                     <TableRow key={mov.id} className="hover:bg-muted/20">
                       <TableCell className="text-xs font-mono text-muted-foreground">{formatDateTime(mov.createdAt)}</TableCell>
                       <TableCell className="text-xs font-bold">{mov.type}</TableCell>
