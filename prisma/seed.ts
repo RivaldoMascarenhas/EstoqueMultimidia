@@ -415,13 +415,19 @@ async function main() {
 
   await prisma.maintenance.create({
     data: {
+      orderNumber: 'OS-2026-0001',
       assetId: assetProjetor3.id,
       issueDescription: 'Lâmpada com vida útil esgotada - necessita troca da lâmpada original e limpeza do filtro',
+      maintenanceType: 'EXTERNAL',
+      priority: 'HIGH',
       entryDate: new Date('2026-08-08T14:00:00Z'),
       status: MaintenanceStatus.IN_PROGRESS,
       serviceProvider: 'Assistência Técnica Especializada Projetores AP',
       cost: 450.00,
       technicalNotes: 'Orçamento aprovado. Aguardando chegada da peça de reposição',
+      replacedParts: 'Lâmpada Epson ELPLP96 Original',
+      contactName: 'Carlos Assistência',
+      contactPhone: '(88) 99876-5432',
       createdByUserId: rivaldo.id,
     },
   });

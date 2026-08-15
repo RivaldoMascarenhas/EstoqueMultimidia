@@ -64,15 +64,16 @@ enum MaintenanceStatus {
 // ----------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  passwordHash  String
-  role          Role      @default(OPERADOR)
-  active        Boolean   @default(true)
-  avatarUrl     String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  name               String
+  email              String    @unique
+  passwordHash       String
+  role               Role      @default(OPERADOR)
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  avatarUrl          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   movements     StockMovement[]
   loansCreated  Loan[]            @relation("LoanCreator")
@@ -282,15 +283,24 @@ model Loan {
 
 model Maintenance {
   id                String            @id @default(cuid())
+  orderNumber       String?           @unique // ex: "OS-2026-0001"
   assetId           String
   asset             Asset             @relation(fields: [assetId], references: [id], onDelete: Restrict)
   issueDescription  String            // ex: "Lâmpada com defeito", "Sem sinal HDMI"
+  maintenanceType   String?           @default("CORRECTIVE") // "CORRECTIVE", "PREVENTIVE", "EXTERNAL", "INTERNAL"
+  priority          String?           @default("MEDIUM")     // "LOW", "MEDIUM", "HIGH", "CRITICAL"
   entryDate         DateTime          @default(now())
   exitDate          DateTime?
   status            MaintenanceStatus @default(IN_PROGRESS)
   serviceProvider   String?           // Técnico / Empresa responsável
   cost              Decimal?          @db.Decimal(10, 2)
-  technicalNotes    String?           // Laudo / Solução aplicada
+  diagnosis         String?           // Diagnóstico preliminar / laudo de entrada
+  solution          String?           // Solução técnica aplicada / reparo efetuado
+  technicalNotes    String?           // Laudo / Solução aplicada / observações gerais
+  replacedParts     String?           // Peças ou componentes substituídos (ex: Lâmpada ELPLP96)
+  lampHours         Int?              // Horímetro da lâmpada trocada (se aplicável)
+  contactName       String?           // Nome do contato na assistência ou solicitante
+  contactPhone      String?           // WhatsApp / Telefone para contato
   createdByUserId   String
   createdByUser     User              @relation("MaintenanceCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
   completedByUserId String?
@@ -300,6 +310,7 @@ model Maintenance {
 
   @@index([assetId])
   @@index([status])
+  @@index([orderNumber])
 }
 
 // ----------------------------------------------------

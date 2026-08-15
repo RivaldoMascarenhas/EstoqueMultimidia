@@ -13,11 +13,20 @@ import {
   CheckCircle2,
   Trash2,
   Lock,
-  Copy
+  Copy,
+  Send,
+  Sparkles,
+  Bot,
+  Zap,
+  Globe,
+  Terminal,
+  Code2,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { BoxFormModal } from "@/components/cabinet/box-form-modal";
@@ -30,6 +39,17 @@ export default function ConfiguracoesPage() {
   const [isBoxModalOpen, setIsBoxModalOpen] = useState(false);
   const [isDoorModalOpen, setIsDoorModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Playground de Teste de API
+  const [testQuery, setTestQuery] = useState("HDMI");
+  const [testResult, setTestResult] = useState<any | null>(null);
+  const [isTestingQuery, setIsTestingQuery] = useState(false);
+
+  // Simulador de Webhook n8n
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookEvent, setWebhookEvent] = useState("LOAN_OVERDUE_ALERT");
+  const [isSendingWebhook, setIsSendingWebhook] = useState(false);
+  const [webhookResponse, setWebhookResponse] = useState<any | null>(null);
 
   const fetchData = async () => {
     try {
@@ -55,6 +75,63 @@ export default function ConfiguracoesPage() {
     fetchData();
   }, []);
 
+  const handleTestQuery = async () => {
+    try {
+      setIsTestingQuery(true);
+      const res = await fetch(`/api/v1/external/query?q=${encodeURIComponent(testQuery)}`, {
+        headers: {
+          Authorization: "Bearer unifap_sec_n8n_master_integration_key_2026",
+        },
+      });
+      const json = await res.json();
+      setTestResult(json);
+      if (json.success) {
+        toast.success("Consulta executada com sucesso!");
+      } else {
+        toast.error(json.error || "Erro na consulta.");
+      }
+    } catch (e) {
+      toast.error("Erro de conexão com o endpoint.");
+    } finally {
+      setIsTestingQuery(false);
+    }
+  };
+
+  const handleSendWebhookTest = async () => {
+    if (!webhookUrl.trim()) {
+      toast.error("Insira a URL do Webhook do n8n para testar o disparo.");
+      return;
+    }
+
+    try {
+      setIsSendingWebhook(true);
+      const res = await fetch("/api/v1/external/webhooks/test", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer unifap_sec_n8n_master_integration_key_2026",
+        },
+        body: JSON.stringify({
+          targetWebhookUrl: webhookUrl.trim(),
+          eventType: webhookEvent,
+        }),
+      });
+
+      const json = await res.json();
+      setWebhookResponse(json);
+
+      if (json.success) {
+        toast.success("Evento de teste enviado com sucesso para o Webhook!");
+      } else {
+        toast.error(json.error || "Falha ao enviar para o webhook.");
+      }
+    } catch (e: any) {
+      toast.error("Erro de requisição ao testar webhook.");
+    } finally {
+      setIsSendingWebhook(false);
+    }
+  };
+
   const doorOptions = doors.map((d) => ({
     id: d.id,
     code: d.code,
@@ -69,7 +146,7 @@ export default function ConfiguracoesPage() {
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
+    <div className="space-y-6 animate-in fade-in-50 duration-300 pb-12">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -83,7 +160,7 @@ export default function ConfiguracoesPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Gerenciamento da estrutura física do armário (Portas e Caixas), Categorias do Catálogo e Chaves de API para integrações.
+            Gerenciamento da estrutura física do armário (Portas e Caixas), Categorias e Integrações de API / n8n / WhatsApp.
           </p>
         </div>
       </div>
@@ -100,7 +177,7 @@ export default function ConfiguracoesPage() {
           </TabsTrigger>
           <TabsTrigger value="api" className="text-xs font-semibold gap-1.5">
             <Key className="w-3.5 h-3.5" />
-            <span>Chaves n8n</span>
+            <span>Chaves & n8n</span>
           </TabsTrigger>
         </TabsList>
 
@@ -111,49 +188,45 @@ export default function ConfiguracoesPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-sm font-bold text-foreground">
-                  Portas do Armário ({doors.length})
+                  Portas do Armário Central ({doors.length})
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Grandes divisões físicas do armário de TI da UniFAP
+                  Portas físicas que abrigam as caixas organizadoras
                 </CardDescription>
               </div>
               <Button
-                onClick={() => setIsDoorModalOpen(true)}
                 size="sm"
-                className="gap-1.5 rounded-xl"
+                onClick={() => setIsDoorModalOpen(true)}
+                className="gap-1.5 rounded-xl h-8 text-xs font-semibold"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Nova Porta</span>
               </Button>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
+                    <TableHead className="w-[100px]">Código</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Descrição</TableHead>
-                    <TableHead>Qtd Caixas</TableHead>
-                    <TableHead>Posição</TableHead>
+                    <TableHead>Caixas Vinculadas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {doors.map((d) => (
-                    <TableRow key={d.id}>
+                  {doors.map((door) => (
+                    <TableRow key={door.id}>
                       <TableCell className="font-mono font-bold text-xs text-primary">
-                        {d.code}
+                        {door.code}
                       </TableCell>
-                      <TableCell className="font-bold text-xs text-foreground">
-                        {d.name}
+                      <TableCell className="font-semibold text-xs text-foreground">
+                        {door.name}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {d.description || "-"}
+                        {door.description || "-"}
                       </TableCell>
-                      <TableCell className="font-mono text-xs font-semibold">
-                        {d.boxes.length} caixas
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
-                        #{d.orderIndex}
+                      <TableCell className="font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                        {door.boxes?.length || 0} caixas
                       </TableCell>
                     </TableRow>
                   ))}
@@ -167,59 +240,45 @@ export default function ConfiguracoesPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-sm font-bold text-foreground">
-                  Caixas Físicas Cadastradas ({allBoxes.length})
+                  Caixas Organizadoras ({allBoxes.length})
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Caixas numeradas com identificador único e QR Code
+                  Caixas identificadas por QR Code para guardar patrimônios e insumos
                 </CardDescription>
               </div>
               <Button
-                onClick={() => setIsBoxModalOpen(true)}
                 size="sm"
-                variant="emerald"
-                className="gap-1.5 rounded-xl"
+                onClick={() => setIsBoxModalOpen(true)}
+                className="gap-1.5 rounded-xl h-8 text-xs font-semibold"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
                 <span>Nova Caixa</span>
               </Button>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
+                    <TableHead className="w-[90px]">Código</TableHead>
                     <TableHead>Nome da Caixa</TableHead>
-                    <TableHead>Porta Alocada</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
+                    <TableHead>Porta</TableHead>
+                    <TableHead>Descrição / Finalidade</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allBoxes.map((b) => (
-                    <TableRow key={b.id}>
+                  {allBoxes.map((box) => (
+                    <TableRow key={box.id}>
                       <TableCell className="font-mono font-bold text-xs text-primary">
-                        {b.code}
+                        {box.code}
                       </TableCell>
-                      <TableCell className="font-bold text-xs text-foreground">
-                        {b.name}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
-                          {b.doorName}
-                        </Badge>
+                      <TableCell className="font-semibold text-xs text-foreground">
+                        {box.name}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {b.description || "-"}
+                        {box.doorName}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.location.href = `/caixas/${b.code}`}
-                          className="h-8 text-xs rounded-xl"
-                        >
-                          Ver Caixa
-                        </Button>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {box.description || "-"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -232,19 +291,21 @@ export default function ConfiguracoesPage() {
         {/* ABA: Categorias */}
         <TabsContent value="categorias" className="space-y-4 pt-4">
           <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold text-foreground">
-                Categorias do Catálogo ({categories.length})
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Agrupamento dos materiais e equipamentos do setor de TI
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle className="text-sm font-bold text-foreground">
+                  Categorias do Catálogo ({categories.length})
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Segmentação dos materiais e equipamentos de TI
+                </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome da Categoria</TableHead>
+                    <TableHead>Nome</TableHead>
                     <TableHead>Slug</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Itens Vinculados</TableHead>
@@ -273,53 +334,272 @@ export default function ConfiguracoesPage() {
           </Card>
         </TabsContent>
 
-        {/* ABA: Chaves de API para n8n */}
-        <TabsContent value="api" className="space-y-4 pt-4">
-          <Card className="shadow-sm">
+        {/* ABA: Chaves de API & n8n / WhatsApp */}
+        <TabsContent value="api" className="space-y-6 pt-4">
+          
+          {/* Card 1: Chave Mestre de Autenticação */}
+          <Card className="shadow-sm rounded-3xl border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-sm font-bold text-foreground">
-                    Chaves de API para Automações (n8n / WhatsApp)
-                  </CardTitle>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
+                      <Key className="w-4 h-4 text-primary" />
+                      <span>Chave de Integração Mestre (n8n / WhatsApp Bots)</span>
+                    </CardTitle>
+                    <Badge variant="available" dot className="text-[10px]">
+                      Ativa
+                    </Badge>
+                  </div>
                   <CardDescription className="text-xs text-muted-foreground">
-                    Chaves de serviço para consulta e disparo de alertas externos
+                    Token de autorização para conectar automações, chatbots e agentes de IA ao sistema.
                   </CardDescription>
                 </div>
-                <Badge variant="available" dot className="text-xs">
-                  API v1 Ativa
-                </Badge>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-foreground">Chave de Serviço Mestre (n8n)</span>
-                  <Badge variant="outline" className="font-mono text-[10px]">Ativa</Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 p-2 rounded-xl bg-background border border-input font-mono text-xs text-muted-foreground">
-                    unifap_sec_n8n_master_integration_key_2026
-                  </code>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText("unifap_sec_n8n_master_integration_key_2026");
-                      toast.success("Chave de API copiada para a área de transferência!");
-                    }}
-                    className="rounded-xl gap-1.5"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copiar</span>
-                  </Button>
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Utilize esta chave no cabeçalho <code className="font-mono text-primary font-bold">Authorization: Bearer unifap_sec_...</code> para conectar seus workflows no n8n.
+
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <code className="flex-1 p-2.5 rounded-xl bg-background border border-input font-mono text-xs text-foreground font-bold select-all">
+                  unifap_sec_n8n_master_integration_key_2026
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText("unifap_sec_n8n_master_integration_key_2026");
+                    toast.success("Chave copiada para a área de transferência!");
+                  }}
+                  className="rounded-xl gap-1.5 h-10 text-xs"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copiar</span>
+                </Button>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
+                <p>
+                  Envie este token no cabeçalho HTTP: <code className="font-mono text-primary font-bold">Authorization: Bearer unifap_sec_n8n_master_integration_key_2026</code> ou <code className="font-mono text-primary font-bold">x-api-key: unifap_sec_...</code>
                 </p>
               </div>
             </CardContent>
           </Card>
+
+          {/* Card 2: Documentação de Rotas da API */}
+          <Card className="shadow-sm rounded-3xl border-border/80">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-primary" />
+                <div>
+                  <CardTitle className="text-sm font-bold text-foreground">
+                    Endpoints REST Disponíveis para Automações
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Rotas criadas para integração com n8n, Typebot e agentes de Inteligência Artificial
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                
+                {/* Rota 1: Query */}
+                <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="default" className="bg-emerald-600 text-white font-mono text-[10px]">
+                      GET
+                    </Badge>
+                    <span className="font-mono text-primary font-bold">/api/v1/external/query</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    Consulta em tempo real de materiais, patrimônios e caixas. Retorna texto pronto para WhatsApp com formatação (*negrito*, emojis).
+                  </p>
+                  <div className="bg-background p-2 rounded-xl border border-border font-mono text-[10px] text-muted-foreground">
+                    Ex: /api/v1/external/query?q=HDMI
+                  </div>
+                </div>
+
+                {/* Rota 2: Loans */}
+                <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="default" className="bg-blue-600 text-white font-mono text-[10px]">
+                      POST
+                    </Badge>
+                    <span className="font-mono text-primary font-bold">/api/v1/external/loans</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    Criação automatizada de empréstimo a partir do fluxo do WhatsApp / n8n com geração de protocolo oficial.
+                  </p>
+                  <div className="bg-background p-2 rounded-xl border border-border font-mono text-[10px] text-muted-foreground">
+                    Body: &#123; assetTag, borrowerName, destination &#125;
+                  </div>
+                </div>
+
+                {/* Rota 3: Returns */}
+                <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="default" className="bg-blue-600 text-white font-mono text-[10px]">
+                      POST
+                    </Badge>
+                    <span className="font-mono text-primary font-bold">/api/v1/external/returns</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    Baixa de devolução rápida com conferência de avarias e reatribuição à caixa do armário.
+                  </p>
+                  <div className="bg-background p-2 rounded-xl border border-border font-mono text-[10px] text-muted-foreground">
+                    Body: &#123; assetTag | protocol, condition, isDamaged &#125;
+                  </div>
+                </div>
+
+                {/* Rota 4: Maintenance */}
+                <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="default" className="bg-amber-600 text-white font-mono text-[10px]">
+                      POST
+                    </Badge>
+                    <span className="font-mono text-primary font-bold">/api/v1/external/maintenance</span>
+                  </div>
+                  <p className="text-muted-foreground text-[11px]">
+                    Abertura de chamado técnico de manutenção / OS automática a partir de relatos no WhatsApp.
+                  </p>
+                  <div className="bg-background p-2 rounded-xl border border-border font-mono text-[10px] text-muted-foreground">
+                    Body: &#123; assetTag, issueDescription &#125;
+                  </div>
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 3: Playground de Consulta para WhatsApp */}
+          <Card className="shadow-sm rounded-3xl border-border/80">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-primary" />
+                <div>
+                  <CardTitle className="text-sm font-bold text-foreground">
+                    Playground: Simulador de Consulta para o WhatsApp
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Teste a resposta do endpoint <code className="font-mono text-primary">/api/v1/external/query</code>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Input
+                  value={testQuery}
+                  onChange={(e) => setTestQuery(e.target.value)}
+                  placeholder="Buscar termo (ex: HDMI, Projetor, C001, #123458)..."
+                  className="h-10 rounded-xl text-xs bg-background"
+                />
+                <Button
+                  onClick={handleTestQuery}
+                  disabled={isTestingQuery}
+                  className="rounded-xl text-xs font-semibold gap-1.5 h-10 px-5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isTestingQuery ? "Consultando..." : "Testar Consulta"}</span>
+                </Button>
+              </div>
+
+              {testResult && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                  {/* Pré-visualização WhatsApp */}
+                  <div className="p-4 rounded-2xl bg-emerald-950/10 border border-emerald-500/30 space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+                      Mensagem formatada para o WhatsApp:
+                    </span>
+                    <pre className="text-xs font-sans whitespace-pre-wrap text-foreground bg-card/60 p-3 rounded-xl border border-border">
+                      {testResult.whatsappMessage}
+                    </pre>
+                  </div>
+
+                  {/* Resposta JSON Pura */}
+                  <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                      Payload JSON Retornado:
+                    </span>
+                    <pre className="text-[10px] font-mono whitespace-pre-wrap text-muted-foreground bg-background p-3 rounded-xl border border-border max-h-48 overflow-y-auto">
+                      {JSON.stringify(testResult, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 4: Simulador de Disparo de Webhook para o n8n */}
+          <Card className="shadow-sm rounded-3xl border-border/80">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-amber-500" />
+                <div>
+                  <CardTitle className="text-sm font-bold text-foreground">
+                    Disparador de Webhook de Teste (n8n)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Envie um evento de teste para o endpoint de Webhook do seu n8n para validar o fluxo
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-foreground mb-1 block">
+                    URL do Webhook (n8n / Typebot):
+                  </label>
+                  <Input
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    placeholder="https://n8n.seuservidor.com/webhook/unifap-alerts"
+                    className="h-10 rounded-xl text-xs bg-background font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1 block">
+                    Tipo de Evento:
+                  </label>
+                  <select
+                    value={webhookEvent}
+                    onChange={(e) => setWebhookEvent(e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+                  >
+                    <option value="LOAN_OVERDUE_ALERT">Empréstimo Atrasado (Alerta)</option>
+                    <option value="CRITICAL_STOCK_ALERT">Estoque Crítico / Zerado</option>
+                    <option value="MAINTENANCE_CREATED">Nova OS Técnica Aberta</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSendWebhookTest}
+                  disabled={isSendingWebhook}
+                  className="rounded-xl text-xs font-semibold gap-1.5 bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSendingWebhook ? "Disparando..." : "Disparar Evento de Teste"}</span>
+                </Button>
+              </div>
+
+              {webhookResponse && (
+                <div className="p-3 rounded-2xl bg-muted/40 border border-border text-xs space-y-1">
+                  <span className="font-bold text-foreground">Resultado do Disparo:</span>
+                  <pre className="text-[10px] font-mono text-muted-foreground bg-background p-2 rounded-xl border border-border overflow-x-auto">
+                    {JSON.stringify(webhookResponse, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
         </TabsContent>
       </Tabs>
 
