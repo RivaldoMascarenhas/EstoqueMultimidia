@@ -65,7 +65,7 @@ export function LoanReceiptModal({
 
   const protocolNumber = `LOAN-${loan.id.slice(-8).toUpperCase()}`;
   const isReturned = loan.status === "RETURNED" || loan.status === "RETURNED_DAMAGED";
-  const operatorName = loan.createdByUser?.name || session?.user?.name || "Suporte de TI - UniFAP";
+  const operatorName = session?.user?.name || loan.createdByUser?.name || "Suporte de TI - UniFAP";
 
   const handlePrint = () => {
     window.print();
@@ -75,7 +75,7 @@ export function LoanReceiptModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-3xl print:p-0 print:m-0 print:border-none print:shadow-none">
         {/* Barra superior de ações (oculta na impressão) */}
-        <div className="flex items-center justify-between pb-3 border-b border-border print:hidden">
+        <div className="flex items-center justify-between pb-3 border-b border-border print:hidden pr-8">
           <div className="flex items-center gap-2">
             <FileCheck2 className="w-5 h-5 text-primary" />
             <h2 className="text-base font-bold text-foreground">
@@ -91,14 +91,6 @@ export function LoanReceiptModal({
             >
               <Printer className="w-4 h-4" />
               <span>Imprimir Termo (A4)</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="rounded-xl"
-            >
-              <X className="w-4 h-4" />
             </Button>
           </div>
         </div>
