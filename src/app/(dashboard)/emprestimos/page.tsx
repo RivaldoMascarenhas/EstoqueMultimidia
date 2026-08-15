@@ -372,12 +372,12 @@ export default function EmprestimosPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="text-xs font-bold uppercase">Protocolo & Equipamento</TableHead>
-                <TableHead className="text-xs font-bold uppercase">Solicitante & Contato</TableHead>
-                <TableHead className="text-xs font-bold uppercase">Destino / Sala</TableHead>
-                <TableHead className="text-xs font-bold uppercase">Datas & Prazo</TableHead>
-                <TableHead className="text-xs font-bold uppercase">Situação</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-right">Ações</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3 pl-6">Protocolo & Equipamento</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3 px-4">Solicitante & Contato</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3 px-4">Destino / Sala</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3 px-4">Datas & Prazo</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3 px-4">Situação</TableHead>
+                <TableHead className="text-xs font-bold uppercase py-3 pr-6 text-right w-[160px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -419,7 +419,7 @@ export default function EmprestimosPage() {
                   return (
                     <TableRow key={loan.id} className="hover:bg-muted/30 transition-colors">
                       {/* Equipamento */}
-                      <TableCell className="py-3">
+                      <TableCell className="py-3.5 pl-6">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
                             <span className="font-mono text-[10px] font-bold text-muted-foreground">
@@ -442,7 +442,7 @@ export default function EmprestimosPage() {
                       </TableCell>
 
                       {/* Solicitante */}
-                      <TableCell className="py-3">
+                      <TableCell className="py-3.5 px-4">
                         <div className="space-y-0.5">
                           <p className="font-semibold text-xs text-foreground flex items-center gap-1">
                             <User className="w-3 h-3 text-muted-foreground" />
@@ -464,7 +464,7 @@ export default function EmprestimosPage() {
                       </TableCell>
 
                       {/* Destino */}
-                      <TableCell className="py-3">
+                      <TableCell className="py-3.5 px-4">
                         <div className="flex items-center gap-1 text-xs text-foreground">
                           <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                           <span className="font-medium">{loan.destination}</span>
@@ -477,7 +477,7 @@ export default function EmprestimosPage() {
                       </TableCell>
 
                       {/* Datas & Prazo */}
-                      <TableCell className="py-3">
+                      <TableCell className="py-3.5 px-4">
                         <div className="space-y-1">
                           <div className="text-[11px] text-muted-foreground">
                             <span>Saída: </span>
@@ -502,27 +502,27 @@ export default function EmprestimosPage() {
                       </TableCell>
 
                       {/* Situação */}
-                      <TableCell className="py-3">
+                      <TableCell className="py-3.5 px-4">
                         {getStatusBadge(loan)}
                       </TableCell>
 
                       {/* Ações */}
-                      <TableCell className="py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <TableCell className="py-3.5 pr-6 text-right w-[160px]">
+                        <div className="flex items-center justify-end gap-1.5">
                           {isActive && (
                             <Button
                               onClick={() => setSelectedLoanForReturn(loan)}
                               size="sm"
-                              className="h-8 px-2.5 rounded-xl text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20"
+                              className="h-8 px-3 rounded-xl text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                             >
                               <PackageCheck className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Devolver</span>
+                              <span>Devolver</span>
                             </Button>
                           )}
 
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl">
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl hover:bg-muted">
                                 <MoreHorizontal className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
