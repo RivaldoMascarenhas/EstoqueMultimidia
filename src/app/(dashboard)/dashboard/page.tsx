@@ -20,7 +20,14 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Wrench,
+  TrendingUp,
+  Activity,
+  Boxes,
+  FileSpreadsheet,
+  Search,
+  ExternalLink
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,46 +40,32 @@ export default function DashboardPage() {
   const userName = session?.user?.name || "Rivaldo";
   const userRole = session?.user?.role || "ADMIN";
 
-  const [loanMetrics, setLoanMetrics] = useState<any>({
-    activeLoans: 1,
-    overdueLoans: 0,
-    returnedLoans: 0,
-    monthLoans: 1,
-  });
-  const [assetMetrics, setAssetMetrics] = useState<any>({
-    total: 4,
-    available: 2,
-    loaned: 1,
-    maintenance: 1,
-    damaged: 0,
-  });
+  const [summary, setSummary] = useState<any>(null);
   const [activeLoans, setActiveLoans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        const [loansRes, assetMetricsRes, activeLoansRes] = await Promise.all([
-          fetch("/api/v1/loans/metrics"),
-          fetch("/api/v1/assets/metrics"),
-          fetch("/api/v1/loans?status=ACTIVE"),
-        ]);
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const [summaryRes, activeLoansRes] = await Promise.all([
+        fetch("/api/v1/dashboard/summary"),
+        fetch("/api/v1/loans?status=ACTIVE"),
+      ]);
 
-        const loansData = await loansRes.json();
-        const assetMetricsData = await assetMetricsRes.json();
-        const activeLoansData = await activeLoansRes.json();
+      const summaryData = await summaryRes.json();
+      const activeLoansData = await activeLoansRes.json();
 
-        if (loansData.success) setLoanMetrics(loansData.data);
-        if (assetMetricsData.success) setAssetMetrics(assetMetricsData.data);
-        if (activeLoansData.success) setActiveLoans(activeLoansData.data);
-      } catch (err) {
-        console.error("Erro ao carregar dados dinâmicos do dashboard:", err);
-      } finally {
-        setIsLoading(false);
-      }
+      if (summaryData.success) setSummary(summaryData.data);
+      if (activeLoansData.success) setActiveLoans(activeLoansData.data);
+    } catch (err) {
+      console.error("Erro ao carregar dados do dashboard:", err);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    loadDashboardData();
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
 
   const getRoleVariant = (role: string) => {
@@ -84,385 +77,598 @@ export default function DashboardPage() {
     }
   };
 
+  const stock = summary?.stock || { totalCatalogItems: 0, totalUnits: 0, criticalCount: 0, lowCount: 0, normalCount: 0 };
+  const assets = summary?.assets || { total: 0, available: 0, loaned: 0, maintenance: 0, damaged: 0, availabilityRate: 100 };
+  const loans = summary?.loans || { activeCount: 0, overdueCount: 0, monthLoansCount: 0 };
+  const maintenance = summary?.maintenance || { openCount: 0, avgDays: "0", criticalCount: 0 };
+  const alerts = summary?.alerts || { overdueLoans: [], criticalStock: [], criticalMaintenance: [], totalAlerts: 0 };
+  const timeline = summary?.timeline || [];
+
   return (
     <div className="space-y-8 animate-in fade-in-50 duration-300">
-      {/* Welcome Banner / Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-3xl bg-gradient-to-r from-primary-600/15 via-indigo-600/10 to-transparent border border-primary-500/20 backdrop-blur-md">
-        <div className="space-y-1.5">
+      
+      {/* 1. Header & Welcome Banner */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-sm">
+        <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1">
+            <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5" />
-              Suporte de TI & Multimídia • UniFAP
+              Painel Integrado • TI & Multimídia UniFAP
             </span>
             <Badge variant={getRoleVariant(userRole)} className="text-[10px]">
               {userRole}
             </Badge>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            Olá, {userName}! 👋
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            Olá, {userName.split(" ")[0]}!
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
-            Bem-vindo ao painel central de controle de estoque, armário físico, equipamentos e empréstimos da UniFAP.
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
+            Visão unificada em tempo real do armário físico, catálogo de materiais, tombamentos patrimoniais, empréstimos e chamados técnicos.
           </p>
         </div>
 
-        {/* Quick Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link href="/estoque">
-            <Button size="sm" className="gap-1.5 rounded-xl shadow-md shadow-primary/20">
-              <Plus className="w-4 h-4" />
-              <span>Nova Entrada</span>
-            </Button>
-          </Link>
-          <Link href="/emprestimos">
-            <Button size="sm" variant="outline" className="gap-1.5 rounded-xl">
-              <Handshake className="w-4 h-4 text-blue-500" />
-              <span>Emprestar</span>
-            </Button>
-          </Link>
-          <Link href="/armario">
-            <Button size="sm" variant="outline" className="gap-1.5 rounded-xl">
-              <QrCode className="w-4 h-4 text-emerald-500" />
-              <span>Armário 3D</span>
-            </Button>
-          </Link>
+        {/* Quick Action Shortcuts */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            asChild
+            size="sm"
+            className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5"
+          >
+            <Link href="/emprestimos">
+              <Handshake className="w-4 h-4" />
+              <span>Novo Empréstimo</span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs"
+          >
+            <Link href="/manutencao">
+              <Wrench className="w-4 h-4 text-amber-500" />
+              <span>Abrir OS</span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs"
+          >
+            <Link href="/armario">
+              <Boxes className="w-4 h-4 text-blue-500" />
+              <span>Armário Físico</span>
+            </Link>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchDashboardData}
+            className="rounded-xl text-xs h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+            title="Atualizar dados"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Card 1: Total de Itens em Estoque */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Materiais em Estoque
-            </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Package className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">63</div>
-            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-              <span className="text-emerald-500 font-semibold font-mono">6</span> itens catalogados em <span className="font-semibold">17</span> caixas
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Equipamentos Patrimoniais */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Equipamentos / Ativos
-            </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500">
-              <Monitor className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">{assetMetrics.total}</div>
-            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-              <span className="text-emerald-500 font-semibold">{assetMetrics.available}</span> disp. • <span className="text-blue-500 font-semibold">{loanMetrics.activeLoans}</span> empr.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 3: Estrutura do Armário */}
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Armário Físico
-            </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-              <Archive className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">3 Portas</div>
-            <p className="text-[11px] text-muted-foreground mt-1">
-              17 caixas catalogadas com QR Code
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: Empréstimos & Atenção */}
-        <Card className={`hover:shadow-md transition-shadow ${
-          loanMetrics.overdueLoans > 0 
-            ? "border-rose-500/40 bg-rose-500/5" 
-            : "border-blue-500/30 bg-blue-500/5"
-        }`}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className={`text-xs font-medium ${
-              loanMetrics.overdueLoans > 0 ? "text-rose-700 dark:text-rose-400" : "text-blue-700 dark:text-blue-400"
-            }`}>
-              Empréstimos Ativos
-            </CardTitle>
-            <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${
-              loanMetrics.overdueLoans > 0 ? "bg-rose-500/10 text-rose-500" : "bg-blue-500/10 text-blue-500"
-            }`}>
-              <Handshake className="h-4 w-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${
-              loanMetrics.overdueLoans > 0 ? "text-rose-600 dark:text-rose-400" : "text-blue-600 dark:text-blue-400"
-            }`}>
-              {loanMetrics.activeLoans}
-            </div>
-            <p className="text-[11px] text-muted-foreground font-medium mt-1 flex items-center gap-1">
-              {loanMetrics.overdueLoans > 0 ? (
-                <span className="text-rose-600 flex items-center gap-1 font-bold">
-                  <AlertCircle className="w-3 h-3" />
-                  {loanMetrics.overdueLoans} em atraso!
+      {/* 2. Top KPI Cards (4 Módulos Principais) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Card 1: Patrimônio & Ativos */}
+        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-primary/10 via-card to-card shadow-xs hover:border-primary/40 transition-all">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Monitor className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-primary uppercase tracking-wider">
+                  Patrimônio
                 </span>
-              ) : (
-                <span className="text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" />
-                  Todos no prazo previsto
+              </div>
+              <p className="text-3xl font-extrabold text-foreground">
+                {assets.total} <span className="text-xs font-normal text-muted-foreground">ativos</span>
+              </p>
+              <div className="flex items-center gap-2 text-[11px] pt-1">
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                  {assets.available} disponíveis
                 </span>
-              )}
-            </p>
+                <span className="text-muted-foreground">•</span>
+                <span className="text-primary font-bold">
+                  {assets.availabilityRate}% livres
+                </span>
+              </div>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
+              <TrendingUp className="w-5 h-5" />
+            </div>
           </CardContent>
         </Card>
-      </div>
 
-      {/* Section: REQUER ATENÇÃO */}
-      <Card className="border-rose-500/30 bg-gradient-to-r from-rose-500/5 via-card to-card shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400">
-                <AlertTriangle className="h-4 w-4 animate-pulse" />
+        {/* Card 2: Estoque & Insumos */}
+        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-emerald-500/10 via-card to-card shadow-xs hover:border-emerald-500/40 transition-all">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                  Estoque Físico
+                </span>
               </div>
-              <div>
-                <CardTitle className="text-sm font-bold text-foreground">
-                  Atenção Necessária no Setor
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Itens abaixo do estoque mínimo ou empréstimos com prazo crítico
-                </CardDescription>
-              </div>
-            </div>
-            <Badge variant="critical" dot>
-              {loanMetrics.overdueLoans + 1} Alertas
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2.5">
-          {/* Alerta 1: Adaptador USB-C */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
-              <div>
-                <p className="text-xs font-semibold text-foreground">
-                  Adaptador USB-C para HDMI
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Localização: <span className="font-semibold text-foreground">Porta 2 → Caixa 010</span> • SKU: ADP-USBC-HDMI
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 self-end sm:self-center">
-              <div className="text-right">
-                <span className="text-xs font-bold text-rose-600 dark:text-rose-400">Restam 2 unid.</span>
-                <p className="text-[10px] text-muted-foreground">Mínimo: 5 • Ideal: 12</p>
-              </div>
-              <Badge variant="critical" className="text-[10px]">Crítico</Badge>
-            </div>
-          </div>
-
-          {/* Empréstimos Ativos em Destaque */}
-          {activeLoans.slice(0, 2).map((loan) => (
-            <div
-              key={loan.id}
-              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border backdrop-blur-sm ${
-                loan.isOverdue
-                  ? "border-rose-500/30 bg-rose-500/10 text-rose-950 dark:text-rose-200"
-                  : "border-amber-500/20 bg-amber-500/5"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className={`flex h-2.5 w-2.5 rounded-full ${loan.isOverdue ? "bg-rose-500 animate-pulse" : "bg-amber-500"}`} />
-                <div>
-                  <p className="text-xs font-semibold text-foreground">
-                    {loan.asset?.item?.name} (Patrimônio #{loan.asset?.assetTag})
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Responsável: <span className="font-semibold text-foreground">{loan.borrowerName}</span> • Destino: <span className="font-semibold text-foreground">{loan.destination}</span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 self-end sm:self-center">
-                <div className="text-right">
-                  <span className={`text-xs font-bold ${loan.isOverdue ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400"}`}>
-                    {loan.isOverdue ? "Prazo Expirado" : "Em Aberto"}
+              <p className="text-3xl font-extrabold text-foreground">
+                {stock.totalUnits} <span className="text-xs font-normal text-muted-foreground">unidades</span>
+              </p>
+              <div className="flex items-center gap-2 text-[11px] pt-1">
+                <span className="text-muted-foreground">
+                  {stock.totalCatalogItems} itens no catálogo
+                </span>
+                {stock.criticalCount > 0 && (
+                  <span className="text-rose-500 font-bold">
+                    • {stock.criticalCount} críticos
                   </span>
-                  <p className="text-[10px] text-muted-foreground">
-                    Devolução: {formatDate(loan.expectedReturnDate)}
-                  </p>
-                </div>
-                <Link href="/emprestimos">
-                  <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 rounded-lg gap-1">
-                    <span>Gerenciar</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </Button>
-                </Link>
+                )}
               </div>
             </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Grid: Movimentações Recentes & Visão Rápida do Armário */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tabela de Movimentações Recentes (2 colunas) */}
-        <Card className="lg:col-span-2 shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <div>
-              <CardTitle className="text-sm font-bold text-foreground">
-                Últimas Movimentações Registradas
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Histórico inalterável de entradas, saídas e empréstimos
-              </CardDescription>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Boxes className="w-5 h-5" />
             </div>
-            <Link href="/movimentacoes" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
-              Ver todas <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Item / Patrimônio</TableHead>
-                  <TableHead>Local / Caixa</TableHead>
-                  <TableHead>Qtd</TableHead>
-                  <TableHead>Usuário</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell>
-                    <Badge variant="available" className="text-[10px] gap-1">
-                      <ArrowDownLeft className="w-3 h-3 text-emerald-500" />
-                      Entrada
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-semibold text-xs text-foreground">
-                    Cabo HDMI 10 metros
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Porta 2 / Caixa 017
-                  </TableCell>
-                  <TableCell className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    +6
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Rivaldo
-                  </TableCell>
-                </TableRow>
-
-                <TableRow>
-                  <TableCell>
-                    <Badge variant="loaned" className="text-[10px] gap-1">
-                      <Handshake className="w-3 h-3 text-blue-500" />
-                      Empréstimo
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-semibold text-xs text-foreground">
-                    Projetor Epson X49 (#123457)
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Sala 203 (Medicina)
-                  </TableCell>
-                  <TableCell className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
-                    1 un
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Rodrigo
-                  </TableCell>
-                </TableRow>
-
-                <TableRow>
-                  <TableCell>
-                    <Badge variant="maintenance" className="text-[10px] gap-1">
-                      <RefreshCw className="w-3 h-3 text-purple-500" />
-                      Manutenção
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-semibold text-xs text-foreground">
-                    Projetor Epson X49 (#123458)
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Assistência Técnica
-                  </TableCell>
-                  <TableCell className="font-mono text-xs font-bold text-purple-600 dark:text-purple-400">
-                    1 un
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    Rivaldo
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
           </CardContent>
         </Card>
 
-        {/* Card: Visão Rápida do Armário Físico (1 coluna) */}
-        <Card className="shadow-sm flex flex-col justify-between">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold text-foreground">
-              Armário de TI UniFAP
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Distribuição física rápida das 3 portas
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Porta 1 */}
-            <div className="p-3 rounded-xl border border-border/80 bg-muted/30">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground">PORTA 1</span>
-                <span className="text-[10px] text-muted-foreground font-mono">5 caixas</span>
+        {/* Card 3: Empréstimos */}
+        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-purple-500/10 via-card to-card shadow-xs hover:border-purple-500/40 transition-all">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Handshake className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                  Empréstimos
+                </span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Cabos 2m/VGA, Rede, Mouses e Teclados
+              <p className="text-3xl font-extrabold text-foreground">
+                {loans.activeCount} <span className="text-xs font-normal text-muted-foreground">em uso</span>
               </p>
+              <div className="flex items-center gap-2 text-[11px] pt-1">
+                {loans.overdueCount > 0 ? (
+                  <span className="text-rose-500 font-bold flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {loans.overdueCount} em atraso
+                  </span>
+                ) : (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                    100% pontuais
+                  </span>
+                )}
+                <span className="text-muted-foreground">• {loans.monthLoansCount} no mês</span>
+              </div>
             </div>
-
-            {/* Porta 2 */}
-            <div className="p-3 rounded-xl border border-primary/30 bg-primary/5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-primary">PORTA 2</span>
-                <span className="text-[10px] text-primary font-mono font-semibold">7 caixas</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Cabos 10m/5m, Adaptadores USB-C e Microfones
-              </p>
-            </div>
-
-            {/* Porta 3 */}
-            <div className="p-3 rounded-xl border border-border/80 bg-muted/30">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-foreground">PORTA 3</span>
-                <span className="text-[10px] text-muted-foreground font-mono">5 caixas</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Projetores Epson, Caixas de Som, Extensões e Pilhas
-              </p>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400">
+              <Handshake className="w-5 h-5" />
             </div>
           </CardContent>
-          <div className="p-6 pt-0">
-            <Link href="/armario">
-              <Button variant="outline" className="w-full text-xs rounded-xl gap-2">
-                <Archive className="w-3.5 h-3.5 text-primary" />
-                <span>Explorar Armário Completo</span>
-              </Button>
-            </Link>
-          </div>
+        </Card>
+
+        {/* Card 4: Manutenção & Chamados */}
+        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-amber-500/10 via-card to-card shadow-xs hover:border-amber-500/40 transition-all">
+          <CardContent className="p-5 flex items-start justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Wrench className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                  Manutenção
+                </span>
+              </div>
+              <p className="text-3xl font-extrabold text-foreground">
+                {maintenance.openCount} <span className="text-xs font-normal text-muted-foreground">chamados</span>
+              </p>
+              <div className="flex items-center gap-2 text-[11px] pt-1">
+                <span className="text-muted-foreground">
+                  Média: {maintenance.avgDays}d na bancada
+                </span>
+                {maintenance.criticalCount > 0 && (
+                  <span className="text-rose-500 font-bold">
+                    • {maintenance.criticalCount} críticos
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
+              <Activity className="w-5 h-5" />
+            </div>
+          </CardContent>
         </Card>
       </div>
+
+      {/* 3. Central de Alertas Críticos (Se houver atrasos ou estoques zerados) */}
+      {alerts.totalAlerts > 0 && (
+        <Card className="rounded-3xl border-rose-500/30 bg-rose-500/5 shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 border-b border-rose-500/15 bg-rose-500/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+                <CardTitle className="text-sm font-bold text-rose-700 dark:text-rose-400">
+                  Central de Alertas & Ações Prioritárias ({alerts.totalAlerts})
+                </CardTitle>
+              </div>
+              <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                Itens que necessitam de atenção operacional
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              
+              {/* Alertas de Empréstimo Atrasado */}
+              {alerts.overdueLoans.map((loan: any) => (
+                <div key={loan.id} className="p-3.5 rounded-2xl bg-card border border-rose-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="destructive" className="text-[10px]">
+                      Atrasado ({loan.diffHours}h)
+                    </Badge>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      #{loan.assetTag}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs text-foreground">{loan.borrowerName}</p>
+                    <p className="text-[11px] text-muted-foreground">{loan.itemName} • Destino: {loan.destination}</p>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-muted-foreground">
+                      Previsto: {formatDate(loan.expectedReturnDate)}
+                    </span>
+                    <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 px-2 rounded-lg">
+                      <Link href={`/emprestimos?search=${loan.borrowerName}`}>
+                        <span>Cobrar</span>
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Alertas de Estoque Crítico */}
+              {alerts.criticalStock.map((item: any) => (
+                <div key={item.id} className="p-3.5 rounded-2xl bg-card border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="low" className="text-[10px]">
+                      Estoque Crítico
+                    </Badge>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      SKU: {item.sku}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs text-foreground">{item.name}</p>
+                    <p className="text-[11px] text-muted-foreground">Saldo Atual: <strong className="text-rose-500">{item.current}</strong> (Mín: {item.min})</p>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-muted-foreground">{item.category}</span>
+                    <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 px-2 rounded-lg">
+                      <Link href={`/estoque?search=${item.sku}`}>
+                        <span>Repor</span>
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Alertas de OS Crítica */}
+              {alerts.criticalMaintenance.map((m: any) => (
+                <div key={m.id} className="p-3.5 rounded-2xl bg-card border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="maintenance" className="text-[10px]">
+                      {m.daysInMaintenance}d em Reparo
+                    </Badge>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {m.orderNumber}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-xs text-foreground">{m.itemName} (#{m.assetTag})</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{m.issueDescription}</p>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-muted-foreground">{m.serviceProvider || "Laboratório"}</span>
+                    <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-primary px-2 rounded-lg">
+                      <Link href={`/manutencao?search=${m.orderNumber}`}>
+                        <span>Ver OS</span>
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 4. Grid Médio: Gráficos de Distribuição & Empréstimos Ativos */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Coluna Esquerda: Status do Patrimônio & Saúde do Estoque */}
+        <div className="space-y-6 lg:col-span-1">
+          
+          {/* Distribuição Patrimonial */}
+          <Card className="rounded-3xl border-border/80 shadow-xs">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold flex items-center justify-between">
+                <span>Distribuição Patrimonial</span>
+                <span className="text-xs font-mono text-muted-foreground">{assets.total} ativos</span>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Status físico de todos os equipamentos tombados
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              
+              {/* Barra Progressiva Segmentada */}
+              <div className="h-3 w-full rounded-full bg-accent overflow-hidden flex">
+                <div 
+                  style={{ width: `${assets.total > 0 ? (assets.available / assets.total) * 100 : 0}%` }} 
+                  className="bg-emerald-500 h-full transition-all duration-500" 
+                  title={`Disponíveis: ${assets.available}`}
+                />
+                <div 
+                  style={{ width: `${assets.total > 0 ? (assets.loaned / assets.total) * 100 : 0}%` }} 
+                  className="bg-purple-500 h-full transition-all duration-500" 
+                  title={`Emprestados: ${assets.loaned}`}
+                />
+                <div 
+                  style={{ width: `${assets.total > 0 ? (assets.maintenance / assets.total) * 100 : 0}%` }} 
+                  className="bg-amber-500 h-full transition-all duration-500" 
+                  title={`Em Manutenção: ${assets.maintenance}`}
+                />
+                <div 
+                  style={{ width: `${assets.total > 0 ? (assets.damaged / assets.total) * 100 : 0}%` }} 
+                  className="bg-rose-500 h-full transition-all duration-500" 
+                  title={`Danificados: ${assets.damaged}`}
+                />
+              </div>
+
+              {/* Legendas Detalhadas */}
+              <div className="space-y-2 text-xs pt-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-muted-foreground">Disponíveis no Armário</span>
+                  </div>
+                  <span className="font-bold text-foreground">{assets.available}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                    <span className="text-muted-foreground">Emprestados / Em Uso</span>
+                  </div>
+                  <span className="font-bold text-foreground">{assets.loaned}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <span className="text-muted-foreground">Em Manutenção Técnica</span>
+                  </div>
+                  <span className="font-bold text-foreground">{assets.maintenance}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                    <span className="text-muted-foreground">Danificados / Avaria</span>
+                  </div>
+                  <span className="font-bold text-foreground">{assets.damaged}</span>
+                </div>
+              </div>
+
+              <Button asChild variant="outline" size="sm" className="w-full rounded-xl text-xs mt-2">
+                <Link href="/patrimonio">
+                  <span>Gerenciar Patrimônio</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Saúde do Estoque */}
+          <Card className="rounded-3xl border-border/80 shadow-xs">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold flex items-center justify-between">
+                <span>Níveis de Estoque</span>
+                <span className="text-xs font-mono text-muted-foreground">{stock.totalCatalogItems} itens</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                  <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Normal</span>
+                  <p className="text-lg font-bold text-foreground mt-0.5">{stock.normalCount}</p>
+                </div>
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                  <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">Baixo</span>
+                  <p className="text-lg font-bold text-foreground mt-0.5">{stock.lowCount}</p>
+                </div>
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                  <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400">Crítico</span>
+                  <p className="text-lg font-bold text-foreground mt-0.5">{stock.criticalCount}</p>
+                </div>
+              </div>
+
+              <Button asChild variant="outline" size="sm" className="w-full rounded-xl text-xs mt-1">
+                <Link href="/estoque">
+                  <span>Ver Catálogo de Insumos</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+        </div>
+
+        {/* Coluna Direita: Empréstimos Ativos & Próximas Devoluções */}
+        <div className="space-y-6 lg:col-span-2">
+          <Card className="rounded-3xl border-border/80 shadow-xs overflow-hidden">
+            <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Handshake className="w-4 h-4 text-purple-500" />
+                    <span>Empréstimos Ativos no Momento</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Equipamentos atualmente em poder de solicitantes externos e professores
+                  </CardDescription>
+                </div>
+                <Button asChild size="sm" variant="outline" className="rounded-xl text-xs h-8">
+                  <Link href="/emprestimos">
+                    <span>Ver Todos</span>
+                    <ArrowRight className="w-3 h-3 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+            </CardHeader>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="text-[11px] font-bold uppercase text-muted-foreground py-3 px-4">Solicitante</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase text-muted-foreground py-3 px-4">Equipamento</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase text-muted-foreground py-3 px-4">Devolução Prevista</TableHead>
+                    <TableHead className="text-[11px] font-bold uppercase text-muted-foreground py-3 px-4 text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i} className="animate-pulse">
+                        <TableCell className="p-4"><div className="h-4 w-32 bg-muted rounded" /></TableCell>
+                        <TableCell className="p-4"><div className="h-4 w-40 bg-muted rounded" /></TableCell>
+                        <TableCell className="p-4"><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                        <TableCell className="p-4 text-right"><div className="h-6 w-16 bg-muted rounded ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : activeLoans.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-36 text-center text-xs text-muted-foreground">
+                        <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
+                        <p className="font-semibold text-foreground">Todos os equipamentos estão no armário</p>
+                        <p className="text-[11px]">Nenhum empréstimo ativo no momento.</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    activeLoans.slice(0, 5).map((loan) => {
+                      const isOverdue = new Date(loan.expectedReturnDate) < new Date();
+                      return (
+                        <TableRow key={loan.id} className="hover:bg-muted/20 transition-colors">
+                          
+                          {/* Solicitante */}
+                          <TableCell className="py-3 px-4">
+                            <p className="font-bold text-xs text-foreground">{loan.borrowerName}</p>
+                            <p className="text-[10px] text-muted-foreground">{loan.destination}</p>
+                          </TableCell>
+
+                          {/* Equipamento */}
+                          <TableCell className="py-3 px-4">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                                #{loan.asset?.assetTag}
+                              </span>
+                              <span className="text-xs font-medium text-foreground">
+                                {loan.asset?.item?.name}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Previsão */}
+                          <TableCell className="py-3 px-4">
+                            <div className="space-y-0.5">
+                              <span className={`text-xs font-semibold ${isOverdue ? "text-rose-500 font-bold" : "text-foreground"}`}>
+                                {formatDateTime(loan.expectedReturnDate)}
+                              </span>
+                              {isOverdue && (
+                                <Badge variant="destructive" className="text-[9px] block w-max">
+                                  Atrasado
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+
+                          {/* Ação */}
+                          <TableCell className="py-3 px-4 text-right">
+                            <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-primary hover:bg-primary/10 rounded-lg">
+                              <Link href="/emprestimos">
+                                <span>Devolver</span>
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          {/* 5. Timeline de Atividades Recentes em Tempo Real */}
+          <Card className="rounded-3xl border-border/80 shadow-xs">
+            <CardHeader className="pb-3 border-b border-border/60">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-primary" />
+                  <span>Feed de Atividades Recentes</span>
+                </CardTitle>
+                <span className="text-xs text-muted-foreground font-mono">Trilha de Auditoria</span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {timeline.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">Nenhuma atividade recente registrada.</p>
+                ) : (
+                  timeline.map((event: any) => (
+                    <div key={event.id} className="flex items-center justify-between p-2.5 rounded-xl hover:bg-accent/40 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-foreground shrink-0">
+                          {event.type === "LOAN" ? (
+                            <Handshake className="w-4 h-4 text-purple-500" />
+                          ) : event.type === "MAINTENANCE" ? (
+                            <Wrench className="w-4 h-4 text-amber-500" />
+                          ) : (
+                            <Boxes className="w-4 h-4 text-emerald-500" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">{event.title}</p>
+                          <p className="text-[11px] text-muted-foreground">{event.description} • por <strong className="text-foreground">{event.actor}</strong></p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={event.badgeVariant as any} className="text-[9px]">
+                          {event.badge}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">
+                          {formatDateTime(event.date)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+      </div>
+
     </div>
   );
 }

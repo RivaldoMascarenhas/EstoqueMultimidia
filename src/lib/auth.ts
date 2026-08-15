@@ -58,24 +58,36 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role,
+          mustChangePassword: user.mustChangePassword,
           avatarUrl: user.avatarUrl,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
+        token.name = user.name;
         token.role = user.role;
-        token.avatarUrl = user.avatarUrl;
+        token.mustChangePassword = user.mustChangePassword;
+        token.avatarUrl = (user.avatarUrl && !user.avatarUrl.startsWith("data:")) ? user.avatarUrl : null;
+      }
+      if (trigger === "update" && session?.user) {
+        if (session.user.name) token.name = session.user.name;
+        if (session.user.avatarUrl !== undefined) {
+          token.avatarUrl = (session.user.avatarUrl && !session.user.avatarUrl.startsWith("data:")) ? session.user.avatarUrl : null;
+        }
+        if (session.user.mustChangePassword !== undefined) token.mustChangePassword = session.user.mustChangePassword;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string;
         session.user.role = token.role as Role;
+        session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.avatarUrl = token.avatarUrl as string | null;
       }
       return session;

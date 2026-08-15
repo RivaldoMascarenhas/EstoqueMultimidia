@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: unifap_secure_password_2026
       POSTGRES_DB: unifap_estoque
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - unifap_postgres_data:/var/lib/postgresql/data
     healthcheck:
