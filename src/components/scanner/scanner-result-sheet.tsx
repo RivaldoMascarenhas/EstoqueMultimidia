@@ -299,7 +299,7 @@ export function ScannerResultSheet({
           >
             <Link href={`/estoque?search=${data.item.sku}`}>
               <Package className="w-4 h-4" />
-              <span>Gerenciar Saldo / Dar Baixa</span>
+              <span>Gerenciar Saldo / Saída</span>
             </Link>
           </Button>
         </div>
