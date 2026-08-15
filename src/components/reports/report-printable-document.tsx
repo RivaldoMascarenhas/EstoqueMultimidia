@@ -29,6 +29,262 @@ interface ReportPrintableDocumentProps {
   } | null;
 }
 
+const reportDocumentStyles = `
+  @page {
+    size: A4 portrait;
+    margin: 8mm 12mm;
+  }
+  .print-area {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    box-sizing: border-box !important;
+  }
+  .print-area * {
+    box-sizing: border-box !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  
+  /* Logo & Cabeçalho */
+  .header-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    border-bottom: 2px solid #0f172a !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 10px !important;
+    gap: 16px !important;
+  }
+  .header-left {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  .logo-unifap {
+    height: 38px !important;
+    width: auto !important;
+    max-height: 40px !important;
+    object-fit: contain !important;
+    flex-shrink: 0 !important;
+  }
+  .inst-info {
+    border-left: 2px solid #cbd5e1 !important;
+    padding-left: 10px !important;
+  }
+  .inst-name {
+    font-weight: 900 !important;
+    font-size: 12px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.03em !important;
+    color: #0f172a !important;
+  }
+  .inst-sector {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #0369a1 !important;
+  }
+  .inst-sub {
+    font-size: 8.5px !important;
+    color: #64748b !important;
+  }
+  .doc-tag {
+    text-align: right !important;
+    flex-shrink: 0 !important;
+    min-width: 130px !important;
+  }
+  .doc-badge {
+    display: inline-block !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 3px 8px !important;
+    font-family: monospace !important;
+    font-weight: 800 !important;
+    font-size: 10px !important;
+    color: #0f172a !important;
+  }
+  .doc-date {
+    font-size: 8.5px !important;
+    color: #64748b !important;
+    margin-top: 2px !important;
+  }
+
+  /* Título do Relatório */
+  .report-title-banner {
+    text-align: center !important;
+    padding: 6px 0 8px !important;
+    margin-bottom: 10px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  .report-title-banner h1 {
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #0f172a !important;
+  }
+  .report-title-banner p {
+    font-size: 8.5px !important;
+    color: #64748b !important;
+    margin-top: 2px !important;
+  }
+
+  /* Grid de KPIs */
+  .kpi-container {
+    display: flex !important;
+    gap: 8px !important;
+    margin-bottom: 12px !important;
+    width: 100% !important;
+  }
+  .kpi-card {
+    flex: 1 !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    padding: 6px 4px !important;
+    text-align: center !important;
+  }
+  .kpi-label {
+    font-size: 7.5px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    color: #64748b !important;
+    display: block !important;
+    margin-bottom: 2px !important;
+    letter-spacing: 0.025em !important;
+  }
+  .kpi-value {
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    color: #0f172a !important;
+    display: block !important;
+  }
+  .kpi-value-green { color: #047857 !important; }
+  .kpi-value-red { color: #b91c1c !important; }
+  .kpi-value-amber { color: #b45309 !important; }
+
+  /* Cabeçalho da Porta */
+  .door-section {
+    margin-bottom: 12px !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+  }
+  .door-header {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    padding: 4px 10px !important;
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    letter-spacing: 0.04em !important;
+  }
+  .door-header span:last-child {
+    font-size: 8px !important;
+    font-weight: 700 !important;
+    background: rgba(255,255,255,0.2) !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+  }
+
+  /* Tabelas Formatadas */
+  .report-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9px !important;
+  }
+  .report-table th {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    font-size: 8px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    padding: 4px 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    text-align: left !important;
+  }
+  .report-table td {
+    padding: 4px 6px !important;
+    border: 1px solid #e2e8f0 !important;
+    vertical-align: top !important;
+    color: #1e293b !important;
+    line-height: 1.25 !important;
+  }
+  .report-table tr:nth-child(even) td {
+    background-color: #f8fafc !important;
+  }
+
+  /* Badges & Tags */
+  .tag-pill {
+    display: inline-block !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 4px !important;
+    padding: 1px 4px !important;
+    font-family: monospace !important;
+    font-size: 8px !important;
+    margin: 1px 2px 1px 0 !important;
+  }
+  .tag-green { background: #dcfce7 !important; color: #166534 !important; border-color: #bbf7d0 !important; font-weight: 700 !important; }
+  .tag-red { background: #fee2e2 !important; color: #991b1b !important; border-color: #fecaca !important; font-weight: 700 !important; }
+  .tag-amber { background: #fef3c7 !important; color: #92400e !important; border-color: #fde68a !important; font-weight: 700 !important; }
+
+  /* Assinaturas */
+  .signature-container {
+    margin-top: 20px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 24px !important;
+    padding-top: 10px !important;
+  }
+  .signature-box {
+    flex: 1 !important;
+    text-align: center !important;
+  }
+  .signature-line {
+    border-top: 1.5px solid #334155 !important;
+    padding-top: 4px !important;
+    margin: 0 auto !important;
+    width: 85% !important;
+  }
+  .signature-name {
+    font-size: 9.5px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+  }
+  .signature-role {
+    font-size: 8px !important;
+    color: #64748b !important;
+  }
+  .signature-inst {
+    font-size: 7.5px !important;
+    color: #94a3b8 !important;
+  }
+
+  /* Rodapé */
+  .footer-info {
+    border-top: 1px dashed #cbd5e1 !important;
+    margin-top: 14px !important;
+    padding-top: 4px !important;
+    text-align: center !important;
+    font-size: 7.5px !important;
+    color: #94a3b8 !important;
+  }
+
+  @media print {
+    body { padding: 0 !important; background: #fff !important; }
+    .print-area { border: none !important; box-shadow: none !important; padding: 0 !important; }
+    .door-section { break-inside: avoid; }
+    .signature-container { break-inside: avoid; }
+  }
+`;
+
 export function ReportPrintableDocument({
   isOpen,
   onClose,
@@ -60,269 +316,10 @@ export function ReportPrintableDocument({
           <meta charset="UTF-8">
           <title>${report.title} - UniFAP</title>
           <style>
-            @page {
-              size: A4 portrait;
-              margin: 8mm 12mm;
-            }
-            * {
-              box-sizing: border-box;
-              margin: 0;
-              padding: 0;
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            body {
-              background: #ffffff;
-              color: #0f172a;
-              font-size: 10px;
-              line-height: 1.35;
-              padding: 6px;
-            }
-            .print-area {
-              background: #ffffff;
-              color: #0f172a;
-              padding: 0;
-            }
-            
-            /* Logo & Cabeçalho */
-            .header-bar {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              border-bottom: 2px solid #0f172a;
-              padding-bottom: 8px;
-              margin-bottom: 10px;
-              gap: 16px;
-            }
-            .header-left {
-              display: flex;
-              align-items: center;
-              gap: 12px;
-            }
-            .logo-unifap {
-              height: 38px !important;
-              width: auto !important;
-              max-height: 40px !important;
-              object-fit: contain !important;
-              flex-shrink: 0 !important;
-            }
-            .inst-info {
-              border-left: 2px solid #cbd5e1;
-              padding-left: 10px;
-            }
-            .inst-name {
-              font-weight: 900;
-              font-size: 12px;
-              text-transform: uppercase;
-              letter-spacing: 0.03em;
-              color: #0f172a;
-            }
-            .inst-sector {
-              font-size: 10px;
-              font-weight: 700;
-              color: #0369a1;
-            }
-            .inst-sub {
-              font-size: 8.5px;
-              color: #64748b;
-            }
-            .doc-tag {
-              text-align: right;
-              flex-shrink: 0;
-              min-width: 130px;
-            }
-            .doc-badge {
-              display: inline-block;
-              background: #f1f5f9;
-              border: 1px solid #cbd5e1;
-              border-radius: 6px;
-              padding: 3px 8px;
-              font-family: monospace;
-              font-weight: 800;
-              font-size: 10px;
-              color: #0f172a;
-            }
-            .doc-date {
-              font-size: 8.5px;
-              color: #64748b;
-              margin-top: 2px;
-            }
-
-            /* Título do Relatório */
-            .report-title-banner {
-              text-align: center;
-              padding: 6px 0 8px;
-              margin-bottom: 10px;
-              border-bottom: 1px solid #e2e8f0;
-            }
-            .report-title-banner h1 {
-              font-size: 13px;
-              font-weight: 900;
-              text-transform: uppercase;
-              letter-spacing: 0.04em;
-              color: #0f172a;
-            }
-            .report-title-banner p {
-              font-size: 8.5px;
-              color: #64748b;
-              margin-top: 2px;
-            }
-
-            /* Grid de KPIs */
-            .kpi-container {
-              display: flex;
-              gap: 8px;
-              margin-bottom: 12px;
-              width: 100%;
-            }
-            .kpi-card {
-              flex: 1;
-              background: #f8fafc;
-              border: 1px solid #cbd5e1;
-              border-radius: 6px;
-              padding: 6px 4px;
-              text-align: center;
-            }
-            .kpi-label {
-              font-size: 7.5px;
-              font-weight: 800;
-              text-transform: uppercase;
-              color: #64748b;
-              display: block;
-              margin-bottom: 2px;
-              letter-spacing: 0.025em;
-            }
-            .kpi-value {
-              font-size: 13px;
-              font-weight: 900;
-              color: #0f172a;
-              display: block;
-            }
-            .kpi-value-green { color: #047857 !important; }
-            .kpi-value-red { color: #b91c1c !important; }
-            .kpi-value-amber { color: #b45309 !important; }
-
-            /* Cabeçalho da Porta */
-            .door-section {
-              margin-bottom: 12px;
-              border: 1px solid #cbd5e1;
-              border-radius: 6px;
-              overflow: hidden;
-            }
-            .door-header {
-              background: #0f172a;
-              color: #ffffff;
-              padding: 4px 10px;
-              font-size: 9.5px;
-              font-weight: 800;
-              text-transform: uppercase;
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              letter-spacing: 0.04em;
-            }
-            .door-header span:last-child {
-              font-size: 8px;
-              font-weight: 700;
-              background: rgba(255,255,255,0.2);
-              padding: 2px 6px;
-              border-radius: 4px;
-            }
-
-            /* Tabelas Formatadas */
-            .report-table {
-              width: 100%;
-              border-collapse: collapse;
-              font-size: 9px;
-            }
-            .report-table th {
-              background: #f1f5f9;
-              color: #334155;
-              font-size: 8px;
-              font-weight: 800;
-              text-transform: uppercase;
-              padding: 4px 6px;
-              border: 1px solid #cbd5e1;
-              text-align: left;
-            }
-            .report-table td {
-              padding: 4px 6px;
-              border: 1px solid #e2e8f0;
-              vertical-align: top;
-              color: #1e293b;
-              line-height: 1.25;
-            }
-            .report-table tr:nth-child(even) td {
-              background-color: #f8fafc;
-            }
-
-            /* Badges & Tags */
-            .tag-pill {
-              display: inline-block;
-              background: #f1f5f9;
-              border: 1px solid #cbd5e1;
-              border-radius: 4px;
-              padding: 1px 4px;
-              font-family: monospace;
-              font-size: 8px;
-              margin: 1px 2px 1px 0;
-            }
-            .tag-green { background: #dcfce7; color: #166534; border-color: #bbf7d0; font-weight: 700; }
-            .tag-red { background: #fee2e2; color: #991b1b; border-color: #fecaca; font-weight: 700; }
-            .tag-amber { background: #fef3c7; color: #92400e; border-color: #fde68a; font-weight: 700; }
-
-            /* Assinaturas */
-            .signature-container {
-              margin-top: 20px;
-              display: flex;
-              justify-content: space-between;
-              gap: 24px;
-              padding-top: 10px;
-            }
-            .signature-box {
-              flex: 1;
-              text-align: center;
-            }
-            .signature-line {
-              border-top: 1.5px solid #334155;
-              padding-top: 4px;
-              margin: 0 auto;
-              width: 85%;
-            }
-            .signature-name {
-              font-size: 9.5px;
-              font-weight: 800;
-              color: #0f172a;
-            }
-            .signature-role {
-              font-size: 8px;
-              color: #64748b;
-            }
-            .signature-inst {
-              font-size: 7.5px;
-              color: #94a3b8;
-            }
-
-            /* Rodapé */
-            .footer-info {
-              border-top: 1px dashed #cbd5e1;
-              margin-top: 14px;
-              padding-top: 4px;
-              text-align: center;
-              font-size: 7.5px;
-              color: #94a3b8;
-            }
-
-            @media print {
-              body { padding: 0 !important; }
-              .print-area { border: none !important; box-shadow: none !important; padding: 0 !important; }
-              .door-section { break-inside: avoid; }
-              .signature-container { break-inside: avoid; }
-            }
+            ${reportDocumentStyles}
           </style>
         </head>
-        <body>
+        <body style="background: #ffffff; padding: 10px; margin: 0;">
           <div class="print-area">
             ${printElement.innerHTML}
           </div>
@@ -348,6 +345,9 @@ export function ReportPrintableDocument({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-3xl print:p-0 print:m-0 print:border-none print:shadow-none bg-card">
         
+        {/* Injeção de estilos para o preview na tela e impressão */}
+        <style dangerouslySetInnerHTML={{ __html: reportDocumentStyles }} />
+
         {/* Barra superior de ações */}
         <div className="flex items-center justify-between pb-3 border-b border-border print:hidden pr-6">
           <div className="flex items-center gap-2">
