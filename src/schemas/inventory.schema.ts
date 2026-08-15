@@ -11,7 +11,7 @@ export const stockExitSchema = z.object({
   itemId: z.string().min(1, "Selecione o item"),
   boxId: z.string().min(1, "Selecione a caixa de origem"),
   quantity: z.number().int().positive("A quantidade deve ser maior que zero"),
-  observation: z.string().min(1, "Informe o motivo da saída/baixa"),
+  observation: z.string().optional().default("Baixa de material realizada no setor"),
 });
 
 export const stockTransferSchema = z.object({

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ArrowDownLeft, Loader2, AlertTriangle, CheckCircle2, Package, Minus, Plus } from "lucide-react";
+import { ArrowDownLeft, Loader2, AlertTriangle, CheckCircle2, Package, Minus, Plus, Tag } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +35,14 @@ interface StockExitModalProps {
   onSuccess?: () => void;
 }
 
+const QUICK_REASONS = [
+  "Uso em Aula / Laboratório",
+  "Atendimento / Suporte Técnico",
+  "Reposição no Armário",
+  "Material Danificado / Descarte",
+  "Retirada Rápida",
+];
+
 export function StockExitModal({
   isOpen,
   onClose,
@@ -43,20 +51,20 @@ export function StockExitModal({
   onSuccess,
 }: StockExitModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [observation, setObservation] = useState("");
+  const [observation, setObservation] = useState("Uso / Atendimento no setor");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
-      setObservation("");
+      setObservation("Uso / Atendimento no setor");
     }
   }, [isOpen]);
 
   const available = box.currentQuantity;
-  const remaining = available - quantity;
+  const remaining = Math.max(0, available - quantity);
   const isExceeded = quantity > available;
-  const isValid = quantity > 0 && !isExceeded && observation.trim().length > 0;
+  const isValid = quantity > 0 && !isExceeded;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,8 +74,8 @@ export function StockExitModal({
       return;
     }
 
-    if (!observation.trim()) {
-      toast.error("Por favor, informe o motivo da saída/baixa.");
+    if (quantity <= 0) {
+      toast.error("A quantidade deve ser maior que zero.");
       return;
     }
 
@@ -80,7 +88,7 @@ export function StockExitModal({
           itemId: item.id,
           boxId: box.id,
           quantity,
-          observation: observation.trim(),
+          observation: observation.trim() || "Baixa de material realizada no setor",
         }),
       });
 
@@ -103,7 +111,7 @@ export function StockExitModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md p-6">
+      <DialogContent className="sm:max-w-md p-6 rounded-3xl bg-card border-border shadow-2xl">
         <DialogHeader>
           <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
             <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
@@ -176,7 +184,7 @@ export function StockExitModal({
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
                   required
-                  className="text-center font-bold font-mono text-base h-10"
+                  className="text-center font-bold font-mono text-base h-10 rounded-xl"
                 />
 
                 <Button
@@ -192,17 +200,36 @@ export function StockExitModal({
               </div>
             </div>
 
-            {/* Motivo / Observação */}
+            {/* Motivo / Observação com Quick Chips */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Motivo da Saída / Destino <span className="text-rose-500">*</span>
+              <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Motivo da Saída / Destino</span>
+                <span className="text-[10px] text-muted-foreground">Clique para preencher rápido</span>
               </label>
+
+              {/* Quick Preset Chips */}
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {QUICK_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setObservation(reason)}
+                    className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all ${
+                      observation === reason
+                        ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                        : "bg-muted/60 hover:bg-muted text-muted-foreground border-border/60 hover:text-foreground"
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+
               <textarea
                 value={observation}
                 onChange={(e) => setObservation(e.target.value)}
-                placeholder="Ex: Entregue para aula no Bloco B / Reposição de cabo danificado..."
+                placeholder="Ex: Entregue para aula no Bloco B / Reposição..."
                 rows={2}
-                required
                 className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
               />
             </div>
@@ -216,8 +243,9 @@ export function StockExitModal({
                 variant="destructive"
                 disabled={!isValid || isLoading}
                 isLoading={isLoading}
-                className="rounded-xl gap-1.5"
+                className="rounded-xl gap-1.5 font-bold shadow-md shadow-rose-600/20"
               >
+                <ArrowDownLeft className="w-4 h-4" />
                 <span>Confirmar Baixa ({quantity} {item.unit})</span>
               </Button>
             </DialogFooter>
