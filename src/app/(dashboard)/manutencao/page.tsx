@@ -376,9 +376,8 @@ export default function ManutencaoPage() {
       </Card>
 
       {/* Tabela de Ordens de Serviço */}
-      <Card className="rounded-2xl border-border/80 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <Table className="min-w-[1100px] w-full">
+      <div className="rounded-2xl border-border/80 shadow-sm">
+        <Table className="min-w-[1100px] w-full">
             <TableHeader className="bg-muted/50 border-b border-border/80">
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[260px]">
@@ -630,7 +629,6 @@ export default function ManutencaoPage() {
             </TableBody>
           </Table>
         </div>
-      </Card>
 
       {/* Modais Integrados */}
       <MaintenanceFormModal
