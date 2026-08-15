@@ -3,20 +3,21 @@
 import React, { useState, useEffect } from "react";
 import { 
   Handshake, 
-  Search, 
+  X, 
   Calendar, 
   Clock, 
   User, 
+  Building2, 
   Phone, 
   Mail, 
-  Building2, 
   MapPin, 
   FileText, 
+  Search, 
+  PackageCheck, 
   Loader2, 
   Sparkles,
-  PackageCheck,
-  AlertCircle,
-  Monitor
+  Info,
+  CalendarCheck2
 } from "lucide-react";
 import {
   Dialog,
@@ -31,10 +32,26 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+interface AvailableAsset {
+  id: string;
+  assetTag: string;
+  serialNumber?: string | null;
+  model?: string | null;
+  item: {
+    name: string;
+    category?: { name: string };
+  };
+  currentBox?: {
+    code: string;
+    name: string;
+    door: { name: string };
+  } | null;
+}
+
 interface LoanFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (newLoan?: any) => void;
+  onSuccess: (loanId: string) => void;
   preSelectedAssetId?: string;
 }
 
@@ -44,20 +61,34 @@ export function LoanFormModal({
   onSuccess,
   preSelectedAssetId,
 }: LoanFormModalProps) {
-  const [availableAssets, setAvailableAssets] = useState<any[]>([]);
+  const [availableAssets, setAvailableAssets] = useState<AvailableAsset[]>([]);
+  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [assetSearch, setAssetSearch] = useState("");
-  const [selectedAssetId, setSelectedAssetId] = useState<string>(preSelectedAssetId || "");
-  
+
+  // Form States
+  const [selectedAssetId, setSelectedAssetId] = useState<string>("");
   const [borrowerName, setBorrowerName] = useState("");
   const [borrowerEmail, setBorrowerEmail] = useState("");
   const [borrowerPhone, setBorrowerPhone] = useState("");
   const [borrowerDepartment, setBorrowerDepartment] = useState("");
   const [destination, setDestination] = useState("");
-  const [expectedReturnDate, setExpectedReturnDate] = useState("");
+  
+  // Data e Horário em campos dedicados
+  const [returnDate, setReturnDate] = useState("");
+  const [returnTime, setReturnTime] = useState("18:00");
+  
   const [notes, setNotes] = useState("");
-
-  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getLocalDateString = (d: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const getLocalTimeString = (d: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
   // Carregar ativos disponíveis
   useEffect(() => {
@@ -67,10 +98,13 @@ export function LoanFormModal({
         setSelectedAssetId(preSelectedAssetId);
       }
       
-      // Sugerir devolução padrão para 4 horas à frente
-      const defaultDate = new Date();
-      defaultDate.setHours(defaultDate.getHours() + 4);
-      setExpectedReturnDate(formatDateTimeForInput(defaultDate));
+      const now = new Date();
+      setReturnDate(getLocalDateString(now));
+      
+      // Sugerir 4 horas à frente ou 18:00
+      const defaultTime = new Date();
+      defaultTime.setHours(defaultTime.getHours() + 4);
+      setReturnTime(getLocalTimeString(defaultTime));
     }
   }, [isOpen, preSelectedAssetId]);
 
@@ -89,43 +123,49 @@ export function LoanFormModal({
     }
   };
 
-  const formatDateTimeForInput = (date: Date) => {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const year = date.getFullYear();
-    const month = pad(date.getMonth() + 1);
-    const day = pad(date.getDate());
-    const hours = pad(date.getHours());
-    const minutes = pad(date.getMinutes());
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
   // Atalhos rápidos de prazo
-  const applyPresetTime = (type: "2h" | "4h" | "end_of_day" | "24h" | "3d" | "7d") => {
+  const applyPresetTime = (type: "2h" | "4h" | "end_of_day" | "night" | "24h" | "3d" | "7d") => {
     const d = new Date();
     switch (type) {
       case "2h":
         d.setHours(d.getHours() + 2);
+        setReturnDate(getLocalDateString(d));
+        setReturnTime(getLocalTimeString(d));
         break;
       case "4h":
         d.setHours(d.getHours() + 4);
+        setReturnDate(getLocalDateString(d));
+        setReturnTime(getLocalTimeString(d));
         break;
       case "end_of_day":
         d.setHours(18, 0, 0, 0);
         if (d < new Date()) {
           d.setDate(d.getDate() + 1);
         }
+        setReturnDate(getLocalDateString(d));
+        setReturnTime("18:00");
+        break;
+      case "night":
+        d.setHours(22, 30, 0, 0);
+        if (d < new Date()) {
+          d.setDate(d.getDate() + 1);
+        }
+        setReturnDate(getLocalDateString(d));
+        setReturnTime("22:30");
         break;
       case "24h":
         d.setDate(d.getDate() + 1);
+        setReturnDate(getLocalDateString(d));
         break;
       case "3d":
         d.setDate(d.getDate() + 3);
+        setReturnDate(getLocalDateString(d));
         break;
       case "7d":
         d.setDate(d.getDate() + 7);
+        setReturnDate(getLocalDateString(d));
         break;
     }
-    setExpectedReturnDate(formatDateTimeForInput(d));
   };
 
   const filteredAssets = availableAssets.filter((a) => {
@@ -159,13 +199,15 @@ export function LoanFormModal({
       return;
     }
 
-    if (!expectedReturnDate) {
+    if (!returnDate || !returnTime) {
       toast.error("Informe a data e horário previstos para devolução.");
       return;
     }
 
     try {
       setIsSubmitting(true);
+      const combinedDateTime = new Date(`${returnDate}T${returnTime}:00`);
+
       const payload = {
         assetId: selectedAssetId,
         borrowerName: borrowerName.trim(),
@@ -173,7 +215,7 @@ export function LoanFormModal({
         borrowerPhone: borrowerPhone.trim() || undefined,
         borrowerDepartment: borrowerDepartment.trim() || undefined,
         destination: destination.trim(),
-        expectedReturnDate: new Date(expectedReturnDate).toISOString(),
+        expectedReturnDate: combinedDateTime.toISOString(),
         notes: notes.trim() || undefined,
       };
 
@@ -186,117 +228,103 @@ export function LoanFormModal({
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Erro ao registrar empréstimo.");
+        toast.error(json.error || "Erro ao registrar empréstimo.");
+        setIsSubmitting(false);
+        return;
       }
 
-      toast.success(`Empréstimo registrado com sucesso para ${borrowerName}!`);
-      onSuccess(json.data);
+      toast.success("✓ Empréstimo registrado com sucesso! Gerando Termo Oficial...");
       onClose();
-      resetForm();
+      onSuccess(json.data.id);
     } catch (err: any) {
-      toast.error(err.message || "Erro ao registrar empréstimo.");
-    } finally {
+      toast.error("Erro inesperado ao registrar saída.");
       setIsSubmitting(false);
     }
   };
 
-  const resetForm = () => {
-    setSelectedAssetId("");
-    setAssetSearch("");
-    setBorrowerName("");
-    setBorrowerEmail("");
-    setBorrowerPhone("");
-    setBorrowerDepartment("");
-    setDestination("");
-    setNotes("");
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-6 rounded-3xl">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-2xl bg-primary/10 text-primary">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[92vh] overflow-y-auto p-6 sm:p-8 rounded-3xl bg-card border-border shadow-2xl space-y-6">
+        <DialogHeader className="space-y-1">
+          <div className="flex items-center gap-2.5 text-primary">
+            <div className="p-2 rounded-2xl bg-primary/10 border border-primary/20">
               <Handshake className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-xl font-bold tracking-tight">
+              <DialogTitle className="text-lg font-bold text-foreground">
                 Novo Empréstimo de Equipamento
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Registre o checkout de equipamentos multimídia e patrimoniais com geração de termo e rastreamento.
+                Registre a cautela temporária de equipamento com emissão de Termo de Responsabilidade A4.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Seção 1: Seleção do Equipamento */}
-          <div className="space-y-3 p-4 rounded-2xl bg-card border border-border/80 shadow-sm">
-            <div className="flex items-center justify-between">
+          <div className="space-y-3 p-4 rounded-2xl bg-muted/30 border border-border/80 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Monitor className="w-4 h-4 text-primary" />
-                <span>1. Equipamento Patrimonial Disponível</span>
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>1. Selecionar Equipamento no Armário *</span>
               </label>
-              {availableAssets.length > 0 && (
-                <Badge variant="available" className="text-[10px]">
-                  {availableAssets.length} Disponíveis
-                </Badge>
-              )}
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  placeholder="Filtrar por patrimônio, item ou caixa..."
+                  value={assetSearch}
+                  onChange={(e) => setAssetSearch(e.target.value)}
+                  className="pl-8 text-xs rounded-xl h-8 bg-background"
+                />
+              </div>
             </div>
 
-            {/* Busca Rápida de Ativo */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por Patrimônio (#123456), Modelo ou Série..."
-                value={assetSearch}
-                onChange={(e) => setAssetSearch(e.target.value)}
-                className="pl-9 text-xs rounded-xl h-9"
-              />
-            </div>
-
-            {/* Lista de Ativos Disponíveis */}
-            <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 divide-y divide-border/40">
+            {/* Lista com scroll dos equipamentos disponíveis */}
+            <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
               {isLoadingAssets ? (
-                <div className="py-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <div className="py-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span>Carregando acervo disponível...</span>
+                  <span>Buscando equipamentos disponíveis...</span>
                 </div>
               ) : filteredAssets.length === 0 ? (
-                <div className="py-6 text-center text-xs text-muted-foreground">
-                  Nenhum equipamento disponível encontrado para os termos da busca.
+                <div className="py-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl p-4">
+                  {assetSearch ? "Nenhum equipamento disponível encontrado para esta busca." : "Não há equipamentos disponíveis para empréstimo no momento."}
                 </div>
               ) : (
                 filteredAssets.map((asset) => {
                   const isSelected = selectedAssetId === asset.id;
+
                   return (
                     <div
                       key={asset.id}
                       onClick={() => setSelectedAssetId(asset.id)}
-                      className={`p-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 text-xs ${
+                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
                         isSelected
-                          ? "bg-primary/10 border border-primary/40 font-medium text-primary shadow-sm"
-                          : "hover:bg-muted/60 border border-transparent"
+                          ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-xs"
+                          : "border-border/60 bg-background hover:bg-muted/50"
                       }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Badge variant="outline" className="font-mono text-[10px] shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg font-mono text-xs font-bold ${
+                          isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                        }`}>
                           #{asset.assetTag}
-                        </Badge>
-                        <div className="truncate">
-                          <p className="truncate font-semibold text-foreground">
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-foreground block">
                             {asset.item.name}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {asset.model ? `Mod: ${asset.model} • ` : ""}
-                            {asset.currentBox ? `Armário: ${asset.currentBox.name} (${asset.currentBox.door.name})` : "Sem caixa"}
-                          </p>
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {asset.model ? `Modelo: ${asset.model} • ` : ""}
+                            {asset.currentBox ? `Armazenado em: ${asset.currentBox.name} (${asset.currentBox.door.name})` : "Sem caixa"}
+                          </span>
                         </div>
                       </div>
 
                       {isSelected && (
-                        <div className="flex items-center gap-1 text-[10px] text-primary font-bold shrink-0">
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-primary">
                           <PackageCheck className="w-4 h-4" />
                           <span>Selecionado</span>
                         </div>
@@ -323,56 +351,56 @@ export function LoanFormModal({
           </div>
 
           {/* Seção 2: Dados do Solicitante */}
-          <div className="space-y-3 p-4 rounded-2xl bg-card border border-border/80 shadow-sm">
+          <div className="space-y-3 p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <User className="w-4 h-4 text-primary" />
               <span>2. Dados do Solicitante / Responsável</span>
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  <span>Nome Completo *</span>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span>Nome Completo <span className="text-rose-500">*</span></span>
                 </label>
                 <Input
                   required
                   placeholder="Ex: Prof. João da Silva"
                   value={borrowerName}
                   onChange={(e) => setBorrowerName(e.target.value)}
-                  className="text-xs rounded-xl h-9"
+                  className="text-xs rounded-xl h-10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <Building2 className="w-3 h-3" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5 text-primary" />
                   <span>Departamento / Curso</span>
                 </label>
                 <Input
                   placeholder="Ex: Coordenação de Medicina, DTI, Prograd"
                   value={borrowerDepartment}
                   onChange={(e) => setBorrowerDepartment(e.target.value)}
-                  className="text-xs rounded-xl h-9"
+                  className="text-xs rounded-xl h-10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <Phone className="w-3 h-3" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-primary" />
                   <span>WhatsApp / Telefone</span>
                 </label>
                 <Input
-                  placeholder="Ex: (96) 98111-2233"
+                  placeholder="Ex: (88) 98111-2233"
                   value={borrowerPhone}
                   onChange={(e) => setBorrowerPhone(e.target.value)}
-                  className="text-xs rounded-xl h-9"
+                  className="text-xs rounded-xl h-10"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <Mail className="w-3 h-3" />
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <Mail className="w-3.5 h-3.5 text-primary" />
                   <span>E-mail Institucional</span>
                 </label>
                 <Input
@@ -380,136 +408,150 @@ export function LoanFormModal({
                   placeholder="Ex: joao.silva@unifapce.edu.br"
                   value={borrowerEmail}
                   onChange={(e) => setBorrowerEmail(e.target.value)}
-                  className="text-xs rounded-xl h-9"
+                  className="text-xs rounded-xl h-10"
                 />
               </div>
             </div>
           </div>
 
           {/* Seção 3: Destino & Prazo de Retorno */}
-          <div className="space-y-3 p-4 rounded-2xl bg-card border border-border/80 shadow-sm">
+          <div className="space-y-3.5 p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
             <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-primary" />
+              <CalendarCheck2 className="w-4 h-4 text-primary" />
               <span>3. Destino de Uso & Prazo de Devolução</span>
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>Local / Sala de Uso *</span>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-primary" />
+                <span>Local / Sala de Uso <span className="text-rose-500">*</span></span>
+              </label>
+              <Input
+                required
+                placeholder="Ex: Auditório Principal, Sala 203 Bloco B"
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                className="text-xs rounded-xl h-10"
+              />
+            </div>
+
+            {/* SELETORES LIMPOS DE DATA E HORÁRIO */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  <span>Data Prevista de Retorno <span className="text-rose-500">*</span></span>
                 </label>
                 <Input
+                  type="date"
                   required
-                  placeholder="Ex: Auditório Principal, Sala 203 Bloco B"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  className="text-xs rounded-xl h-9"
+                  value={returnDate}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  className="text-xs rounded-xl h-10 font-medium"
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  <span>Data e Hora Previstas de Retorno *</span>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>Horário Previsto <span className="text-rose-500">*</span></span>
                 </label>
                 <Input
-                  type="datetime-local"
+                  type="time"
                   required
-                  value={expectedReturnDate}
-                  onChange={(e) => setExpectedReturnDate(e.target.value)}
-                  className="text-xs rounded-xl h-9"
+                  value={returnTime}
+                  onChange={(e) => setReturnTime(e.target.value)}
+                  className="text-xs rounded-xl h-10 font-mono font-bold"
                 />
               </div>
             </div>
 
-            {/* Atalhos Rápidos de Prazo */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-muted-foreground font-semibold mr-1">Atalhos:</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => applyPresetTime("2h")}
-                className="h-6 text-[10px] px-2 rounded-lg"
-              >
-                +2 Horas
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => applyPresetTime("4h")}
-                className="h-6 text-[10px] px-2 rounded-lg"
-              >
-                +4 Horas
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => applyPresetTime("end_of_day")}
-                className="h-6 text-[10px] px-2 rounded-lg"
-              >
-                Fim do Turno (18h)
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => applyPresetTime("24h")}
-                className="h-6 text-[10px] px-2 rounded-lg"
-              >
-                Amanhã (+24h)
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => applyPresetTime("3d")}
-                className="h-6 text-[10px] px-2 rounded-lg"
-              >
-                +3 Dias
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => applyPresetTime("7d")}
-                className="h-6 text-[10px] px-2 rounded-lg"
-              >
-                +7 Dias
-              </Button>
+            {/* Atalhos Rápidos de Prazo (Chips Elegantes) */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[11px] font-bold text-muted-foreground block">
+                Atalhos Rápidos de Prazo:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("2h")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  ⚡ +2 Horas (Aula)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("4h")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  🕒 +4 Horas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("end_of_day")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  🌇 Fim do Dia (18h)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("night")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  🌙 Noite (22:30)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("24h")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  📅 Amanhã (+24h)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("3d")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  📆 +3 Dias
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPresetTime("7d")}
+                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg bg-muted/60 hover:bg-primary/15 hover:text-primary border border-border/80 transition-all"
+                >
+                  🗓️ +7 Dias
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-1 pt-1">
-              <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
-                <FileText className="w-3 h-3" />
-                <span>Acessórios Inclusos & Observações</span>
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-primary" />
+                <span>Acessórios Inclusos & Observações (Opcional)</span>
               </label>
               <Input
                 placeholder="Ex: Acompanha cabo HDMI 5m, cabo de força, controle remoto e bolsa protetora"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="text-xs rounded-xl h-9"
+                className="text-xs rounded-xl h-10"
               />
             </div>
           </div>
 
-          <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+          <DialogFooter className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/80">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              className="rounded-xl text-xs"
+              className="h-11 px-5 rounded-xl text-xs font-semibold"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting || !selectedAssetId}
-              className="gap-1.5 rounded-xl text-xs bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary/20"
+              className="h-11 px-6 gap-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-md shadow-primary/25"
             >
               {isSubmitting ? (
                 <>
