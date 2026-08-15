@@ -281,11 +281,11 @@ export default function BoxDetailsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-2">
                         {/* BOTÃO DAR BAIXA */}
                         <Button
                           size="sm"
-                          variant="destructive"
+                          variant="ghost"
                           onClick={() =>
                             setSelectedItemForExit({
                               item: inv.item,
@@ -299,16 +299,16 @@ export default function BoxDetailsPage() {
                             })
                           }
                           disabled={inv.quantity <= 0}
-                          className="h-8 px-2.5 text-xs rounded-xl gap-1 shadow-sm"
+                          className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
                         >
                           <ArrowDownLeft className="w-3.5 h-3.5" />
-                          <span>Dar Baixa</span>
+                          <span>Baixar</span>
                         </Button>
 
                         {/* BOTÃO ENTRADA */}
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() =>
                             setSelectedItemForEntry({
                               item: inv.item,
@@ -320,16 +320,16 @@ export default function BoxDetailsPage() {
                               },
                             })
                           }
-                          className="h-8 px-2.5 text-xs rounded-xl gap-1"
+                          className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/50 shadow-xs"
                         >
-                          <Plus className="w-3.5 h-3.5 text-emerald-500" />
+                          <Plus className="w-3.5 h-3.5" />
                           <span>Entrada</span>
                         </Button>
 
                         {/* BOTÃO TRANSFERIR */}
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() =>
                             setSelectedItemForTransfer({
                               item: inv.item,
@@ -342,9 +342,9 @@ export default function BoxDetailsPage() {
                             })
                           }
                           disabled={inv.quantity <= 0}
-                          className="h-8 px-2.5 text-xs rounded-xl gap-1"
+                          className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 hover:border-indigo-500/50 disabled:opacity-40 shadow-xs"
                         >
-                          <RefreshCw className="w-3.5 h-3.5 text-indigo-500" />
+                          <RefreshCw className="w-3.5 h-3.5" />
                           <span>Transferir</span>
                         </Button>
                       </div>
