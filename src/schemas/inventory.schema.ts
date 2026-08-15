@@ -38,6 +38,10 @@ export const itemCreateSchema = z.object({
   model: z.string().optional(),
   initialBoxId: z.string().optional(),
   initialQuantity: z.number().int().nonnegative().optional(),
+  assetTag: z.string().optional(),
+  serialNumber: z.string().optional(),
+  acquisitionDate: z.string().optional(),
+  acquisitionValue: z.number().optional(),
   notes: z.string().optional(),
 });
 
