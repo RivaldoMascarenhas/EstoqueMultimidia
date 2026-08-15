@@ -527,4 +527,25 @@ export class InventoryService {
       orderBy: { name: "asc" },
     });
   }
+
+  /**
+   * Cria uma nova categoria
+   */
+  static async createCategory(name: string, description?: string) {
+    const slug = name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "");
+
+    return await prisma.category.create({
+      data: {
+        name: name.trim(),
+        slug: slug || `cat-${Date.now()}`,
+        description: description?.trim() || null,
+        active: true,
+      },
+    });
+  }
 }
