@@ -124,24 +124,15 @@ Atenciosamente,
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-6 rounded-3xl bg-card border-border/80 shadow-2xl">
         <DialogHeader>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-                <span>Cobrar / Notificar Solicitante</span>
-                {isOverdue ? (
-                  <Badge variant="destructive" className="text-[10px]">
-                    {loan.diffHours ? `Atrasado há ${loan.diffHours}h` : "Em Atraso"}
-                  </Badge>
-                ) : (
-                  <Badge variant="loaned" className="text-[10px]">
-                    No Prazo
-                  </Badge>
-                )}
+              <DialogTitle className="text-lg font-bold tracking-tight text-foreground">
+                Cobrar / Notificar Solicitante
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 Envie uma cobrança ou lembrete rápido via WhatsApp direto para o solicitante.
               </DialogDescription>
             </div>
@@ -153,30 +144,41 @@ Atenciosamente,
           {/* Card Detalhado do Pedido em Atraso */}
           <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
             
-            {/* Linha 1: Solicitante & Protocolo */}
-            <div className="flex items-start justify-between gap-2 border-b border-border/60 pb-2.5">
-              <div className="space-y-0.5">
+            {/* Linha 1: Solicitante & Status / Protocolo */}
+            <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3">
+              <div className="space-y-0.5 min-w-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Solicitante
                 </span>
-                <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-primary" />
+                <p className="font-bold text-sm text-foreground flex items-center gap-1.5 truncate">
+                  <User className="w-4 h-4 text-primary shrink-0" />
                   <span>{loan.borrowerName}</span>
                 </p>
                 {loan.borrowerDepartment && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Departamento/Setor: {loan.borrowerDepartment}
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {loan.borrowerDepartment}
                   </p>
                 )}
               </div>
 
-              <div className="text-right">
+              <div className="flex flex-col items-end gap-1.5 shrink-0">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Protocolo
+                  Status & Protocolo
                 </span>
-                <p className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg w-max ml-auto mt-0.5">
-                  {protocol}
-                </p>
+                <div className="flex items-center gap-2">
+                  {isOverdue ? (
+                    <Badge variant="destructive" className="text-[10px] px-2.5 py-0.5 font-bold shadow-xs">
+                      {loan.diffHours ? `Atrasado há ${loan.diffHours}h` : "Em Atraso"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="loaned" className="text-[10px] px-2.5 py-0.5 font-bold shadow-xs">
+                      No Prazo
+                    </Badge>
+                  )}
+                  <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg border border-primary/20">
+                    {protocol}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -225,7 +227,7 @@ Atenciosamente,
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="Ex: (96) 99123-4567"
-              className="h-10 rounded-xl text-xs bg-background"
+              className="h-10 rounded-xl text-xs font-medium text-foreground bg-background border-border/80 focus:border-primary"
             />
             <p className="text-[10px] text-muted-foreground">
               Se o número estiver preenchido, abrirá a conversa diretamente com o solicitante. Se vazio, você poderá escolher o contato na lista do WhatsApp.
