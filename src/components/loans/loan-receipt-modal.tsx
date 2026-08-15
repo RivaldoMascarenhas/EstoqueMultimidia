@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { 
   Printer, 
   FileCheck2, 
@@ -34,6 +35,7 @@ export function LoanReceiptModal({
   onClose,
   loan,
 }: LoanReceiptModalProps) {
+  const { data: session } = useSession();
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
 
   useEffect(() => {
@@ -63,6 +65,7 @@ export function LoanReceiptModal({
 
   const protocolNumber = `LOAN-${loan.id.slice(-8).toUpperCase()}`;
   const isReturned = loan.status === "RETURNED" || loan.status === "RETURNED_DAMAGED";
+  const operatorName = loan.createdByUser?.name || session?.user?.name || "Suporte de TI - UniFAP";
 
   const handlePrint = () => {
     window.print();
@@ -154,7 +157,7 @@ export function LoanReceiptModal({
               </span>
             </div>
             <div className="text-[10px] text-neutral-600">
-              Operador Responsável: <b>{loan.createdByUser?.name || "Suporte TI"}</b>
+              Operador Responsável: <b>{operatorName}</b>
             </div>
           </div>
 
@@ -300,7 +303,7 @@ export function LoanReceiptModal({
                 ________________________________
               </div>
               <p className="font-bold text-[10px] text-neutral-900">
-                {loan.createdByUser?.name || "Suporte de TI - UniFAP"}
+                {operatorName}
               </p>
               <p className="text-[9px] text-neutral-500">Operador Responsável / TI Multimídia</p>
             </div>
