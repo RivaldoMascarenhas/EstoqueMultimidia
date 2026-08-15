@@ -162,18 +162,42 @@ export function Sidebar({
             "flex h-16 items-center border-b border-border/80 transition-all",
             collapsed ? "justify-center px-0" : "justify-between px-4"
           )}>
-            <Link href="/dashboard" className="flex items-center gap-3 group" title="UniFAP TI">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-500 shadow-md shadow-primary-500/20 text-white font-bold transition-transform group-hover:scale-105">
-                <Package className="h-5 w-5" />
-              </div>
-              {!collapsed && (
-                <div className="flex flex-col overflow-hidden">
-                  <span className="text-sm font-bold tracking-tight text-foreground flex items-center gap-1.5">
-                    UniFAP <span className="text-primary font-normal text-xs">TI</span>
-                  </span>
-                  <span className="text-[10px] text-muted-foreground truncate">
-                    Estoque & Patrimônio
-                  </span>
+            <Link href="/dashboard" className="flex items-center gap-3 group" title="UniFAP - Centro Universitário Paraíso">
+              {collapsed ? (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card border border-border/60 shadow-sm p-1">
+                  <img
+                    src="/brand/logo-unifap-quadrada.png"
+                    alt="UniFAP"
+                    className="h-full w-full object-contain dark:hidden"
+                  />
+                  <img
+                    src="/brand/logo-unifap-quadrada-negativa.png"
+                    alt="UniFAP"
+                    className="h-full w-full object-contain hidden dark:block"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-auto flex items-center">
+                    <img
+                      src="/brand/logo-unifap.png"
+                      alt="UniFAP"
+                      className="h-8 w-auto object-contain dark:hidden"
+                    />
+                    <img
+                      src="/brand/logo-unifap-negativa.png"
+                      alt="UniFAP"
+                      className="h-8 w-auto object-contain hidden dark:block"
+                    />
+                  </div>
+                  <div className="flex flex-col border-l border-border/80 pl-2">
+                    <span className="text-[11px] font-bold text-foreground leading-tight">
+                      Suporte TI
+                    </span>
+                    <span className="text-[9px] text-muted-foreground leading-none">
+                      Multimídia
+                    </span>
+                  </div>
                 </div>
               )}
             </Link>
