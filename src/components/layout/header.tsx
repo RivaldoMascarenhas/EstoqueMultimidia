@@ -93,13 +93,13 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
   const isDarkMode = mounted && (resolvedTheme || theme) === "dark";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 px-4 sm:px-6 backdrop-blur-md transition-all">
+    <header className="sticky top-0 z-30 flex h-14 sm:h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 px-3 sm:px-6 backdrop-blur-md transition-all">
       {/* Left: Hamburger (Mobile) + Breadcrumbs */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden rounded-xl"
+          className="md:hidden h-9 w-9 rounded-xl shrink-0"
           onClick={onToggleMobileSidebar}
           aria-label="Abrir menu"
         >
@@ -110,7 +110,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
       </div>
 
       {/* Right: Search, Notifications, Theme, User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Global Quick Search Button */}
         <button
           onClick={onOpenSearch}

@@ -93,27 +93,27 @@ export default function EstoquePage() {
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Package className="w-6 h-6 text-primary" />
-              <span>Estoque de Materiais & Insumos</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
+              <span>Estoque & Insumos</span>
             </h1>
-            <Badge variant="normal" className="text-xs">
+            <Badge variant="normal" className="text-[11px] font-semibold px-2 py-0.5">
               SSOT Ativa
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Controle de saldo, caixas físicas de armazenamento, entradas, saídas com garantia anti-negativo e transferências.
+          <p className="text-xs text-muted-foreground">
+            Controle de saldo, caixas físicas, entradas, saídas e transferências com rastreabilidade total.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             onClick={() => setIsItemFormOpen(true)}
             size="sm"
-            className="gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white"
+            className="w-full sm:w-auto gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white h-10 sm:h-9 text-xs font-semibold justify-center"
           >
             <Plus className="w-4 h-4" />
             <span>Cadastrar Novo Item</span>
@@ -122,29 +122,29 @@ export default function EstoquePage() {
       </div>
 
       {/* KPI Cards Rápidos */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs">
           <span className="text-xs font-semibold text-muted-foreground">Itens no Catálogo</span>
           <div className="text-xl font-bold font-mono text-foreground mt-0.5">
             {items.length}
           </div>
         </Card>
 
-        <Card className="p-4">
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs">
           <span className="text-xs font-semibold text-muted-foreground">Total de Unidades</span>
           <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
             {totalStockItems}
           </div>
         </Card>
 
-        <Card className={`p-4 ${criticalItemsCount > 0 ? "border-rose-500/40 bg-rose-500/5" : ""}`}>
+        <Card className={`p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs ${criticalItemsCount > 0 ? "border-rose-500/40 bg-rose-500/5" : ""}`}>
           <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Estoque Crítico</span>
           <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-0.5">
             {criticalItemsCount}
           </div>
         </Card>
 
-        <Card className={`p-4 ${lowItemsCount > 0 ? "border-amber-500/40 bg-amber-500/5" : ""}`}>
+        <Card className={`p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs ${lowItemsCount > 0 ? "border-amber-500/40 bg-amber-500/5" : ""}`}>
           <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Estoque Baixo</span>
           <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">
             {lowItemsCount}
@@ -153,9 +153,9 @@ export default function EstoquePage() {
       </div>
 
       {/* Barra de Busca e Filtros */}
-      <Card className="p-3.5 shadow-sm">
-        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
-          <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center gap-2">
+      <Card className="p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border-border/80 shadow-xs">
+        <div className="flex flex-col gap-3">
+          <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
             <div className="relative flex-1">
               <Input
                 value={searchTerm}
@@ -168,20 +168,20 @@ export default function EstoquePage() {
             <Button
               type="submit"
               size="sm"
-              className="h-10 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition-all shrink-0 gap-1.5"
+              className="h-10 px-4 text-xs font-semibold rounded-xl bg-primary text-primary-foreground shadow-xs shrink-0 gap-1.5"
             >
               <Search className="w-3.5 h-3.5" />
               <span>Buscar</span>
             </Button>
           </form>
 
-          {/* Filtros Dropdown */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+          {/* Filtros Dropdown em Grid Responsivo */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {/* Filtro por Caixa */}
             <select
               value={selectedBox}
               onChange={(e) => setSelectedBox(e.target.value)}
-              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[160px]"
+              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full"
             >
               <option value="ALL">📦 Todas as Caixas</option>
               {allBoxes.map((b) => (
@@ -195,7 +195,7 @@ export default function EstoquePage() {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[150px]"
+              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full"
             >
               <option value="ALL">Todas as Categorias</option>
               {categories.map((c) => (
@@ -205,36 +205,37 @@ export default function EstoquePage() {
               ))}
             </select>
 
-            {/* Filtro por Status */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as any)}
-              className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto min-w-[130px]"
-            >
-              <option value="ALL">Todos os Níveis</option>
-              <option value="CRITICAL">🔴 Crítico</option>
-              <option value="LOW">🟡 Baixo</option>
-              <option value="NORMAL">🟢 Normal</option>
-            </select>
-
-            {/* Limpar Filtros */}
-            {(searchTerm || selectedCategory !== "ALL" || selectedBox !== "ALL" || selectedStatus !== "ALL") && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedCategory("ALL");
-                  setSelectedBox("ALL");
-                  setSelectedStatus("ALL");
-                }}
-                className="h-10 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl shrink-0"
-                title="Limpar filtros"
+            {/* Filtro por Status + Limpar */}
+            <div className="flex items-center gap-1.5">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as any)}
+                className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary flex-1"
               >
-                Limpar
-              </Button>
-            )}
+                <option value="ALL">Todos os Níveis</option>
+                <option value="CRITICAL">🔴 Crítico</option>
+                <option value="LOW">🟡 Baixo</option>
+                <option value="NORMAL">🟢 Normal</option>
+              </select>
+
+              {(searchTerm || selectedCategory !== "ALL" || selectedBox !== "ALL" || selectedStatus !== "ALL") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedCategory("ALL");
+                    setSelectedBox("ALL");
+                    setSelectedStatus("ALL");
+                  }}
+                  className="h-10 px-2 text-xs text-muted-foreground hover:text-foreground rounded-xl shrink-0"
+                  title="Limpar filtros"
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </Card>

@@ -162,46 +162,47 @@ export default function EmprestimosPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       {/* Header com Ações Rápidas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Handshake className="w-6 h-6 text-primary" />
-              <span>Empréstimos & Circulação de Equipamentos</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <Handshake className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
+              <span>Empréstimos</span>
             </h1>
-            <Badge variant="loaned" className="text-xs">
+            <Badge variant="loaned" className="text-[11px] font-semibold px-2 py-0.5">
               {metrics.activeLoans} Ativos
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Controle de checkout, devoluções, prazos e emissão do Termo de Responsabilidade oficial da UniFAP.
+          <p className="text-xs text-muted-foreground">
+            Controle de retiradas, devoluções, prazos e Termo de Responsabilidade.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            onClick={() => setIsFormOpen(true)}
+            size="sm"
+            className="flex-1 sm:flex-none gap-1.5 rounded-xl h-10 sm:h-9 text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary/20 justify-center"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Novo Empréstimo</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
             onClick={fetchData}
-            className="gap-1.5 rounded-xl h-9 text-xs"
+            className="rounded-xl h-10 sm:h-9 text-xs px-3"
+            title="Atualizar dados"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Atualizar</span>
-          </Button>
-
-          <Button
-            onClick={() => setIsFormOpen(true)}
-            size="sm"
-            className="gap-1.5 rounded-xl h-9 text-xs bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Empréstimo</span>
+            <span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
         </div>
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Card 1: Empréstimos Ativos */}
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">

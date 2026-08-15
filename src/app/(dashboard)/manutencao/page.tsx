@@ -172,47 +172,47 @@ export default function ManutencaoPage() {
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       
       {/* Header com Ações Rápidas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Wrench className="w-6 h-6 text-amber-500" />
-              Manutenção & Ordens de Serviço
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <Wrench className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 shrink-0" />
+              <span>Manutenção & Ordens de Serviço</span>
             </h1>
-            <Badge variant="maintenance" className="text-xs">
-              FASE 7
+            <Badge variant="maintenance" className="text-[11px] font-semibold px-2 py-0.5">
+              {metrics.activeCount} Em Aberto
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Controle de chamados técnicos, laudos, orçamentos, troca de lâmpadas de projetores e reintegração física ao armário.
+          <p className="text-xs text-muted-foreground">
+            Controle de chamados técnicos, laudos, orçamentos, troca de lâmpadas e reintegração física ao armário.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button
+            size="sm"
+            onClick={() => setIsFormOpen(true)}
+            className="flex-1 sm:flex-none gap-1.5 rounded-xl text-xs h-10 sm:h-9 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold shadow-md shadow-amber-500/20 justify-center"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Abrir Chamado / OS</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
             onClick={fetchData}
-            className="gap-1.5 rounded-xl text-xs h-9"
+            className="rounded-xl text-xs h-10 sm:h-9 px-3"
             title="Atualizar lista"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Atualizar</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => setIsFormOpen(true)}
-            className="gap-1.5 rounded-xl text-xs h-9 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold shadow-md shadow-amber-500/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Abrir Chamado / OS</span>
+            <span className="hidden sm:inline ml-1">Atualizar</span>
           </Button>
         </div>
       </div>
 
       {/* KPI Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         {/* Card 1: Total em Aberto */}
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-amber-500/10 via-card to-card hover:shadow-md transition-all">

@@ -136,39 +136,42 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
     });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Top Action Bar: Search, QR Scanner, View All Boxes, New Box, New Door */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-4 rounded-2xl bg-card border border-border shadow-sm">
-        <div className="flex-1 max-w-md">
-          <Input
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            icon={<Search className="w-4 h-4 text-primary" />}
-            placeholder="Buscar caixa, código ou item guardado..."
-            className="h-9 text-xs"
-          />
-        </div>
+      <div className="space-y-3 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-card border border-border/80 shadow-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="flex-1">
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              icon={<Search className="w-4 h-4 text-primary" />}
+              placeholder="Buscar caixa, código ou item guardado..."
+              className="h-10 text-xs rounded-xl"
+            />
+          </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Botão Escanear QR Code */}
+          {/* Botão Escanear QR Code em destaque */}
           <Button
             onClick={() => setIsScannerOpen(true)}
             size="sm"
-            className="gap-1.5 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 shadow-md shadow-primary/20 text-white"
+            className="h-10 sm:h-9 gap-1.5 rounded-xl bg-gradient-to-r from-primary-600 to-indigo-600 shadow-md shadow-primary/20 text-white font-semibold text-xs shrink-0"
           >
             <Camera className="w-4 h-4" />
             <span>Escanear QR</span>
           </Button>
+        </div>
 
+        {/* Secondary Action Grid on Mobile / Flex on Desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1 border-t border-border/40">
           {/* Botão Atalho para Lista de Caixas */}
-          <Link href="/caixas">
+          <Link href="/caixas" className="w-full sm:w-auto">
             <Button
               size="sm"
               variant="outline"
-              className="gap-1.5 rounded-xl"
+              className="w-full gap-1.5 rounded-xl text-xs h-9"
             >
-              <Boxes className="w-4 h-4 text-primary" />
-              <span>Ver Índice de Caixas</span>
+              <Boxes className="w-3.5 h-3.5 text-primary" />
+              <span className="truncate">Índice de Caixas</span>
             </Button>
           </Link>
 
@@ -177,10 +180,10 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
             onClick={() => setIsBoxModalOpen(true)}
             size="sm"
             variant="emerald"
-            className="gap-1.5 rounded-xl"
+            className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
           >
-            <Plus className="w-4 h-4" />
-            <span>Nova Caixa</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span className="truncate">Nova Caixa</span>
           </Button>
 
           {/* Botão Nova Porta */}
@@ -188,10 +191,10 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
             onClick={() => setIsDoorModalOpen(true)}
             size="sm"
             variant="outline"
-            className="gap-1.5 rounded-xl"
+            className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
           >
-            <Archive className="w-4 h-4 text-primary" />
-            <span>Nova Porta</span>
+            <Archive className="w-3.5 h-3.5 text-primary" />
+            <span className="truncate">Nova Porta</span>
           </Button>
 
           {/* Botão Imprimir Etiquetas */}
@@ -202,22 +205,22 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
             }}
             size="sm"
             variant="outline"
-            className="gap-1.5 rounded-xl"
+            className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
           >
-            <Printer className="w-4 h-4 text-primary" />
-            <span>Etiquetas</span>
+            <Printer className="w-3.5 h-3.5 text-primary" />
+            <span className="truncate">Etiquetas</span>
           </Button>
         </div>
       </div>
 
-      {/* Door Selector Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      {/* Door Selector Tabs with smooth touch scrolling */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1.5 no-scrollbar scrollbar-none">
         <button
           onClick={() => setSelectedDoorFilter("ALL")}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+          className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
             selectedDoorFilter === "ALL"
               ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-              : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+              : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-accent/60"
           }`}
         >
           Armário Completo ({doors.length} Portas)
@@ -227,10 +230,10 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
           <button
             key={door.code}
             onClick={() => setSelectedDoorFilter(door.code)}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+            className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
               selectedDoorFilter === door.code
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-accent/60"
             }`}
           >
             <span>{door.name}</span>
@@ -240,17 +243,17 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
       </div>
 
       {/* Visual Cabinet Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 items-start">
         {filteredDoors.map((door) => (
           <div
             key={door.id}
-            className="rounded-3xl border-2 border-border/80 bg-card/80 backdrop-blur-md shadow-sm overflow-hidden flex flex-col transition-all hover:border-primary/40"
+            className="rounded-2xl sm:rounded-3xl border border-border/80 bg-card/80 backdrop-blur-md shadow-xs overflow-hidden flex flex-col transition-all hover:border-primary/40"
           >
             {/* Door Header */}
-            <div className="p-4 border-b border-border/80 bg-gradient-to-r from-primary/10 via-muted/30 to-transparent flex items-center justify-between">
+            <div className="p-3.5 sm:p-4 border-b border-border/80 bg-gradient-to-r from-primary/10 via-muted/30 to-transparent flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <Archive className="w-4 h-4 text-primary" />
+                  <Archive className="w-4 h-4 text-primary shrink-0" />
                   <h3 className="text-sm font-bold text-foreground">
                     {door.name}
                   </h3>
@@ -261,13 +264,13 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
                   </p>
                 )}
               </div>
-              <Badge variant="outline" className="font-mono text-[10px]">
+              <Badge variant="outline" className="font-mono text-[10px] shrink-0">
                 {door.boxes.length} caixas
               </Badge>
             </div>
 
             {/* Boxes Inside this Door */}
-            <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
+            <div className="p-3 sm:p-4 space-y-2.5 sm:space-y-3 max-h-[70vh] overflow-y-auto">
               {door.boxes.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-2xl space-y-2">
                   <p>Nenhuma caixa cadastrada nesta porta.</p>
@@ -284,16 +287,16 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
                 door.boxes.map((box) => (
                   <div
                     key={box.id}
-                    className="group rounded-2xl border border-border bg-background/60 hover:bg-accent/40 p-3.5 transition-all duration-200 hover:border-primary/50 hover:shadow-md space-y-2.5 relative"
+                    className="group rounded-2xl border border-border/80 bg-background/80 hover:bg-accent/40 p-3 sm:p-3.5 transition-all duration-200 hover:border-primary/50 hover:shadow-xs space-y-2 relative"
                   >
                     {/* Top line of Box: Code, Name, Items count badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-7 px-2 items-center justify-center rounded-lg bg-primary/15 text-primary font-mono text-xs font-black border border-primary/30">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="flex h-7 px-2 items-center justify-center rounded-lg bg-primary/15 text-primary font-mono text-xs font-black border border-primary/30 shrink-0">
                           {box.code}
                         </span>
-                        <div>
-                          <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
                             {box.name}
                           </h4>
                           {box.description && (
@@ -306,7 +309,7 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
 
                       <Badge
                         variant={box.isEmpty ? "outline" : "normal"}
-                        className="text-[10px] px-1.5"
+                        className="text-[10px] px-1.5 shrink-0"
                       >
                         {box.isEmpty ? "Vazia" : `${box.totalItemsInBox} itens`}
                       </Badge>
@@ -318,12 +321,12 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
                         {box.inventories.map((inv) => (
                           <div
                             key={inv.id}
-                            className="flex items-center justify-between text-[11px] text-muted-foreground"
+                            className="flex items-center justify-between text-[11px] text-muted-foreground gap-2"
                           >
-                            <span className="truncate max-w-[170px] text-foreground font-medium">
+                            <span className="truncate max-w-[130px] sm:max-w-[200px] text-foreground font-medium">
                               • {inv.item.name}
                             </span>
-                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
                               {inv.quantity} {inv.item.unit}
                             </span>
                           </div>
@@ -332,12 +335,12 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
                         {box.assets.map((ast) => (
                           <div
                             key={ast.id}
-                            className="flex items-center justify-between text-[11px] text-muted-foreground"
+                            className="flex items-center justify-between text-[11px] text-muted-foreground gap-2"
                           >
-                            <span className="truncate max-w-[170px] text-indigo-600 dark:text-indigo-400 font-medium">
+                            <span className="truncate max-w-[130px] sm:max-w-[200px] text-indigo-600 dark:text-indigo-400 font-medium">
                               • {ast.item.name}
                             </span>
-                            <span className="font-mono text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1 rounded">
+                            <span className="font-mono text-[10px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1 rounded shrink-0">
                               #{ast.assetTag}
                             </span>
                           </div>
@@ -356,7 +359,7 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
                           setSelectedBoxForLabel(box.code);
                           setIsPrinterOpen(true);
                         }}
-                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors cursor-pointer"
                         title="Ver etiqueta com QR Code"
                       >
                         <QrCode className="w-3 h-3 text-primary" />

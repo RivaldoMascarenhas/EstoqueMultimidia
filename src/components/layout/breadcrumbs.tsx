@@ -27,20 +27,22 @@ export function Breadcrumbs() {
   if (segments.length === 0 || pathname === "/dashboard") {
     return (
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Home className="w-3.5 h-3.5 text-primary" />
-        <span>/</span>
-        <span className="font-semibold text-foreground">Dashboard</span>
+        <Home className="w-3.5 h-3.5 text-primary shrink-0" />
+        <span className="hidden sm:inline">/</span>
+        <span className="font-bold text-foreground text-xs sm:text-sm">Dashboard</span>
       </div>
     );
   }
 
+  const lastLabel = ROUTE_LABELS[segments[segments.length - 1].toLowerCase()] || decodeURIComponent(segments[segments.length - 1]);
+
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
       <Link
         href="/dashboard"
-        className="flex items-center gap-1 hover:text-foreground transition-colors"
+        className="hidden sm:flex items-center gap-1 hover:text-foreground transition-colors shrink-0"
       >
-        <Home className="w-3.5 h-3.5" />
+        <Home className="w-3.5 h-3.5 text-primary" />
       </Link>
 
       {segments.map((segment, index) => {
@@ -48,21 +50,26 @@ export function Breadcrumbs() {
         const isLast = index === segments.length - 1;
         const label = ROUTE_LABELS[segment.toLowerCase()] || decodeURIComponent(segment);
 
-        return (
-          <React.Fragment key={href}>
-            <ChevronRight className="w-3 h-3 text-muted-foreground/50" />
-            {isLast ? (
-              <span className="font-semibold text-foreground truncate max-w-[150px] sm:max-w-none">
-                {label}
-              </span>
-            ) : (
+        if (!isLast) {
+          return (
+            <React.Fragment key={href}>
+              <ChevronRight className="hidden sm:inline-block w-3 h-3 text-muted-foreground/50 shrink-0" />
               <Link
                 href={href}
-                className="hover:text-foreground transition-colors truncate max-w-[120px] sm:max-w-none"
+                className="hidden sm:inline hover:text-foreground transition-colors truncate max-w-[120px]"
               >
                 {label}
               </Link>
-            )}
+            </React.Fragment>
+          );
+        }
+
+        return (
+          <React.Fragment key={href}>
+            <ChevronRight className="hidden sm:inline-block w-3 h-3 text-muted-foreground/50 shrink-0" />
+            <span className="font-bold text-foreground truncate max-w-[130px] sm:max-w-none text-xs sm:text-sm">
+              {label}
+            </span>
           </React.Fragment>
         );
       })}
