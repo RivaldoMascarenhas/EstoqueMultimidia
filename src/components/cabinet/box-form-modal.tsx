@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Package, Plus, Loader2 } from "lucide-react";
+import { Package, Plus, Loader2, ChevronDown, Check, Archive } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -88,21 +88,25 @@ export function BoxFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md p-6">
-        <DialogHeader>
-          <div className="flex items-center gap-2 text-primary">
-            <Package className="w-5 h-5" />
-            <DialogTitle className="text-base font-bold text-foreground">
-              Cadastrar Nova Caixa no Armário
-            </DialogTitle>
+      <DialogContent className="max-w-md p-6 sm:p-7 rounded-3xl bg-card border-border shadow-2xl space-y-5">
+        <DialogHeader className="space-y-1">
+          <div className="flex items-center gap-2.5 text-primary">
+            <div className="p-2 rounded-2xl bg-primary/10 border border-primary/20">
+              <Archive className="w-5 h-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-bold text-foreground">
+                Cadastrar Nova Caixa no Armário
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Cadastre uma caixa física com identificação numerada e geração automática de QR Code.
+              </DialogDescription>
+            </div>
           </div>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Cadastre uma caixa física com identificação numerada e geração automática de QR Code.
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 my-2">
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">
                 Código da Caixa <span className="text-rose-500">*</span>
@@ -112,7 +116,7 @@ export function BoxFormModal({
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="Ex: C025"
                 required
-                className="font-mono uppercase font-bold text-xs"
+                className="h-10 font-mono uppercase font-bold text-xs rounded-xl"
               />
             </div>
 
@@ -125,47 +129,63 @@ export function BoxFormModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Caixa 025"
                 required
-                className="text-xs"
+                className="h-10 text-xs rounded-xl"
               />
+            </div>
+          </div>
+
+          {/* Porta do Armário com Chevron customizado e padding generoso */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground">
+              Porta do Armário <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <select
+                value={doorId}
+                onChange={(e) => setDoorId(e.target.value)}
+                required
+                className="w-full h-10 pl-3 pr-10 text-xs bg-background border border-input rounded-xl text-foreground font-semibold focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer"
+              >
+                {doors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.code})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">
-              Porta do Armário <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={doorId}
-              onChange={(e) => setDoorId(e.target.value)}
-              required
-              className="w-full h-10 px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground font-semibold focus:ring-2 focus:ring-primary outline-none"
-            >
-              {doors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name} ({d.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground">
-              Descrição do Conteúdo Planejado
+              Descrição do Conteúdo Planejado (Opcional)
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex: Controles remotos, passadores de slide e pilhas reservas..."
               rows={2}
-              className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary transition-all resize-none"
+              className="w-full px-3 py-2 text-xs bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all resize-none"
             />
           </div>
 
-          <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} className="rounded-xl">
+          <DialogFooter className="pt-3 border-t border-border/80 flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isLoading}
+              className="h-10 px-4 text-xs font-semibold rounded-xl"
+            >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading} isLoading={isLoading} className="rounded-xl gap-1.5">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              isLoading={isLoading}
+              className="h-10 px-5 text-xs font-bold rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25 gap-1.5"
+            >
+              <Archive className="w-4 h-4" />
               <span>Cadastrar Caixa</span>
             </Button>
           </DialogFooter>
