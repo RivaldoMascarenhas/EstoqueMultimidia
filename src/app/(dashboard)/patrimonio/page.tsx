@@ -278,7 +278,7 @@ export default function PatrimonioPage() {
                   <TableHead>Número de Série</TableHead>
                   <TableHead>Localização no Armário</TableHead>
                   <TableHead>Status Atual</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-center w-[180px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -336,8 +336,8 @@ export default function PatrimonioPage() {
                     </TableCell>
 
                     {/* Ações */}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <TableCell className="text-center w-[180px]">
+                      <div className="flex items-center justify-center gap-1.5">
                         {/* Botão Emprestar Rápido */}
                         {asset.status === "AVAILABLE" && (
                           <Link href={`/emprestimos?assetId=${asset.id}`}>
