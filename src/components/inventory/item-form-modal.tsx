@@ -77,6 +77,12 @@ export function ItemFormModal({
   const [model, setModel] = useState("");
   const [initialBoxId, setInitialBoxId] = useState("");
   const [initialQuantity, setInitialQuantity] = useState(0);
+
+  // Campos específicos de Equipamento Patrimonial
+  const [assetTag, setAssetTag] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [acquisitionDate, setAcquisitionDate] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -95,6 +101,9 @@ export function ItemFormModal({
       setInitialQuantity(0);
       setUnitSelect("UN");
       setCustomUnit("");
+      setAssetTag("");
+      setSerialNumber("");
+      setAcquisitionDate("");
       setIsCreatingCategory(false);
       setNewCategoryName("");
       if (categoryList.length > 0) setCategoryId(categoryList[0].id);
@@ -146,6 +155,11 @@ export function ItemFormModal({
       return;
     }
 
+    if (itemType === "ASSET_EQUIPMENT" && !assetTag.trim()) {
+      toast.error("Por favor, informe o número de tombamento/patrimônio do equipamento.");
+      return;
+    }
+
     try {
       setIsLoading(true);
       const res = await fetch("/api/v1/items", {
@@ -163,7 +177,10 @@ export function ItemFormModal({
           manufacturer: manufacturer.trim() || undefined,
           model: model.trim() || undefined,
           initialBoxId: initialBoxId || undefined,
-          initialQuantity: initialQuantity > 0 ? initialQuantity : undefined,
+          initialQuantity: itemType === "MATERIAL" && initialQuantity > 0 ? initialQuantity : undefined,
+          assetTag: itemType === "ASSET_EQUIPMENT" && assetTag.trim() ? assetTag.trim().toUpperCase() : undefined,
+          serialNumber: itemType === "ASSET_EQUIPMENT" && serialNumber.trim() ? serialNumber.trim() : undefined,
+          acquisitionDate: itemType === "ASSET_EQUIPMENT" && acquisitionDate ? acquisitionDate : undefined,
         }),
       });
 
@@ -175,7 +192,11 @@ export function ItemFormModal({
         return;
       }
 
-      toast.success(`✓ Item '${name}' cadastrado com sucesso!`);
+      toast.success(
+        itemType === "ASSET_EQUIPMENT"
+          ? `✓ Equipamento '${name}' (#${assetTag.trim().toUpperCase()}) tombado com sucesso!`
+          : `✓ Item '${name}' cadastrado com sucesso!`
+      );
       onClose();
       if (onSuccess) onSuccess();
     } catch (err: any) {
@@ -492,8 +513,8 @@ export function ItemFormModal({
             </div>
           </div>
 
-          {/* 4. LOCAL DE ARMAZENAMENTO INICIAL (SE MATERIAL) */}
-          {itemType === "MATERIAL" && (
+          {/* 4. DADOS DE TOMBAMENTO & ARMAZENAMENTO INICIAL */}
+          {itemType === "MATERIAL" ? (
             <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
               <div className="flex items-center gap-2">
                 <Box className="w-4 h-4 text-primary" />
@@ -533,6 +554,92 @@ export function ItemFormModal({
                     disabled={!initialBoxId}
                     placeholder="0"
                     className="h-11 text-xs rounded-xl font-bold font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-5 rounded-2xl bg-primary/5 border-2 border-primary/30 space-y-4">
+              <div className="flex items-center justify-between border-b border-primary/20 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/20 text-primary">
+                    <Tag className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-foreground">
+                      Tombamento do Equipamento (Patrimônio)
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Cadastre o primeiro exemplar deste modelo já com a plaqueta de identificação
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold uppercase text-primary bg-primary/15 px-2 py-0.5 rounded-md">
+                  Item Rastreável
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">
+                    Número de Tombamento / Plaqueta <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    value={assetTag}
+                    onChange={(e) => setAssetTag(e.target.value.toUpperCase())}
+                    placeholder="Ex: 123458 ou UNIFAP-0982"
+                    className="h-11 font-mono uppercase font-bold text-xs rounded-xl bg-background border-primary/40 focus:border-primary"
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Código da etiqueta de patrimônio fixada no equipamento.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Número de Série (S/N) (Opcional)
+                  </label>
+                  <Input
+                    value={serialNumber}
+                    onChange={(e) => setSerialNumber(e.target.value)}
+                    placeholder="Ex: S/N: EPX-9872134"
+                    className="h-11 font-mono text-xs rounded-xl bg-background"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Número de série gravado pelo fabricante.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Caixa de Armazenamento Inicial no Armário
+                  </label>
+                  <select
+                    value={initialBoxId}
+                    onChange={(e) => setInitialBoxId(e.target.value)}
+                    className="w-full h-11 px-3 text-xs bg-background border border-input rounded-xl text-foreground focus:ring-2 focus:ring-primary outline-none font-medium"
+                  >
+                    <option value="">Sem caixa inicial (Atribuir depois)</option>
+                    {boxes.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.code} - {b.name} ({b.door?.name || "Porta"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Data de Aquisição / Entrada (Opcional)
+                  </label>
+                  <Input
+                    type="date"
+                    value={acquisitionDate}
+                    onChange={(e) => setAcquisitionDate(e.target.value)}
+                    className="h-11 text-xs rounded-xl bg-background"
                   />
                 </div>
               </div>
