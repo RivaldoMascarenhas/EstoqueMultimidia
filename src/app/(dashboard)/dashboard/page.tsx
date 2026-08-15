@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { 
@@ -19,17 +19,61 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ArrowRight
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const userName = session?.user?.name || "Rivaldo";
   const userRole = session?.user?.role || "ADMIN";
+
+  const [loanMetrics, setLoanMetrics] = useState<any>({
+    activeLoans: 1,
+    overdueLoans: 0,
+    returnedLoans: 0,
+    monthLoans: 1,
+  });
+  const [assetMetrics, setAssetMetrics] = useState<any>({
+    total: 4,
+    available: 2,
+    loaned: 1,
+    maintenance: 1,
+    damaged: 0,
+  });
+  const [activeLoans, setActiveLoans] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const [loansRes, assetMetricsRes, activeLoansRes] = await Promise.all([
+          fetch("/api/v1/loans/metrics"),
+          fetch("/api/v1/assets/metrics"),
+          fetch("/api/v1/loans?status=ACTIVE"),
+        ]);
+
+        const loansData = await loansRes.json();
+        const assetMetricsData = await assetMetricsRes.json();
+        const activeLoansData = await activeLoansRes.json();
+
+        if (loansData.success) setLoanMetrics(loansData.data);
+        if (assetMetricsData.success) setAssetMetrics(assetMetricsData.data);
+        if (activeLoansData.success) setActiveLoans(activeLoansData.data);
+      } catch (err) {
+        console.error("Erro ao carregar dados dinâmicos do dashboard:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadDashboardData();
+  }, []);
 
   const getRoleVariant = (role: string) => {
     switch (role) {
@@ -100,7 +144,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold text-foreground">63</div>
             <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-              <span className="text-emerald-500 font-semibold font-mono">6</span> itens cadastrados em <span className="font-semibold">17</span> caixas
+              <span className="text-emerald-500 font-semibold font-mono">6</span> itens catalogados em <span className="font-semibold">17</span> caixas
             </p>
           </CardContent>
         </Card>
@@ -116,9 +160,9 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">4</div>
+            <div className="text-2xl font-bold text-foreground">{assetMetrics.total}</div>
             <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-              <span className="text-emerald-500 font-semibold">2</span> disponíveis • <span className="text-blue-500 font-semibold">1</span> emprestado
+              <span className="text-emerald-500 font-semibold">{assetMetrics.available}</span> disp. • <span className="text-blue-500 font-semibold">{loanMetrics.activeLoans}</span> empr.
             </p>
           </CardContent>
         </Card>
@@ -142,20 +186,41 @@ export default function DashboardPage() {
         </Card>
 
         {/* Card 4: Empréstimos & Atenção */}
-        <Card className="hover:shadow-md transition-shadow border-amber-500/30 bg-amber-500/5">
+        <Card className={`hover:shadow-md transition-shadow ${
+          loanMetrics.overdueLoans > 0 
+            ? "border-rose-500/40 bg-rose-500/5" 
+            : "border-blue-500/30 bg-blue-500/5"
+        }`}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-amber-700 dark:text-amber-400">
+            <CardTitle className={`text-xs font-medium ${
+              loanMetrics.overdueLoans > 0 ? "text-rose-700 dark:text-rose-400" : "text-blue-700 dark:text-blue-400"
+            }`}>
               Empréstimos Ativos
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${
+              loanMetrics.overdueLoans > 0 ? "bg-rose-500/10 text-rose-500" : "bg-blue-500/10 text-blue-500"
+            }`}>
               <Handshake className="h-4 w-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">1</div>
-            <p className="text-[11px] text-rose-600 dark:text-rose-400 font-medium mt-1 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              1 vencendo hoje (Sala 203)
+            <div className={`text-2xl font-bold ${
+              loanMetrics.overdueLoans > 0 ? "text-rose-600 dark:text-rose-400" : "text-blue-600 dark:text-blue-400"
+            }`}>
+              {loanMetrics.activeLoans}
+            </div>
+            <p className="text-[11px] text-muted-foreground font-medium mt-1 flex items-center gap-1">
+              {loanMetrics.overdueLoans > 0 ? (
+                <span className="text-rose-600 flex items-center gap-1 font-bold">
+                  <AlertCircle className="w-3 h-3" />
+                  {loanMetrics.overdueLoans} em atraso!
+                </span>
+              ) : (
+                <span className="text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Todos no prazo previsto
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -179,7 +244,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <Badge variant="critical" dot>
-              2 Alertas
+              {loanMetrics.overdueLoans + 1} Alertas
             </Badge>
           </div>
         </CardHeader>
@@ -206,27 +271,45 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Alerta 2: Empréstimo do Projetor */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <div>
-                <p className="text-xs font-semibold text-foreground">
-                  Projetor Epson PowerLite X49 (Patrimônio 123457)
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Responsável: <span className="font-semibold text-foreground">Prof. João da Silva</span> • Destino: <span className="font-semibold text-foreground">Auditório Medicina (Sala 203)</span>
-                </p>
+          {/* Empréstimos Ativos em Destaque */}
+          {activeLoans.slice(0, 2).map((loan) => (
+            <div
+              key={loan.id}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl border backdrop-blur-sm ${
+                loan.isOverdue
+                  ? "border-rose-500/30 bg-rose-500/10 text-rose-950 dark:text-rose-200"
+                  : "border-amber-500/20 bg-amber-500/5"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className={`flex h-2.5 w-2.5 rounded-full ${loan.isOverdue ? "bg-rose-500 animate-pulse" : "bg-amber-500"}`} />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">
+                    {loan.asset?.item?.name} (Patrimônio #{loan.asset?.assetTag})
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Responsável: <span className="font-semibold text-foreground">{loan.borrowerName}</span> • Destino: <span className="font-semibold text-foreground">{loan.destination}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 self-end sm:self-center">
+                <div className="text-right">
+                  <span className={`text-xs font-bold ${loan.isOverdue ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400"}`}>
+                    {loan.isOverdue ? "Prazo Expirado" : "Em Aberto"}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground">
+                    Devolução: {formatDate(loan.expectedReturnDate)}
+                  </p>
+                </div>
+                <Link href="/emprestimos">
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 rounded-lg gap-1">
+                    <span>Gerenciar</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </Button>
+                </Link>
               </div>
             </div>
-            <div className="flex items-center gap-3 self-end sm:self-center">
-              <div className="text-right">
-                <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Vencimento: Hoje</span>
-                <p className="text-[10px] text-muted-foreground">Previsão: 18:00</p>
-              </div>
-              <Badge variant="low" className="text-[10px]">Atenção</Badge>
-            </div>
-          </div>
+          ))}
         </CardContent>
       </Card>
 
