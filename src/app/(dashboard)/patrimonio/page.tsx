@@ -125,27 +125,27 @@ export default function PatrimonioPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Monitor className="w-6 h-6 text-primary" />
-              <span>Patrimônio & Equipamentos Rastreáveis</span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <Monitor className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
+              <span>Patrimônio & Equipamentos</span>
             </h1>
-            <Badge variant="normal" className="text-xs">
-              {metrics.total} Ativos Cadastrados
+            <Badge variant="normal" className="text-[11px] font-semibold px-2 py-0.5">
+              {metrics.total} Ativos
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Controle unitário de projetores, microfones, laptops e equipamentos com tombamento, número de série e histórico individual.
+          <p className="text-xs text-muted-foreground">
+            Controle unitário com tombamento, número de série, localização no armário e histórico individual.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             onClick={() => setIsFormOpen(true)}
             size="sm"
-            className="gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white"
+            className="flex-1 sm:flex-none gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white h-10 sm:h-9 text-xs font-semibold justify-center"
           >
             <Plus className="w-4 h-4" />
             <span>Novo Equipamento</span>
@@ -158,7 +158,8 @@ export default function PatrimonioPage() {
             }}
             size="sm"
             variant="outline"
-            className="gap-1.5 rounded-xl"
+            className="gap-1.5 rounded-xl h-10 sm:h-9 text-xs font-semibold"
+            title="Imprimir etiquetas com QR Code"
           >
             <Printer className="w-4 h-4 text-primary" />
             <span>Etiquetas</span>
@@ -167,37 +168,37 @@ export default function PatrimonioPage() {
       </div>
 
       {/* KPI Cards Rápidos */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
-        <Card className="p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-4">
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs">
           <span className="text-xs font-semibold text-muted-foreground">Total de Ativos</span>
           <div className="text-xl font-bold font-mono text-foreground mt-0.5">
             {metrics.total}
           </div>
         </Card>
 
-        <Card className="p-4 border-emerald-500/30 bg-emerald-500/5">
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-emerald-500/30 bg-emerald-500/5 shadow-xs">
           <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Disponíveis</span>
           <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
             {metrics.available}
           </div>
         </Card>
 
-        <Card className="p-4 border-blue-500/30 bg-blue-500/5">
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-blue-500/30 bg-blue-500/5 shadow-xs">
           <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">Emprestados</span>
           <div className="text-xl font-bold font-mono text-blue-600 dark:text-blue-400 mt-0.5">
             {metrics.loaned}
           </div>
         </Card>
 
-        <Card className="p-4 border-amber-500/30 bg-amber-500/5">
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-amber-500/30 bg-amber-500/5 shadow-xs">
           <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Em Manutenção</span>
           <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">
             {metrics.maintenance}
           </div>
         </Card>
 
-        <Card className="p-4 border-rose-500/30 bg-rose-500/5">
-          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Danificados / Avarias</span>
+        <Card className="p-3.5 sm:p-4 rounded-2xl border-rose-500/30 bg-rose-500/5 shadow-xs col-span-2 sm:col-span-1">
+          <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Com Avaria</span>
           <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-0.5">
             {metrics.damaged}
           </div>

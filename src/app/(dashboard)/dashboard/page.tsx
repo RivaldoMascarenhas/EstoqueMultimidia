@@ -99,18 +99,18 @@ export default function DashboardPage() {
     <div className="space-y-8 animate-in fade-in-50 duration-300">
       
       {/* 1. Header & Welcome Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-sm">
-        <div className="space-y-2">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-xs">
+        <div className="space-y-1.5 sm:space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1">
+            <span className="text-[11px] sm:text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5" />
-              Painel Integrado • TI & Multimídia UniFAP
+              Painel Integrado • TI UniFAP
             </span>
-            <Badge variant={getRoleVariant(userRole)} className="text-[10px]">
+            <Badge variant={getRoleVariant(userRole)} className="text-[9px] sm:text-[10px]">
               {userRole}
             </Badge>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground">
             Olá, {userName.split(" ")[0]}!
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
@@ -119,15 +119,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Action Shortcuts */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-primary/20">
           <Button
             asChild
             size="sm"
-            className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5"
+            className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5 justify-center"
           >
             <Link href="/emprestimos">
-              <Handshake className="w-4 h-4" />
-              <span>Novo Empréstimo</span>
+              <Handshake className="w-4 h-4 shrink-0" />
+              <span className="truncate">Novo Empréstimo</span>
             </Link>
           </Button>
 
@@ -135,11 +135,11 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
           >
             <Link href="/manutencao">
-              <Wrench className="w-4 h-4 text-amber-500" />
-              <span>Abrir OS</span>
+              <Wrench className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="truncate">Abrir OS</span>
             </Link>
           </Button>
 
@@ -147,22 +147,23 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
           >
             <Link href="/armario">
-              <Boxes className="w-4 h-4 text-blue-500" />
-              <span>Armário Físico</span>
+              <Boxes className="w-4 h-4 text-blue-500 shrink-0" />
+              <span className="truncate">Armário</span>
             </Link>
           </Button>
 
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={fetchDashboardData}
-            className="rounded-xl text-xs h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+            className="rounded-xl text-xs h-9 gap-1.5 sm:w-9 sm:p-0 text-muted-foreground hover:text-foreground justify-center bg-card/60"
             title="Atualizar dados"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4 shrink-0" />
+            <span className="sm:hidden text-xs">Atualizar</span>
           </Button>
         </div>
       </div>

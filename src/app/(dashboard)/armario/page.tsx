@@ -43,21 +43,19 @@ export default function ArmarioPage() {
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Archive className="w-6 h-6 text-primary" />
-              <span>Armário Físico & Caixas</span>
-            </h1>
-            <Badge variant="normal" className="text-xs">
-              {doors.length} Portas Ativas
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Organização física dos materiais e equipamentos divididos entre portas e caixas numeradas com QR Code.
-          </p>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+            <Archive className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
+            <span>Armário Físico & Caixas</span>
+          </h1>
+          <Badge variant="normal" className="text-[11px] font-semibold px-2 py-0.5">
+            {doors.length} Portas Ativas
+          </Badge>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Organização física dos materiais e equipamentos divididos entre portas e caixas numeradas com QR Code.
+        </p>
       </div>
 
       {isLoading ? (
