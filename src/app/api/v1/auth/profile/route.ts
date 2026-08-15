@@ -3,8 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import fs from "fs/promises";
-import path from "path";
 
 // GET /api/v1/auth/profile - Obter dados completos do usuário logado
 export async function GET(req: NextRequest) {
@@ -47,9 +45,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Se tiver avatar, retornar a URL pública correspondente
+    const publicAvatarUrl = user.avatarUrl
+      ? user.avatarUrl.startsWith("data:")
+        ? `/api/v1/users/${user.id}/avatar?v=${user.updatedAt.getTime()}`
+        : user.avatarUrl
+      : null;
+
     return NextResponse.json({
       success: true,
-      data: user,
+      data: {
+        ...user,
+        avatarUrl: publicAvatarUrl,
+      },
     });
   } catch (error: any) {
     return NextResponse.json(
@@ -91,25 +99,10 @@ export async function PUT(req: NextRequest) {
       updateData.name = name.trim();
     }
 
-    // Processar foto de perfil
+    // Processar foto de perfil (Armazenamento direto no banco de dados sem dependência de disco/EROFS)
     if (avatarUrl !== undefined) {
       if (avatarUrl && avatarUrl.startsWith("data:image")) {
-        // Extrair o buffer da imagem base64 e salvar em disco
-        const matches = avatarUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-        if (matches) {
-          const ext = matches[1] === "png" ? "png" : "jpg";
-          const buffer = Buffer.from(matches[2], "base64");
-          
-          const uploadsDir = path.join(process.cwd(), "public", "uploads", "avatars");
-          await fs.mkdir(uploadsDir, { recursive: true });
-
-          const fileName = `${user.id}.${ext}`;
-          const filePath = path.join(uploadsDir, fileName);
-          await fs.writeFile(filePath, buffer);
-
-          // Salvar apenas a URL pública curta (com timestamp para evitar cache)
-          updateData.avatarUrl = `/uploads/avatars/${fileName}?v=${Date.now()}`;
-        }
+        updateData.avatarUrl = avatarUrl;
       } else if (avatarUrl === null || avatarUrl === "") {
         updateData.avatarUrl = null;
       } else {
@@ -159,9 +152,18 @@ export async function PUT(req: NextRequest) {
       },
     });
 
+    const publicAvatarUrl = updatedUser.avatarUrl
+      ? updatedUser.avatarUrl.startsWith("data:")
+        ? `/api/v1/users/${updatedUser.id}/avatar?v=${Date.now()}`
+        : updatedUser.avatarUrl
+      : null;
+
     return NextResponse.json({
       success: true,
-      data: updatedUser,
+      data: {
+        ...updatedUser,
+        avatarUrl: publicAvatarUrl,
+      },
       message: "Perfil atualizado com sucesso!",
     });
   } catch (error: any) {

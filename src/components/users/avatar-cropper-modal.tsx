@@ -48,6 +48,7 @@ export function AvatarCropperModal({
       setPosition({ x: 0, y: 0 });
 
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.src = imageSrc;
       img.onload = () => {
         imageRef.current = img;

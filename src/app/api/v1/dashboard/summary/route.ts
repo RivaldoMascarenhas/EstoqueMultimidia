@@ -163,10 +163,14 @@ export async function GET(req: NextRequest) {
           borrowerName: loan.borrowerName,
           borrowerEmail: loan.borrowerEmail,
           borrowerPhone: loan.borrowerPhone,
+          borrowerDepartment: loan.borrowerDepartment,
           destination: loan.destination,
           assetTag: loan.asset?.assetTag,
           itemName: loan.asset?.item?.name,
           expectedReturnDate: loan.expectedReturnDate,
+          loanDate: loan.loanDate,
+          status: loan.status,
+          asset: loan.asset,
           diffHours,
         });
       }

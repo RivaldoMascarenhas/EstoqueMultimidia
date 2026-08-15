@@ -27,12 +27,14 @@ import {
   Boxes,
   FileSpreadsheet,
   Search,
-  ExternalLink
+  ExternalLink,
+  MessageSquare
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -43,6 +45,15 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<any>(null);
   const [activeLoans, setActiveLoans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Modal de Cobrança / Notificação via WhatsApp
+  const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+  const [selectedLoanForWhatsApp, setSelectedLoanForWhatsApp] = useState<any | null>(null);
+
+  const handleOpenWhatsAppModal = (loan: any) => {
+    setSelectedLoanForWhatsApp(loan);
+    setWhatsappModalOpen(true);
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -320,11 +331,15 @@ export default function DashboardPage() {
                     <span className="text-[10px] text-muted-foreground">
                       Previsto: {formatDate(loan.expectedReturnDate)}
                     </span>
-                    <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 px-2 rounded-lg">
-                      <Link href={`/emprestimos?search=${loan.borrowerName}`}>
-                        <span>Cobrar</span>
-                        <ArrowRight className="w-3 h-3 ml-1" />
-                      </Link>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleOpenWhatsAppModal(loan)}
+                      className="h-7 text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-500/15 px-2.5 rounded-lg gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Cobrar</span>
                     </Button>
                   </div>
                 </div>
@@ -602,11 +617,24 @@ export default function DashboardPage() {
 
                           {/* Ação */}
                           <TableCell className="py-3 px-4 text-right">
-                            <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-primary hover:bg-primary/10 rounded-lg">
-                              <Link href="/emprestimos">
-                                <span>Devolver</span>
-                              </Link>
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleOpenWhatsAppModal(loan)}
+                                className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg gap-1"
+                                title="Notificar / Cobrar no WhatsApp"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span className="hidden xl:inline">WhatsApp</span>
+                              </Button>
+                              <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-primary hover:bg-primary/10 rounded-lg">
+                                <Link href="/emprestimos">
+                                  <span>Devolver</span>
+                                </Link>
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -668,6 +696,16 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* Modal de Cobrança / Notificação WhatsApp */}
+      <LoanWhatsAppModal
+        isOpen={whatsappModalOpen}
+        onClose={() => {
+          setWhatsappModalOpen(false);
+          setSelectedLoanForWhatsApp(null);
+        }}
+        loan={selectedLoanForWhatsApp}
+      />
 
     </div>
   );

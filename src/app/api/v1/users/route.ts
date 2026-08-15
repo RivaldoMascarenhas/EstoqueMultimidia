@@ -27,9 +27,18 @@ export async function GET(req: NextRequest) {
       orderBy: { name: "asc" },
     });
 
+    const sanitizedUsers = users.map((u) => ({
+      ...u,
+      avatarUrl: u.avatarUrl
+        ? u.avatarUrl.startsWith("data:")
+          ? `/api/v1/users/${u.id}/avatar`
+          : u.avatarUrl
+        : null,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: users,
+      data: sanitizedUsers,
     });
   } catch (error: any) {
     return NextResponse.json(
