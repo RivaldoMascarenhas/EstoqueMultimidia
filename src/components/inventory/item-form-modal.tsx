@@ -337,7 +337,7 @@ export function ItemFormModal({
                       className="text-[11px] text-primary hover:underline font-bold flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" />
-                      <span>+ Nova Categoria</span>
+                      <span>Nova Categoria</span>
                     </button>
                   )}
                 </div>
