@@ -53,7 +53,23 @@ export async function POST(req: NextRequest) {
     const userId = auth.user?.id || (await prisma.user.findFirst({ where: { role: "ADMIN" } }))?.id || "";
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Criar chamado de manutenção
+      // 1. Atualizar status do ativo apenas se AVAILABLE ou DAMAGED (lock atômico)
+      const assetUpdate = await tx.asset.updateMany({
+        where: {
+          id: asset.id,
+          status: { in: [AssetStatus.AVAILABLE, AssetStatus.DAMAGED] },
+        },
+        data: {
+          status: AssetStatus.IN_MAINTENANCE,
+          currentBoxId: null,
+        },
+      });
+
+      if (assetUpdate.count === 0) {
+        throw new Error(`Equipamento #${asset.assetTag} não está disponível para manutenção (já em empréstimo ou em manutenção ativa).`);
+      }
+
+      // 2. Criar chamado de manutenção
       const maintenance = await tx.maintenance.create({
         data: {
           assetId: asset.id,
@@ -63,12 +79,6 @@ export async function POST(req: NextRequest) {
           status: MaintenanceStatus.PENDING,
           createdByUserId: userId,
         },
-      });
-
-      // 2. Atualizar status do ativo
-      await tx.asset.update({
-        where: { id: asset.id },
-        data: { status: AssetStatus.IN_MAINTENANCE },
       });
 
       // 3. Registrar histórico

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, LoanStatus, MaintenanceStatus } from "@prisma/client";
+import { requireSession } from "@/lib/api-guard";
 
 export async function POST(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
     const body = await req.json();
     const rawInput = body.code?.trim() || "";
 

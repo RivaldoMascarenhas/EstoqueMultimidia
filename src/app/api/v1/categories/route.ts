@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { InventoryService } from "@/services/inventory.service";
+import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 export async function GET() {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const categories = await InventoryService.getCategories();
     return NextResponse.json({
       success: true,
@@ -20,18 +23,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
-      );
-    }
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    if (error) return error;
 
     const body = await req.json();
 
-    if (!body.name || !body.name.trim()) {
+    if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
       return NextResponse.json(
         { success: false, error: "O nome da categoria é obrigatório." },
         { status: 400 }

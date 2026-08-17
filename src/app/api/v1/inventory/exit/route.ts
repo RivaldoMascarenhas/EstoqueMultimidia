@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { InventoryService } from "@/services/inventory.service";
 import { stockExitSchema } from "@/schemas/inventory.schema";
+import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Não autorizado. Faça login para continuar." },
-        { status: 401 }
-      );
-    }
-
-    // Role check: CONSULTA cannot register exits
-    if (session.user.role === "CONSULTA") {
-      return NextResponse.json(
-        { success: false, error: "Seu perfil de acesso (CONSULTA) não tem permissão para registrar saídas/baixas." },
-        { status: 403 }
-      );
-    }
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    if (error) return error;
 
     const body = await req.json();
     const validatedData = stockExitSchema.parse(body);

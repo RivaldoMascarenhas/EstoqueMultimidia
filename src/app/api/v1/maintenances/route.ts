@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { MaintenanceService } from "@/services/maintenance.service";
 import { maintenanceCreateSchema } from "@/schemas/maintenance.schema";
+import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || undefined;
     const status = (searchParams.get("status") as any) || undefined;
@@ -35,14 +37,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
-      );
-    }
+    const { session, error } = await requireSession();
+    if (error) return error;
 
     const body = await req.json();
     const validatedData = maintenanceCreateSchema.parse(body);

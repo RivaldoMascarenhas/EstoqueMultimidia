@@ -307,12 +307,18 @@ Copie o arquivo de exemplo para criar seu `.env`:
 ```bash
 cp .env.example .env
 ```
-Verifique as configurações no arquivo `.env`:
+Gere uma chave secreta criptograficamente segura para a sessão JWT do NextAuth:
+```bash
+openssl rand -base64 32
+```
+Configure as variáveis no seu `.env`:
 ```env
 DATABASE_URL="postgresql://postgres:unifap_secure_password_2026@localhost:5433/unifap_estoque?schema=public"
 NEXTAUTH_URL="http://localhost:3000"
-NEXTAUTH_SECRET="unifap_estoque_super_secret_jwt_key_2026_production_ready"
-N8N_API_KEY="unifap_sec_n8n_master_integration_key_2026"
+NEXTAUTH_SECRET="<gere_com_openssl_rand_-base64_32>"
+
+# (Opcional) Chave mestre de integração externa para bots
+EXTERNAL_API_MASTER_KEY="<gere_com_openssl_rand_-base64_32>"
 ```
 
 ### Passo 3: Iniciar o Banco de Dados PostgreSQL (Docker)
@@ -375,14 +381,16 @@ O script de seed (`prisma/seed.ts`) cria automaticamente as credenciais para tes
 
 A API REST externa permite integrar o sistema com automações no **n8n**, chatbots do **WhatsApp** (Evolution API, Z-API, Baileys) e agentes de IA.
 
-### Autenticação
-Todas as requisições para `/api/v1/external/*` exigem autenticação via Bearer Token ou header customizado:
+### Autenticação & Chaves de API
+Você pode gerar chaves de API individuais (`unifap_live_...`) diretamente no painel em **Configurações → Chaves de API & Integrações**. As chaves são protegidas com hash SHA-256 no banco de dados e contam com controle de permissão por Role (`OPERADOR`, `GESTOR`, `ADMIN`, `CONSULTA`) e data de expiração opcional.
+
+Envie o token no cabeçalho HTTP:
 ```http
-Authorization: Bearer unifap_sec_n8n_master_integration_key_2026
+Authorization: Bearer <sua_chave_ou_token_de_api>
 ```
 *ou*
 ```http
-x-api-key: unifap_sec_n8n_master_integration_key_2026
+x-api-key: <sua_chave_ou_token_de_api>
 ```
 
 ---

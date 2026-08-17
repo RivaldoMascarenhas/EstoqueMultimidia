@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const MASTER_API_KEY = process.env.EXTERNAL_API_MASTER_KEY || "unifap_sec_n8n_master_integration_key_2026";
+import crypto from "crypto";
 
 export interface ApiAuthResult {
   authenticated: boolean;
+  role?: string;
   user?: {
     id: string;
     name: string;
@@ -28,12 +28,13 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
   if (!token) {
     return {
       authenticated: false,
-      error: "Cabeçalho de autenticação ausente. Forneça 'Authorization: Bearer <chave>' ou 'x-api-key: <chave>'.",
+      error: "Token de autorização ausente.",
     };
   }
 
-  // 1. Validar contra Chave Mestre de Integração
-  if (token === MASTER_API_KEY) {
+  // 1. Validar contra Chave Mestre de Integração (se configurada)
+  const masterApiKey = process.env.EXTERNAL_API_MASTER_KEY;
+  if (masterApiKey && token === masterApiKey) {
     const adminUser = await prisma.user.findFirst({
       where: { role: "ADMIN", active: true },
       select: { id: true, name: true, role: true },
@@ -41,6 +42,7 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
 
     return {
       authenticated: true,
+      role: "ADMIN",
       user: adminUser || {
         id: "n8n-system-admin",
         name: "Serviço de Integração n8n",
@@ -49,18 +51,16 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
     };
   }
 
-  // 2. Validar contra chaves cadastradas no banco de dados
-  const apiKeyRecord = await prisma.apiKey.findFirst({
+  // 2. Validar contra chaves de API cadastradas no banco de dados via Hash SHA-256
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+  const apiKeyRecord = await prisma.apiKey.findUnique({
     where: {
-      active: true,
-      OR: [
-        { keyHash: token },
-        { id: token },
-      ],
+      keyHash: tokenHash,
     },
     include: {
       user: {
-        select: { id: true, name: true, role: true },
+        select: { id: true, name: true, email: true, role: true },
       },
     },
   });
@@ -68,7 +68,22 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
   if (!apiKeyRecord) {
     return {
       authenticated: false,
-      error: "Chave de API inválida ou revogada.",
+      error: "Chave de API inválida.",
+    };
+  }
+
+  if (!apiKeyRecord.active) {
+    return {
+      authenticated: false,
+      error: "Chave de API inativa ou revogada.",
+    };
+  }
+
+  // Verificar se a chave expirou
+  if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date()) {
+    return {
+      authenticated: false,
+      error: "Chave de API expirada.",
     };
   }
 
@@ -80,6 +95,7 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
 
   return {
     authenticated: true,
+    role: apiKeyRecord.role,
     user: apiKeyRecord.user,
   };
 }

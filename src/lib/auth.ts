@@ -4,6 +4,12 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 
+if (!process.env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "NEXTAUTH_SECRET não está definida. Defina uma variável de ambiente segura (ex: `openssl rand -base64 32`) antes de iniciar a aplicação."
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
@@ -101,5 +107,5 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "unifap_secret_key_super_secure_development_2026_jwt_token",
+  secret: process.env.NEXTAUTH_SECRET,
 };

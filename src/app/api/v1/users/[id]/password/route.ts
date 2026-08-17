@@ -1,18 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Role } from "@prisma/client";
+import { requireSession } from "@/lib/api-guard";
 
 // PATCH /api/v1/users/[id]/password - Redefinir senha de acesso
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { session, error } = await requireSession();
+    if (error) return error;
+
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID do usuário é obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    // Apenas ADMIN ou o próprio usuário autenticado podem alterar a senha
+    if (session.user.role !== Role.ADMIN && session.user.id !== id) {
+      return NextResponse.json(
+        { success: false, error: "Permissão insuficiente para alterar a senha deste usuário." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { newPassword, mustChangePassword } = body;
 
-    if (!newPassword || newPassword.length < 6) {
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 6) {
       return NextResponse.json(
         { success: false, error: "A nova senha deve possuir pelo menos 6 caracteres." },
         { status: 400 }
@@ -36,9 +58,25 @@ export async function PATCH(
       where: { id },
       data: { 
         passwordHash,
-        mustChangePassword: typeof mustChangePassword === "boolean" ? mustChangePassword : true,
+        mustChangePassword: typeof mustChangePassword === "boolean" ? mustChangePassword : false,
       },
     });
+
+    // Registrar log de auditoria
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "PASSWORD_RESET",
+        entity: "User",
+        entityId: id,
+        details: {
+          resetByUserId: session.user.id,
+          resetByUserRole: session.user.role,
+          targetEmail: user.email,
+          selfReset: session.user.id === id,
+        },
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

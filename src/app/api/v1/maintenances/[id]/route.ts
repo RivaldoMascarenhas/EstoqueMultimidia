@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { MaintenanceService } from "@/services/maintenance.service";
 import { maintenanceUpdateSchema } from "@/schemas/maintenance.schema";
+import { requireSession } from "@/lib/api-guard";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const maintenance = await MaintenanceService.getMaintenanceById(params.id);
+    const { error } = await requireSession();
+    if (error) return error;
+
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID da ordem de serviço obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    const maintenance = await MaintenanceService.getMaintenanceById(id);
     return NextResponse.json({
       success: true,
       data: maintenance,
@@ -24,15 +36,19 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireSession();
+    if (error) return error;
 
-    if (!session || !session.user) {
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
+        { success: false, error: "ID da ordem de serviço obrigatório." },
+        { status: 400 }
       );
     }
 
@@ -40,7 +56,7 @@ export async function PATCH(
     const validatedData = maintenanceUpdateSchema.parse(body);
 
     const updated = await MaintenanceService.updateMaintenance(
-      params.id,
+      id,
       validatedData,
       session.user.id
     );

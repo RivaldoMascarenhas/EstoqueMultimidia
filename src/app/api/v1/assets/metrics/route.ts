@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { AssetService } from "@/services/asset.service";
+import { requireSession } from "@/lib/api-guard";
 
 export async function GET() {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const metrics = await AssetService.getAssetMetrics();
     return NextResponse.json({
       success: true,

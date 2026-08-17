@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CabinetService } from "@/services/cabinet.service";
+import { requireSession } from "@/lib/api-guard";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: { code: string } | Promise<{ code: string }> }
 ) {
   try {
-    const code = params.code;
+    const { error } = await requireSession();
+    if (error) return error;
+
+    const resolvedParams = await Promise.resolve(params);
+    const code = resolvedParams?.code;
 
     if (!code) {
       return NextResponse.json(

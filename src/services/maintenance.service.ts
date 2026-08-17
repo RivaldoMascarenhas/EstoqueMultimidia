@@ -186,7 +186,7 @@ export class MaintenanceService {
   }
 
   /**
-   * Cria uma nova Ordem de Serviço de Manutenção
+   * Abre uma nova Ordem de Serviço (Preventiva ou Corretiva)
    */
   static async createMaintenance(input: MaintenanceCreateInput, userId: string, userName?: string) {
     return await prisma.$transaction(async (tx) => {
@@ -205,18 +205,30 @@ export class MaintenanceService {
         throw new Error("Equipamento patrimonial não encontrado.");
       }
 
-      if (asset.status === AssetStatus.IN_MAINTENANCE) {
-        throw new Error("Este equipamento já se encontra em manutenção ativa.");
-      }
-
       if (asset.status === AssetStatus.LOANED) {
         throw new Error("Equipamento está emprestado no momento. Realize a devolução antes de enviar para manutenção.");
       }
 
-      // 2. Gerar número de OS
+      // 2. ATOMIC LOCK: Bloquear o ativo apenas se estiver AVAILABLE ou DAMAGED
+      const assetUpdate = await tx.asset.updateMany({
+        where: {
+          id: input.assetId,
+          status: { in: [AssetStatus.AVAILABLE, AssetStatus.DAMAGED] },
+        },
+        data: {
+          status: AssetStatus.IN_MAINTENANCE,
+          currentBoxId: null,
+        },
+      });
+
+      if (assetUpdate.count === 0) {
+        throw new Error("Equipamento indisponível para manutenção (já em empréstimo ou em manutenção ativa).");
+      }
+
+      // 3. Gerar número de OS
       const orderNumber = await this.generateOrderNumber();
 
-      // 3. Localização de origem para histórico
+      // 4. Localização de origem para histórico
       const fromLocation = asset.currentBox
         ? `${asset.currentBox.door.name} / ${asset.currentBox.name} (${asset.currentBox.code})`
         : "Sem caixa definida";
@@ -227,7 +239,7 @@ export class MaintenanceService {
         ? "Assistência Técnica Externa"
         : "Laboratório de Suporte TI UniFAP";
 
-      // 4. Criar a Ordem de Serviço
+      // 5. Criar a Ordem de Serviço
       const maintenance = await tx.maintenance.create({
         data: {
           orderNumber,
@@ -253,15 +265,6 @@ export class MaintenanceService {
           createdByUser: {
             select: { id: true, name: true, email: true },
           },
-        },
-      });
-
-      // 5. Atualizar o Ativo (bloqueia para empréstimos e zera caixa física atual)
-      await tx.asset.update({
-        where: { id: asset.id },
-        data: {
-          status: AssetStatus.IN_MAINTENANCE,
-          currentBoxId: null,
         },
       });
 
@@ -292,9 +295,10 @@ export class MaintenanceService {
           details: {
             orderNumber,
             assetTag: asset.assetTag,
-            issue: input.issueDescription,
+            itemName: asset.item.name,
             type: input.maintenanceType,
             priority: input.priority,
+            issue: input.issueDescription,
           },
         },
       });
@@ -412,9 +416,12 @@ export class MaintenanceService {
         targetLocationName = `${targetBox.door.name} / ${targetBox.name} (${targetBox.code})`;
       }
 
-      // 1. Atualizar Ordem de Serviço
-      const updatedMaintenance = await tx.maintenance.update({
-        where: { id },
+      // 1. ATOMIC LOCK: Atualizar Ordem de Serviço apenas se ainda estiver pendente ou em progresso
+      const maintUpdate = await tx.maintenance.updateMany({
+        where: {
+          id,
+          status: { in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS] },
+        },
         data: {
           status: MaintenanceStatus.COMPLETED,
           exitDate: new Date(),
@@ -425,14 +432,11 @@ export class MaintenanceService {
           lampHours: input.lampHours !== undefined ? input.lampHours : null,
           cost: input.cost !== undefined && input.cost !== null ? input.cost : maintenance.cost,
         },
-        include: {
-          asset: {
-            include: { item: true },
-          },
-          createdByUser: { select: { id: true, name: true, email: true } },
-          completedByUser: { select: { id: true, name: true, email: true } },
-        },
       });
+
+      if (maintUpdate.count === 0) {
+        throw new Error("Esta ordem de serviço já foi concluída ou cancelada anteriormente.");
+      }
 
       // 2. Atualizar Status e Localização do Equipamento
       if (input.outcome === "AVAILABLE" && targetBox) {
@@ -505,6 +509,17 @@ export class MaintenanceService {
         },
       });
 
+      const updatedMaintenance = await tx.maintenance.findUniqueOrThrow({
+        where: { id },
+        include: {
+          asset: {
+            include: { item: true },
+          },
+          createdByUser: { select: { id: true, name: true, email: true } },
+          completedByUser: { select: { id: true, name: true, email: true } },
+        },
+      });
+
       return updatedMaintenance;
     });
   }
@@ -550,9 +565,12 @@ export class MaintenanceService {
         }
       }
 
-      // 1. Atualizar Maintenance
-      const cancelled = await tx.maintenance.update({
-        where: { id },
+      // 1. ATOMIC LOCK: Atualizar Maintenance apenas se ainda estiver pendente ou em progresso
+      const maintUpdate = await tx.maintenance.updateMany({
+        where: {
+          id,
+          status: { in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS] },
+        },
         data: {
           status: MaintenanceStatus.CANCELLED,
           exitDate: new Date(),
@@ -560,6 +578,10 @@ export class MaintenanceService {
           technicalNotes: `[CANCELADA]: ${input.reason}`,
         },
       });
+
+      if (maintUpdate.count === 0) {
+        throw new Error("Esta ordem de serviço já foi cancelada ou concluída anteriormente.");
+      }
 
       // 2. Restaurar Ativo para AVAILABLE
       await tx.asset.update({
@@ -580,8 +602,8 @@ export class MaintenanceService {
           fromLocation: maintenance.serviceProvider || "Manutenção",
           toLocation: targetLocation,
           userId,
-          userName: userName || "Sistema UniFAP",
-          observation: `[${orderNumber}] Chamado cancelado: ${input.reason}`,
+          userName: userName || "Técnico UniFAP",
+          observation: `[${orderNumber}] Cancelamento de OS. Motivo: ${input.reason}`,
         },
       });
 
@@ -594,9 +616,15 @@ export class MaintenanceService {
           entityId: id,
           details: {
             orderNumber,
+            assetTag: maintenance.asset.assetTag,
             reason: input.reason,
+            returnBoxCode: returnBox?.code,
           },
         },
+      });
+
+      const cancelled = await tx.maintenance.findUniqueOrThrow({
+        where: { id },
       });
 
       return cancelled;

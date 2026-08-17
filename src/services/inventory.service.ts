@@ -257,7 +257,7 @@ export class InventoryService {
   }
 
   /**
-   * Registra uma Saída / Baixa de Estoque com validação estrita anti-negativo
+   * Registra uma Saída / Baixa de Estoque com validação estrita anti-negativo e lock atômico
    */
   static async registerExit(data: StockExitInput, userId: string) {
     return await prisma.$transaction(async (tx) => {
@@ -279,23 +279,27 @@ export class InventoryService {
         throw new Error("Este item não possui estoque registrado na caixa informada.");
       }
 
-      // 2. REGRA CRÍTICA: Impedir estoque negativo
-      if (inventory.quantity < data.quantity) {
+      // 2. ATOMIC LOCK: Decrementar saldo somente se quantity >= data.quantity
+      const updateResult = await tx.inventory.updateMany({
+        where: {
+          id: inventory.id,
+          quantity: { gte: data.quantity },
+        },
+        data: {
+          quantity: { decrement: data.quantity },
+        },
+      });
+
+      if (updateResult.count === 0) {
         throw new Error(
-          `Saldo insuficiente na Caixa ${inventory.box.code}. Disponível: ${inventory.quantity} ${inventory.item.unit}, Solicitado: ${data.quantity} ${inventory.item.unit}.`
+          `Saldo insuficiente na Caixa ${inventory.box.code}. O estoque disponível atual não suporta a retirada de ${data.quantity} ${inventory.item.unit}.`
         );
       }
 
       const balanceBefore = inventory.quantity;
       const balanceAfter = balanceBefore - data.quantity;
 
-      // 3. Atualizar quantidade na caixa
-      await tx.inventory.update({
-        where: { id: inventory.id },
-        data: { quantity: balanceAfter },
-      });
-
-      // 4. Registrar movimentação inalterável
+      // 3. Registrar movimentação inalterável
       const movement = await tx.stockMovement.create({
         data: {
           type: MovementType.EXIT,
@@ -314,7 +318,7 @@ export class InventoryService {
         },
       });
 
-      // 5. Trilha de auditoria
+      // 4. Trilha de auditoria
       await tx.auditLog.create({
         data: {
           userId,
@@ -354,19 +358,28 @@ export class InventoryService {
         },
       });
 
-      if (!sourceInv || sourceInv.quantity < data.quantity) {
-        const available = sourceInv ? sourceInv.quantity : 0;
+      if (!sourceInv) {
+        throw new Error("Saldo não encontrado na caixa de origem.");
+      }
+
+      // 2. ATOMIC LOCK: Decrementar da origem somente se quantity >= data.quantity
+      const sourceUpdate = await tx.inventory.updateMany({
+        where: {
+          id: sourceInv.id,
+          quantity: { gte: data.quantity },
+        },
+        data: {
+          quantity: { decrement: data.quantity },
+        },
+      });
+
+      if (sourceUpdate.count === 0) {
         throw new Error(
-          `Saldo insuficiente para transferência na Caixa de origem. Disponível: ${available}, Solicitado: ${data.quantity}.`
+          `Saldo insuficiente para transferência na Caixa de origem. Solicitado: ${data.quantity} ${sourceInv.item.unit}.`
         );
       }
 
-      // 2. Decrementar da origem
       const sourceBalanceAfter = sourceInv.quantity - data.quantity;
-      await tx.inventory.update({
-        where: { id: sourceInv.id },
-        data: { quantity: sourceBalanceAfter },
-      });
 
       // 3. Incrementar ou criar no destino
       const destInv = await tx.inventory.findUnique({
