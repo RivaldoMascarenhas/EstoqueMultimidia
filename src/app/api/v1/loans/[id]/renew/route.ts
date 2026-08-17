@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { LoanService } from "@/services/loan.service";
 import { loanRenewSchema } from "@/schemas/loan.schema";
+import { requireSession } from "@/lib/api-guard";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireSession();
+    if (error) return error;
 
-    if (!session || !session.user) {
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
+        { success: false, error: "ID do empréstimo obrigatório." },
+        { status: 400 }
       );
     }
 
@@ -22,7 +25,7 @@ export async function POST(
     const validatedData = loanRenewSchema.parse(body);
 
     const updatedLoan = await LoanService.renewLoan(
-      params.id,
+      id,
       validatedData,
       session.user.id,
       session.user.name || undefined

@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { requireSession } from "@/lib/api-guard";
 
-// PUT /api/v1/users/[id] - Atualizar usuário
+// PUT /api/v1/users/[id] - Atualizar usuário (apenas ADMIN)
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { session, error } = await requireSession([Role.ADMIN]);
+    if (error) return error;
+
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID do usuário é obrigatório." },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json();
     const { name, email, role, active } = body;
 
@@ -24,8 +37,9 @@ export async function PUT(
     }
 
     if (email && email.trim().toLowerCase() !== existing.email) {
+      const cleanEmail = email.trim().toLowerCase();
       const emailTaken = await prisma.user.findUnique({
-        where: { email: email.trim().toLowerCase() },
+        where: { email: cleanEmail },
       });
       if (emailTaken) {
         return NextResponse.json(
@@ -33,6 +47,13 @@ export async function PUT(
           { status: 400 }
         );
       }
+    }
+
+    if (role && !Object.values(Role).includes(role as Role)) {
+      return NextResponse.json(
+        { success: false, error: "Perfil de usuário (role) inválido." },
+        { status: 400 }
+      );
     }
 
     const updated = await prisma.user.update({
@@ -53,6 +74,23 @@ export async function PUT(
       },
     });
 
+    // Registrar log de auditoria
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "USER_UPDATED",
+        entity: "User",
+        entityId: id,
+        details: {
+          updatedFields: Object.keys(body),
+          name: updated.name,
+          email: updated.email,
+          role: updated.role,
+          active: updated.active,
+        },
+      },
+    }).catch(() => {});
+
     return NextResponse.json({
       success: true,
       data: updated,
@@ -66,13 +104,32 @@ export async function PUT(
   }
 }
 
-// DELETE /api/v1/users/[id] - Desativar ou Excluir usuário
+// DELETE /api/v1/users/[id] - Desativar ou Excluir usuário (apenas ADMIN)
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { session, error } = await requireSession([Role.ADMIN]);
+    if (error) return error;
+
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID do usuário é obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    // Impedir auto-exclusão
+    if (session.user.id === id) {
+      return NextResponse.json(
+        { success: false, error: "Você não pode excluir ou desativar sua própria conta de administrador." },
+        { status: 400 }
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -106,6 +163,16 @@ export async function DELETE(
         data: { active: false },
       });
 
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "USER_DEACTIVATED",
+          entity: "User",
+          entityId: id,
+          details: { name: user.name, email: user.email, reason: "Possui registros vinculados no histórico" },
+        },
+      }).catch(() => {});
+
       return NextResponse.json({
         success: true,
         message: "Usuário possui registros vinculados no histórico. Sua conta foi desativada com sucesso.",
@@ -117,6 +184,16 @@ export async function DELETE(
     await prisma.user.delete({
       where: { id },
     });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "USER_DELETED",
+        entity: "User",
+        entityId: id,
+        details: { name: user.name, email: user.email },
+      },
+    }).catch(() => {});
 
     return NextResponse.json({
       success: true,

@@ -1,27 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 // PUT /api/v1/categories/[id] - Atualizar Categoria
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    if (error) return error;
 
-    if (!session || !session.user) {
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
+        { success: false, error: "ID da categoria é obrigatório." },
+        { status: 400 }
       );
     }
 
-    const { id } = params;
     const body = await req.json();
 
-    if (!body.name || !body.name.trim()) {
+    if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
       return NextResponse.json(
         { success: false, error: "O nome da categoria é obrigatório." },
         { status: 400 }
@@ -62,19 +65,21 @@ export async function PUT(
 // DELETE /api/v1/categories/[id] - Excluir / Desativar Categoria
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    if (error) return error;
 
-    if (!session || !session.user) {
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
+        { success: false, error: "ID da categoria é obrigatório." },
+        { status: 400 }
       );
     }
-
-    const { id } = params;
 
     // Verificar se existem itens vinculados
     const itemsCount = await prisma.item.count({

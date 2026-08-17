@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, LoanStatus, MaintenanceStatus, MovementType } from "@prisma/client";
+import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 

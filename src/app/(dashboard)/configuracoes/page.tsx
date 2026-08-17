@@ -33,6 +33,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { BoxFormModal } from "@/components/cabinet/box-form-modal";
 import { DoorFormModal } from "@/components/cabinet/door-form-modal";
 import { CategoryFormModal } from "@/components/categories/category-form-modal";
+import { ApiKeysManager } from "@/components/configuracoes/api-keys-manager";
 import { toast } from "sonner";
 
 export default function ConfiguracoesPage() {
@@ -45,6 +46,7 @@ export default function ConfiguracoesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Playground de Teste de API
+  const [testToken, setTestToken] = useState("");
   const [testQuery, setTestQuery] = useState("HDMI");
   const [testResult, setTestResult] = useState<any | null>(null);
   const [isTestingQuery, setIsTestingQuery] = useState(false);
@@ -111,11 +113,16 @@ export default function ConfiguracoesPage() {
   };
 
   const handleTestQuery = async () => {
+    if (!testToken.trim()) {
+      toast.error("Informe um Token de Autenticação / Chave de API para executar o teste.");
+      return;
+    }
+
     try {
       setIsTestingQuery(true);
       const res = await fetch(`/api/v1/external/query?q=${encodeURIComponent(testQuery)}`, {
         headers: {
-          Authorization: "Bearer unifap_sec_n8n_master_integration_key_2026",
+          Authorization: `Bearer ${testToken.trim()}`,
         },
       });
       const json = await res.json();
@@ -138,13 +145,18 @@ export default function ConfiguracoesPage() {
       return;
     }
 
+    if (!testToken.trim()) {
+      toast.error("Informe um Token de Autenticação / Chave de API para autenticar o disparo.");
+      return;
+    }
+
     try {
       setIsSendingWebhook(true);
       const res = await fetch("/api/v1/external/webhooks/test", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer unifap_sec_n8n_master_integration_key_2026",
+          Authorization: `Bearer ${testToken.trim()}`,
         },
         body: JSON.stringify({
           targetWebhookUrl: webhookUrl.trim(),
@@ -415,53 +427,8 @@ export default function ConfiguracoesPage() {
         {/* ABA: Chaves de API & n8n / WhatsApp */}
         <TabsContent value="api" className="space-y-6 pt-4">
           
-          {/* Card 1: Chave Mestre de Autenticação */}
-          <Card className="shadow-sm rounded-3xl border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                      <Key className="w-4 h-4 text-primary" />
-                      <span>Chave de Integração Mestre (n8n / WhatsApp Bots)</span>
-                    </CardTitle>
-                    <Badge variant="available" dot className="text-[10px]">
-                      Ativa
-                    </Badge>
-                  </div>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    Token de autorização para conectar automações, chatbots e agentes de IA ao sistema.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 p-2.5 rounded-xl bg-background border border-input font-mono text-xs text-foreground font-bold select-all">
-                  unifap_sec_n8n_master_integration_key_2026
-                </code>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText("unifap_sec_n8n_master_integration_key_2026");
-                    toast.success("Chave copiada para a área de transferência!");
-                  }}
-                  className="rounded-xl gap-1.5 h-10 text-xs"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Copiar</span>
-                </Button>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-muted/40 border border-border text-xs text-muted-foreground space-y-1">
-                <p>
-                  Envie este token no cabeçalho HTTP: <code className="font-mono text-primary font-bold">Authorization: Bearer unifap_sec_n8n_master_integration_key_2026</code> ou <code className="font-mono text-primary font-bold">x-api-key: unifap_sec_...</code>
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Gerenciador de Chaves de API */}
+          <ApiKeysManager />
 
           {/* Card 2: Documentação de Rotas da API */}
           <Card className="shadow-sm rounded-3xl border-border/80">
@@ -560,28 +527,43 @@ export default function ConfiguracoesPage() {
                     Playground: Simulador de Consulta para o WhatsApp
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground">
-                    Teste a resposta do endpoint <code className="font-mono text-primary">/api/v1/external/query</code>
+                    Teste a resposta do endpoint <code className="font-mono text-primary">/api/v1/external/query</code> utilizando uma chave de API
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
 
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={testQuery}
-                  onChange={(e) => setTestQuery(e.target.value)}
-                  placeholder="Buscar termo (ex: HDMI, Projetor, C001, #123458)..."
-                  className="h-10 rounded-xl text-xs bg-background"
-                />
-                <Button
-                  onClick={handleTestQuery}
-                  disabled={isTestingQuery}
-                  className="rounded-xl text-xs font-semibold gap-1.5 h-10 px-5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isTestingQuery ? "Consultando..." : "Testar Consulta"}</span>
-                </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Chave de API / Token de Autenticação:</label>
+                  <Input
+                    type="password"
+                    value={testToken}
+                    onChange={(e) => setTestToken(e.target.value)}
+                    placeholder="Cole sua chave (unifap_live_... ou chave mestre)"
+                    className="h-10 rounded-xl text-xs bg-background font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Termo de Busca:</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={testQuery}
+                      onChange={(e) => setTestQuery(e.target.value)}
+                      placeholder="Buscar termo (ex: HDMI, Projetor, C001, #123458)..."
+                      className="h-10 rounded-xl text-xs bg-background"
+                    />
+                    <Button
+                      onClick={handleTestQuery}
+                      disabled={isTestingQuery}
+                      className="rounded-xl text-xs font-semibold gap-1.5 h-10 px-5 shrink-0"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{isTestingQuery ? "Consultando..." : "Testar"}</span>
+                    </Button>
+                  </div>
+                </div>
               </div>
 
               {testResult && (

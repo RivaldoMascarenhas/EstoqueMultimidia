@@ -179,7 +179,7 @@ export class LoanService {
    */
   static async createLoan(data: LoanCreateInput, userId: string, userName?: string) {
     return await prisma.$transaction(async (tx) => {
-      // 1. Validar existência e disponibilidade do equipamento
+      // 1. Validar existência do equipamento
       const asset = await tx.asset.findUnique({
         where: { id: data.assetId },
         include: {
@@ -216,7 +216,23 @@ export class LoanService {
         ? `${asset.currentBox.name} (${asset.currentBox.door.name})`
         : "Localização não atribuída";
 
-      // 2. Criar registro de Empréstimo
+      // 2. ATOMIC LOCK: Atualizar status do Ativo apenas se ainda estiver AVAILABLE (impede double-booking concorrente)
+      const assetUpdate = await tx.asset.updateMany({
+        where: {
+          id: data.assetId,
+          status: AssetStatus.AVAILABLE,
+        },
+        data: {
+          status: AssetStatus.LOANED,
+          currentBoxId: null,
+        },
+      });
+
+      if (assetUpdate.count === 0) {
+        throw new Error(`O equipamento #${asset.assetTag} foi alocado concorrentemente por outra requisição e não está mais disponível.`);
+      }
+
+      // 3. Criar registro de Empréstimo
       const loan = await tx.loan.create({
         data: {
           assetId: data.assetId,
@@ -239,15 +255,6 @@ export class LoanService {
           createdByUser: {
             select: { id: true, name: true, email: true },
           },
-        },
-      });
-
-      // 3. Atualizar status do Ativo para LOANED e remover da caixa física
-      await tx.asset.update({
-        where: { id: data.assetId },
-        data: {
-          status: AssetStatus.LOANED,
-          currentBoxId: null,
         },
       });
 
@@ -337,9 +344,12 @@ export class LoanService {
 
       const now = new Date();
 
-      // 1. Atualizar registro do Empréstimo
-      const updatedLoan = await tx.loan.update({
-        where: { id: loanId },
+      // 1. ATOMIC LOCK: Atualizar empréstimo apenas se ainda estiver ACTIVE ou OVERDUE
+      const loanUpdate = await tx.loan.updateMany({
+        where: {
+          id: loanId,
+          status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+        },
         data: {
           status: targetLoanStatus,
           actualReturnDate: now,
@@ -350,15 +360,11 @@ export class LoanService {
             : "Devolvido em perfeito estado de funcionamento",
           returnNotes: data.returnNotes?.trim() || null,
         },
-        include: {
-          asset: {
-            include: { item: true },
-          },
-          receivedByUser: {
-            select: { id: true, name: true, email: true },
-          },
-        },
       });
+
+      if (loanUpdate.count === 0) {
+        throw new Error("Este empréstimo já foi devolvido ou não se encontra ativo.");
+      }
 
       // 2. Atualizar status e localização física do Ativo
       await tx.asset.update({
@@ -409,6 +415,18 @@ export class LoanService {
         },
       });
 
+      const updatedLoan = await tx.loan.findUniqueOrThrow({
+        where: { id: loanId },
+        include: {
+          asset: {
+            include: { item: true },
+          },
+          receivedByUser: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      });
+
       return updatedLoan;
     });
   }
@@ -436,7 +454,7 @@ export class LoanService {
         throw new Error("Empréstimo não encontrado.");
       }
 
-      if (loan.status !== LoanStatus.ACTIVE) {
+      if (loan.status !== LoanStatus.ACTIVE && loan.status !== LoanStatus.OVERDUE) {
         throw new Error("Apenas empréstimos ativos podem ser renovados.");
       }
 
@@ -447,20 +465,23 @@ export class LoanService {
 
       const previousDate = loan.expectedReturnDate;
 
-      // 1. Atualizar empréstimo
-      const updatedLoan = await tx.loan.update({
-        where: { id: loanId },
+      // 1. ATOMIC LOCK: Atualizar empréstimo apenas se ainda estiver ativo
+      const loanUpdate = await tx.loan.updateMany({
+        where: {
+          id: loanId,
+          status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+        },
         data: {
           expectedReturnDate: newDate,
           notes: loan.notes
             ? `${loan.notes} | [Renovação em ${new Date().toLocaleDateString("pt-BR")}: ${data.reason.trim()}]`
             : `[Renovação em ${new Date().toLocaleDateString("pt-BR")}: ${data.reason.trim()}]`,
         },
-        include: {
-          asset: { include: { item: true } },
-          createdByUser: { select: { name: true } },
-        },
       });
+
+      if (loanUpdate.count === 0) {
+        throw new Error("Apenas empréstimos ativos podem ser renovados.");
+      }
 
       // 2. Histórico do Ativo
       await tx.assetHistory.create({
@@ -491,6 +512,14 @@ export class LoanService {
             newExpectedReturn: newDate.toISOString(),
             reason: data.reason.trim(),
           },
+        },
+      });
+
+      const updatedLoan = await tx.loan.findUniqueOrThrow({
+        where: { id: loanId },
+        include: {
+          asset: { include: { item: true } },
+          createdByUser: { select: { name: true } },
         },
       });
 

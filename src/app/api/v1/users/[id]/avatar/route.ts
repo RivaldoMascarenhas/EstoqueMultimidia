@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/api-guard";
 
 // GET /api/v1/users/[id]/avatar - Servir imagem do avatar diretamente do banco de dados (Base64 -> Buffer binário)
 export async function GET(
@@ -7,6 +8,9 @@ export async function GET(
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
+
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams?.id;
 

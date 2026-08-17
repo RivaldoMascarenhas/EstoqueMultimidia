@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { MovementType } from "@prisma/client";
+import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
   try {
+    const { error } = await requireSession();
+    if (error) return error;
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || undefined;
     const type = searchParams.get("type") || undefined;

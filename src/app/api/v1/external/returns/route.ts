@@ -82,9 +82,12 @@ export async function POST(req: NextRequest) {
     const newLoanStatus = isDamaged ? LoanStatus.RETURNED_DAMAGED : LoanStatus.RETURNED;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Atualizar empréstimo
-      const updatedLoan = await tx.loan.update({
-        where: { id: loan.id },
+      // 1. Atualizar empréstimo apenas se ACTIVE ou OVERDUE
+      const loanUpdate = await tx.loan.updateMany({
+        where: {
+          id: loan.id,
+          status: { in: [LoanStatus.ACTIVE, LoanStatus.OVERDUE] },
+        },
         data: {
           actualReturnDate: new Date(),
           status: newLoanStatus,
@@ -94,6 +97,10 @@ export async function POST(req: NextRequest) {
           receivedByUserId: userId,
         },
       });
+
+      if (loanUpdate.count === 0) {
+        throw new Error("Este empréstimo já foi devolvido ou não se encontra ativo.");
+      }
 
       // 2. Atualizar Ativo
       await tx.asset.update({
@@ -129,6 +136,10 @@ export async function POST(req: NextRequest) {
           userId,
           observation: `Devolução do patrimônio #${loan.asset.assetTag} recebida de ${loan.borrowerName}`,
         },
+      });
+
+      const updatedLoan = await tx.loan.findUniqueOrThrow({
+        where: { id: loan.id },
       });
 
       return updatedLoan;

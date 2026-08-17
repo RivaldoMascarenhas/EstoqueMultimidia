@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { AssetService } from "@/services/asset.service";
 import { assetStatusUpdateSchema } from "@/schemas/asset.schema";
+import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const asset = await AssetService.getAssetByIdOrTag(params.id);
+    const { error } = await requireSession();
+    if (error) return error;
+
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Identificador do equipamento obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    const asset = await AssetService.getAssetByIdOrTag(id);
 
     if (!asset) {
       return NextResponse.json(
@@ -32,22 +45,19 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    if (error) return error;
 
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Não autorizado." },
-        { status: 401 }
-      );
-    }
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
 
-    if (session.user.role === "CONSULTA") {
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: "Perfil de consulta não pode alterar status de equipamentos." },
-        { status: 403 }
+        { success: false, error: "Identificador do equipamento obrigatório." },
+        { status: 400 }
       );
     }
 
@@ -55,9 +65,10 @@ export async function PATCH(
     const validatedData = assetStatusUpdateSchema.parse(body);
 
     const asset = await AssetService.updateAssetStatus(
-      params.id,
+      id,
       validatedData,
-      session.user.id
+      session.user.id,
+      session.user.name || undefined
     );
 
     return NextResponse.json({

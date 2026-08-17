@@ -79,8 +79,18 @@ export async function POST(req: NextRequest) {
 
     const userId = auth.user?.id || (await prisma.user.findFirst({ where: { role: "ADMIN" } }))?.id || "";
 
-    // 3. Executar transação
+    // 3. Executar transação com lock atômico
     const result = await prisma.$transaction(async (tx) => {
+      // Atualizar status do ativo apenas se ainda disponível (anti race condition)
+      const assetUpdate = await tx.asset.updateMany({
+        where: { id: asset.id, status: AssetStatus.AVAILABLE },
+        data: { status: AssetStatus.LOANED, currentBoxId: null },
+      });
+
+      if (assetUpdate.count === 0) {
+        throw new Error(`Equipamento #${asset.assetTag} foi alocado concorrentemente e não está mais disponível.`);
+      }
+
       // Criar Empréstimo
       const loan = await tx.loan.create({
         data: {
@@ -95,12 +105,6 @@ export async function POST(req: NextRequest) {
           notes: notes || "Empréstimo registrado via API/n8n",
           createdByUserId: userId,
         },
-      });
-
-      // Atualizar status do ativo
-      await tx.asset.update({
-        where: { id: asset.id },
-        data: { status: AssetStatus.LOANED },
       });
 
       // Criar histórico do patrimônio
