@@ -180,7 +180,7 @@ export function AssetFormModal({
                     title="Cadastrar um novo modelo se não estiver na lista"
                   >
                     <Plus className="w-3 h-3" />
-                    <span>+ Novo Modelo</span>
+                    <span>Novo Modelo</span>
                   </button>
                 </div>
 

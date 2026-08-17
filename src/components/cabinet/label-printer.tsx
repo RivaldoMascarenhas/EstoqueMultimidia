@@ -180,11 +180,11 @@ export function LabelPrinterModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-6 rounded-3xl bg-card border-border shadow-2xl">
-        <DialogHeader className="no-print">
+      <DialogContent className="w-[96vw] max-w-4xl max-h-[90vh] flex flex-col p-4 sm:p-6 rounded-3xl bg-card border-border shadow-2xl overflow-hidden">
+        <DialogHeader className="no-print shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-primary">
-              <Printer className="w-5 h-5" />
+              <Printer className="w-5 h-5 shrink-0" />
               <DialogTitle className="text-lg font-bold text-foreground">
                 Impressão de Etiquetas com QR Code
               </DialogTitle>
@@ -196,15 +196,15 @@ export function LabelPrinterModal({
         </DialogHeader>
 
         {/* Filtro e Botão de Imprimir (Oculto na impressão) */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-muted/40 border border-border/80 no-print my-2">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-muted/40 border border-border/80 no-print my-2 shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <span className="text-xs font-semibold text-foreground shrink-0">
               Filtrar Caixa:
             </span>
             <select
               value={filterCode}
               onChange={(e) => setFilterCode(e.target.value)}
-              className="px-3 py-1.5 text-xs bg-background border border-input rounded-xl text-foreground font-medium focus:ring-2 focus:ring-primary outline-none"
+              className="w-full sm:max-w-xs px-3 py-1.5 text-xs bg-background border border-input rounded-xl text-foreground font-medium focus:ring-2 focus:ring-primary outline-none truncate"
             >
               <option value="ALL">Todas as Caixas ({boxes.length})</option>
               {boxes.map((b) => (
@@ -215,57 +215,59 @@ export function LabelPrinterModal({
             </select>
           </div>
 
-          <Button onClick={handlePrint} size="sm" className="w-full sm:w-auto gap-2 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/25">
-            <Printer className="w-4 h-4" />
+          <Button onClick={handlePrint} size="sm" className="w-full sm:w-auto shrink-0 gap-2 rounded-xl bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/25">
+            <Printer className="w-4 h-4 shrink-0" />
             <span>Imprimir {displayedBoxes.length} Etiqueta(s)</span>
           </Button>
         </div>
 
         {/* Container de Etiquetas Isolado para Impressão */}
-        <div id="boxes-printable-container" className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-2">
-          {displayedBoxes.map((box) => {
-            const qrUrl = `${baseUrl}/caixas/${box.code}`;
+        <div className="overflow-y-auto overflow-x-hidden pr-1 flex-1">
+          <div id="boxes-printable-container" className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 my-2">
+            {displayedBoxes.map((box) => {
+              const qrUrl = `${baseUrl}/caixas/${box.code}`;
 
-            return (
-              <div
-                key={box.code}
-                className="label-card flex items-center justify-between p-4 rounded-2xl border-2 border-slate-900 bg-white text-slate-950 shadow-sm"
-              >
-                <div className="label-info space-y-1">
-                  <div className="label-brand flex items-center gap-1.5 text-[9px] font-black tracking-wider text-blue-900 uppercase">
-                    <Building2 className="w-3 h-3 text-blue-900" />
-                    <span>UNIFAP • SUPORTE TI & MULTIMÍDIA</span>
-                  </div>
-
-                  <div className="label-code text-xl font-black font-mono tracking-tight text-slate-950">
-                    {box.code}
-                  </div>
-
-                  <div className="label-title text-xs font-bold text-slate-800">
-                    {box.name}
-                  </div>
-
-                  <div className="label-subtitle text-[10px] font-semibold text-slate-600">
-                    {box.doorName}
-                  </div>
-
-                  {box.description && (
-                    <div className="label-desc text-[9px] text-slate-500 line-clamp-1">
-                      {box.description}
+              return (
+                <div
+                  key={box.code}
+                  className="label-card min-w-0 flex items-center justify-between p-3.5 sm:p-4 rounded-2xl border-2 border-slate-900 bg-white text-slate-950 shadow-sm"
+                >
+                  <div className="label-info min-w-0 flex-1 space-y-1 pr-2">
+                    <div className="label-brand flex items-center gap-1.5 text-[9px] font-black tracking-wider text-blue-900 uppercase truncate">
+                      <Building2 className="w-3 h-3 text-blue-900 shrink-0" />
+                      <span className="truncate">UNIFAP • SUPORTE TI & MULTIMÍDIA</span>
                     </div>
-                  )}
 
-                  <div className="label-footer text-[8px] text-slate-400 italic pt-1">
-                    Escaneie para consultar/baixar
+                    <div className="label-code text-xl font-black font-mono tracking-tight text-slate-950 truncate">
+                      {box.code}
+                    </div>
+
+                    <div className="label-title text-xs font-bold text-slate-800 line-clamp-1" title={box.name}>
+                      {box.name}
+                    </div>
+
+                    <div className="label-subtitle text-[10px] font-semibold text-slate-600 truncate">
+                      {box.doorName}
+                    </div>
+
+                    {box.description && (
+                      <div className="label-desc text-[9px] text-slate-500 line-clamp-1">
+                        {box.description}
+                      </div>
+                    )}
+
+                    <div className="label-footer text-[8px] text-slate-400 italic pt-1 truncate">
+                      Escaneie para consultar/baixar
+                    </div>
+                  </div>
+
+                  <div className="label-qr shrink-0 p-1.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                    <QrCodeDisplay value={qrUrl} size={80} />
                   </div>
                 </div>
-
-                <div className="label-qr shrink-0 p-1.5 bg-white rounded-xl border border-slate-200 shadow-sm">
-                  <QrCodeDisplay value={qrUrl} size={84} />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
