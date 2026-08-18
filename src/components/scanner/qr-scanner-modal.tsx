@@ -12,7 +12,7 @@ import {
   RefreshCw, 
   QrCode,
   Sparkles,
-  FlipHorizontal
+  SwitchCamera
 } from "lucide-react";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface QrScannerModalProps {
   isOpen: boolean;
@@ -35,83 +36,141 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
   const [manualCode, setManualCode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
+  const [activeCameraLabel, setActiveCameraLabel] = useState<string>("");
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isSwitchingRef = useRef(false);
 
-  const loadCameras = async () => {
+  const refreshCameraList = async (): Promise<Array<{ id: string; label: string }>> => {
     try {
       const devices = await Html5Qrcode.getCameras();
       if (devices && devices.length > 0) {
         setCameras(devices);
-        const backIdx = devices.findIndex((d) =>
-          /back|rear|environment|traseira/i.test(d.label)
-        );
-        if (backIdx !== -1) {
-          setSelectedCameraIndex(backIdx);
-        }
+        return devices;
       }
     } catch (e) {
       console.warn("Erro ao enumerar câmeras no modal:", e);
     }
+    return [];
   };
 
-  const startScanner = async (targetFacing?: "environment" | "user", targetCameraId?: string) => {
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
+        await scannerRef.current.clear();
+      } catch (e) {
+        console.warn("Erro ao parar scanner no modal:", e);
+      }
+    }
+
+    // Parar todos os tracks residuais do hardware
+    const existingVideo = document.querySelector("#qr-reader-container video") as HTMLVideoElement;
+    if (existingVideo && existingVideo.srcObject) {
+      try {
+        const stream = existingVideo.srcObject as MediaStream;
+        stream.getTracks().forEach((t) => t.stop());
+        existingVideo.srcObject = null;
+      } catch (e) {}
+    }
+
+    setIsScanning(false);
+  };
+
+  const startScanner = async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
     try {
       setCameraError(null);
       setIsScanning(true);
 
-      const modeToUse = targetFacing || facingMode;
+      // Parar instâncias anteriores e liberar hardware
+      await stopScanner();
 
-      if (scannerRef.current) {
-        try {
-          if (scannerRef.current.isScanning) {
-            await scannerRef.current.stop();
-          }
-          await scannerRef.current.clear();
-        } catch (e) {}
-      }
-
-      // Parar tracks de vídeo anteriores
-      const existingVideo = document.querySelector("#qr-reader-container video") as HTMLVideoElement;
-      if (existingVideo && existingVideo.srcObject) {
-        try {
-          const stream = existingVideo.srcObject as MediaStream;
-          stream.getTracks().forEach((t) => t.stop());
-        } catch (e) {}
-      }
+      // Buffer de 150ms para liberação pelo SO móvel/desktop
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       const html5QrCode = new Html5Qrcode("qr-reader-container");
       scannerRef.current = html5QrCode;
 
-      const cameraConfig: any = targetCameraId 
-        ? { deviceId: { exact: targetCameraId } }
-        : { facingMode: modeToUse };
-
       const scanConfig = {
         fps: 15,
-        qrbox: { width: 250, height: 250 },
+        qrbox: { width: 240, height: 240 },
       };
 
       const handleSuccess = (decodedText: string) => {
-        html5QrCode.stop().then(() => {
+        stopScanner().then(() => {
           handleScanSuccess(decodedText);
         }).catch(() => {
           handleScanSuccess(decodedText);
         });
       };
 
-      try {
-        await html5QrCode.start(cameraConfig, scanConfig, handleSuccess, () => {});
-      } catch (firstErr) {
-        await html5QrCode.start({ facingMode: modeToUse }, scanConfig, handleSuccess, () => {});
+      // 1. Obter lista de câmeras disponíveis
+      let availableCams = cameras;
+      if (availableCams.length === 0) {
+        availableCams = await refreshCameraList();
       }
 
-      loadCameras();
+      let configToUse: any = targetCameraIdOrMode;
+
+      if (!configToUse) {
+        if (availableCams.length > 0) {
+          let idx = typeof cameraIndex === "number" ? cameraIndex : selectedCameraIndex;
+          if (idx >= availableCams.length) idx = 0;
+
+          if (typeof cameraIndex !== "number") {
+            const backIdx = availableCams.findIndex((c) => /back|rear|environment|traseira/i.test(c.label));
+            if (backIdx !== -1) {
+              idx = backIdx;
+            }
+          }
+
+          setSelectedCameraIndex(idx);
+          setActiveCameraLabel(availableCams[idx]?.label || `Câmera ${idx + 1}`);
+          configToUse = availableCams[idx].id;
+        } else {
+          configToUse = { facingMode: "environment" };
+        }
+      }
+
+      // Estratégia em cascata com fallbacks resilientes
+      try {
+        await html5QrCode.start(configToUse, scanConfig, handleSuccess, () => {});
+      } catch (firstErr) {
+        console.warn("Modal: Tentativa 1 falhou, tentando fallback ideal/deviceId...", firstErr);
+        try {
+          if (typeof configToUse === "string") {
+            await html5QrCode.start({ deviceId: { exact: configToUse } }, scanConfig, handleSuccess, () => {});
+          } else {
+            await html5QrCode.start({ facingMode: { ideal: configToUse.facingMode || "environment" } }, scanConfig, handleSuccess, () => {});
+          }
+        } catch (secondErr) {
+          console.warn("Modal: Tentativa 2 falhou, tentando enumeração...", secondErr);
+          const devs = await Html5Qrcode.getCameras().catch(() => []);
+          if (devs.length > 0) {
+            await html5QrCode.start(devs[0].id, scanConfig, handleSuccess, () => {});
+            setSelectedCameraIndex(0);
+            setActiveCameraLabel(devs[0].label || "Câmera 1");
+          } else {
+            await html5QrCode.start({ facingMode: "user" }, scanConfig, handleSuccess, () => {});
+          }
+        }
+      }
+
+      const updatedDevices = await refreshCameraList();
+      if (updatedDevices.length > 0) {
+        const currentIdx = typeof cameraIndex === "number" ? cameraIndex : selectedCameraIndex;
+        if (updatedDevices[currentIdx]) {
+          setActiveCameraLabel(updatedDevices[currentIdx].label);
+        }
+      }
+
+      setIsScanning(true);
     } catch (err: any) {
-      console.warn("Erro ao iniciar câmera:", err);
+      console.warn("Erro ao iniciar câmera no modal:", err);
       setCameraError(
         "Não foi possível acessar a câmera do dispositivo. Verifique as permissões do navegador ou digite o código da caixa abaixo."
       );
@@ -119,45 +178,48 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     }
   };
 
-  const stopScanner = () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      scannerRef.current.stop().catch(() => {});
-    }
-    setIsScanning(false);
-  };
-
   const handleToggleCamera = async () => {
     if (isSwitchingRef.current) return;
     isSwitchingRef.current = true;
+    setIsSwitchingCamera(true);
 
     try {
-      if (cameras.length > 1) {
-        const nextIndex = (selectedCameraIndex + 1) % cameras.length;
+      let availableCams = cameras;
+      if (availableCams.length === 0) {
+        availableCams = await refreshCameraList();
+      }
+
+      if (availableCams.length > 1) {
+        const nextIndex = (selectedCameraIndex + 1) % availableCams.length;
+        const nextCam = availableCams[nextIndex];
         setSelectedCameraIndex(nextIndex);
-        const nextCam = cameras[nextIndex];
-        const isFront = /front|user|frontal/i.test(nextCam.label);
-        const nextMode = isFront ? "user" : "environment";
-        setFacingMode(nextMode);
+        setActiveCameraLabel(nextCam.label || `Câmera ${nextIndex + 1}`);
 
-        stopScanner();
-        setTimeout(async () => {
-          await startScanner(nextMode, nextCam.id);
-          isSwitchingRef.current = false;
-        }, 200);
-        toast.info(`Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`}`);
+        await startScanner(nextCam.id, nextIndex);
+        toast.info(`Câmera alterada: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`);
+      } else if (availableCams.length === 1) {
+        const isCurrentlyFront = /front|user|frontal/i.test(availableCams[0].label);
+        const targetMode = isCurrentlyFront ? "environment" : "user";
+
+        try {
+          await startScanner({ facingMode: targetMode });
+          toast.info(`Alternando para modo ${targetMode === "environment" ? "Traseira" : "Frontal"}...`);
+        } catch (e) {
+          toast.info(
+            `Apenas 1 câmera detectada neste computador (${availableCams[0].label || "Webcam Principal"}). Conecte outra webcam ou teste no celular para alternar entre frontal e traseira.`,
+            { duration: 5000 }
+          );
+        }
       } else {
-        const nextMode = facingMode === "environment" ? "user" : "environment";
-        setFacingMode(nextMode);
-
-        stopScanner();
-        setTimeout(async () => {
-          await startScanner(nextMode);
-          isSwitchingRef.current = false;
-        }, 200);
-        toast.info(nextMode === "environment" ? "Câmera Traseira" : "Câmera Frontal");
+        const nextMode = activeCameraLabel.includes("Frontal") ? "environment" : "user";
+        await startScanner({ facingMode: nextMode });
+        toast.info(`Alternado para modo ${nextMode === "environment" ? "Traseira" : "Frontal"}`);
       }
     } catch (e) {
+      toast.error("Erro ao alternar câmera.");
+    } finally {
       isSwitchingRef.current = false;
+      setIsSwitchingCamera(false);
     }
   };
 
@@ -179,8 +241,6 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     stopScanner();
     onClose();
 
-    // Extrair código da URL ou usar o texto direto
-    // Exemplos possíveis: "http://localhost:3000/caixas/C017" ou "C017"
     let boxCode = rawText.trim();
     if (boxCode.includes("/caixas/")) {
       const parts = boxCode.split("/caixas/");
@@ -217,12 +277,19 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
               variant="outline"
               size="sm"
               onClick={handleToggleCamera}
-              className="h-8 px-2.5 text-xs rounded-xl gap-1.5 border-border shrink-0"
-              title="Alternar Câmera (Traseira/Frontal)"
+              disabled={isSwitchingCamera}
+              className="h-8 px-2.5 text-xs rounded-xl gap-1.5 border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary shrink-0"
+              title="Alternar entre câmeras disponíveis"
             >
-              <FlipHorizontal className="w-3.5 h-3.5 text-primary" />
+              <SwitchCamera className={cn("w-3.5 h-3.5 text-primary transition-transform duration-300", isSwitchingCamera && "animate-spin text-amber-400")} />
               <span className="text-[11px] font-semibold">
-                {facingMode === "environment" ? "Traseira" : "Frontal"}
+                {isSwitchingCamera 
+                  ? "Trocando..." 
+                  : cameras.length > 1 
+                    ? `Câmera ${selectedCameraIndex + 1}/${cameras.length}` 
+                    : activeCameraLabel 
+                      ? (activeCameraLabel.length > 12 ? `${activeCameraLabel.slice(0, 12)}...` : activeCameraLabel)
+                      : "Trocar Câmera"}
               </span>
             </Button>
           </div>
@@ -236,8 +303,28 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
           <div className="relative overflow-hidden rounded-2xl border border-border bg-slate-950 aspect-square flex flex-col items-center justify-center">
             <div id="qr-reader-container" className="w-full h-full" />
 
+            {/* Botão Flutuante de Troca de Câmera Sobre o Visor */}
+            {isScanning && !cameraError && (
+              <button
+                type="button"
+                onClick={handleToggleCamera}
+                disabled={isSwitchingCamera}
+                className="absolute top-3 right-3 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/75 hover:bg-black/90 text-white border border-white/20 backdrop-blur-md shadow-lg active:scale-95 transition-all cursor-pointer group"
+                title="Alternar entre câmeras disponíveis"
+              >
+                <SwitchCamera className={cn("w-3.5 h-3.5 text-primary transition-transform duration-300 group-hover:rotate-180", isSwitchingCamera && "animate-spin text-amber-400")} />
+                <span className="text-[10px] font-semibold">
+                  {isSwitchingCamera 
+                    ? "..." 
+                    : cameras.length > 1 
+                      ? `${selectedCameraIndex + 1}/${cameras.length}` 
+                      : "Trocar"}
+                </span>
+              </button>
+            )}
+
             {cameraError && (
-              <div className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center bg-card/95 text-foreground space-y-3">
+              <div className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center bg-card/95 text-foreground space-y-3 z-20">
                 <AlertCircle className="w-10 h-10 text-amber-500" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   {cameraError}
