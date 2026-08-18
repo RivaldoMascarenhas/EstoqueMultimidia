@@ -23,7 +23,9 @@ import {
   QrCode,
   ShieldCheck,
   Server,
-  Camera
+  Camera,
+  CalendarDays,
+  School
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,7 @@ export function Sidebar({
       case "ADMIN": return "admin";
       case "GESTOR": return "gestor";
       case "OPERADOR": return "operador";
+      case "ACADEMIC_SUPPORT": return "academic";
       default: return "consulta";
     }
   };
@@ -78,6 +81,12 @@ export function Sidebar({
           title: "Dashboard",
           href: "/dashboard",
           icon: LayoutDashboard,
+        },
+        {
+          title: "Agenda Operacional",
+          href: "/agenda",
+          icon: CalendarDays,
+          badge: "Turnos",
         },
         {
           title: "Scanner Mobile",
@@ -94,6 +103,12 @@ export function Sidebar({
           title: "Estoque",
           href: "/estoque",
           icon: Package,
+        },
+        {
+          title: "Salas & Infra",
+          href: "/salas",
+          icon: School,
+          roles: ["ADMIN", "GESTOR", "OPERADOR"],
         },
         {
           title: "Armário Físico",

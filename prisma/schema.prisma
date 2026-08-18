@@ -16,6 +16,7 @@ enum Role {
   GESTOR
   OPERADOR
   CONSULTA
+  ACADEMIC_SUPPORT
 }
 
 enum ItemType {
@@ -23,8 +24,35 @@ enum ItemType {
   ASSET_EQUIPMENT // Equipamento individual rastreado por patrimônio (Projetor, Notebook)
 }
 
+enum ItemLogisticsType {
+  FIXED_IN_ROOM   // Já instalado na sala (ex: Datashow fixo / Projetor de teto)
+  MOBILE_STOCK    // Retirado do estoque físico e levado até a sala (ex: Notebook, Datashow móvel)
+}
+
+enum Shift {
+  MORNING
+  AFTERNOON
+  NIGHT
+}
+
+enum RequestStatus {
+  AGENDADO
+  EM_PREPARACAO
+  PREPARADO
+  EM_ATENDIMENTO
+  FINALIZADO
+  CANCELADO
+  PROBLEMA
+}
+
+enum RequestOrigin {
+  MANUAL           // Criado pelo formulário do Apoio Acadêmico
+  IMPORTADO_LEGADO // Migrado do Google Calendar antigo
+}
+
 enum AssetStatus {
-  AVAILABLE       // Disponível
+  AVAILABLE       // Disponível no armário/estoque
+  IN_USE          // Em uso / Alocado fixo em sala de aula
   LOANED          // Emprestado
   IN_MAINTENANCE  // Em manutenção
   DAMAGED         // Danificado
@@ -75,13 +103,15 @@ model User {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  movements     StockMovement[]
-  loansCreated  Loan[]            @relation("LoanCreator")
-  loansReceived Loan[]            @relation("LoanReceiver")
-  maintenances  Maintenance[]     @relation("MaintenanceCreator")
-  maintenancesClosed Maintenance[] @relation("MaintenanceCloser")
-  auditLogs     AuditLog[]
-  apiKeys       ApiKey[]
+  movements          StockMovement[]
+  loansCreated       Loan[]            @relation("LoanCreator")
+  loansReceived      Loan[]            @relation("LoanReceiver")
+  maintenances       Maintenance[]     @relation("MaintenanceCreator")
+  maintenancesClosed Maintenance[]     @relation("MaintenanceCloser")
+  auditLogs          AuditLog[]
+  apiKeys            ApiKey[]
+  requestsCreated    Request[]         @relation("RequestCreatedBy")
+  requestsAssigned   Request[]         @relation("RequestAssignedUser")
 }
 
 model ApiKey {
@@ -155,26 +185,29 @@ model Category {
 }
 
 model Item {
-  id            String    @id @default(cuid())
-  name          String    // ex: "Cabo HDMI 10m"
-  sku           String    @unique // Código interno / SKU
-  categoryId    String
-  category      Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  itemType      ItemType  @default(MATERIAL)
-  unit          String    @default("UN") // UN, M, CX, PC
-  description   String?
-  minStock      Int       @default(0)
-  idealStock    Int       @default(0)
-  manufacturer  String?
-  model         String?
-  notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String               @id @default(cuid())
+  name                String               // ex: "Cabo HDMI 10m"
+  sku                 String               @unique // Código interno / SKU
+  categoryId          String
+  category            Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  itemType            ItemType             @default(MATERIAL)
+  logisticsType       ItemLogisticsType    @default(MOBILE_STOCK)
+  unit                String               @default("UN") // UN, M, CX, PC
+  description         String?
+  minStock            Int                  @default(0)
+  idealStock          Int                  @default(0)
+  manufacturer        String?
+  model               String?
+  notes               String?
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  inventories   Inventory[]
-  assets        Asset[]
-  movements     StockMovement[]
+  inventories         Inventory[]
+  assets              Asset[]
+  movements           StockMovement[]
+  requestItems        RequestItem[]
+  roomFixedEquipments RoomFixedEquipment[]
 
   @@index([categoryId])
   @@index([sku])
@@ -208,8 +241,10 @@ model Asset {
   serialNumber     String?      // Número de Série
   model            String?
   status           AssetStatus  @default(AVAILABLE)
-  currentBoxId     String?      // Localização física atual (quando guardado)
+  currentBoxId     String?      // Localização física atual (quando guardado no armário)
   currentBox       Box?         @relation(fields: [currentBoxId], references: [id], onDelete: SetNull)
+  currentRoomId    String?      // Sala física atual (quando instalado fixo em sala de aula)
+  currentRoom      Room?        @relation("RoomCurrentAssets", fields: [currentRoomId], references: [id], onDelete: SetNull)
   acquisitionDate  DateTime?
   acquisitionValue Decimal?     @db.Decimal(10, 2)
   notes            String?
@@ -217,14 +252,17 @@ model Asset {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  loans            Loan[]
-  maintenances     Maintenance[]
-  history          AssetHistory[]
+  loans                Loan[]
+  maintenances         Maintenance[]
+  history              AssetHistory[]
+  requestItems         RequestItem[]
+  roomFixedEquipments  RoomFixedEquipment[]
 
   @@index([assetTag])
   @@index([serialNumber])
   @@index([status])
   @@index([currentBoxId])
+  @@index([currentRoomId])
 }
 
 model AssetHistory {
@@ -348,8 +386,8 @@ model AuditLog {
   id          String    @id @default(cuid())
   userId      String?
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action      String    // ex: "LOGIN", "CREATE_ITEM", "STOCK_EXIT", "LOAN_CREATE"
-  entity      String    // ex: "Item", "Asset", "Loan", "Inventory"
+  action      String    // ex: "LOGIN", "CREATE_ITEM", "STOCK_EXIT", "LOAN_CREATE", "CREATE_REQUEST", etc.
+  entity      String    // ex: "Item", "Asset", "Loan", "Inventory", "Request", "Room"
   entityId    String?
   details     Json?     // Payload com estado antes e depois (diff)
   ipAddress   String?
@@ -360,4 +398,147 @@ model AuditLog {
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+}
+
+// ----------------------------------------------------
+// AGENDA OPERACIONAL POR TURNOS & GESTÃO DE SALAS
+// ----------------------------------------------------
+
+model ShiftConfig {
+  id         String   @id @default(cuid())
+  shift      Shift    @unique
+  startTime  String   // Formato "HH:mm" (ex: "07:00")
+  endTime    String   // Formato "HH:mm" (ex: "12:00")
+  label      String   // ex: "Manhã"
+  emoji      String?  // ex: "🌅"
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Room {
+  id                   String               @id @default(cuid())
+  name                 String               @unique // ex: "1A", "LAB 2A", "SIMU 1B"
+  floor                String?              // ex: "1 Andar", "TÉRREO"
+  block                String?
+  active               Boolean              @default(true)
+
+  // Projetor fixo instalado na sala
+  fixedProjectorModel  String?              // ex: "Epson s41+"
+  vgaCableOk           Boolean?
+  hdmiCableOk          Boolean?
+  lampHours            Int?
+  lampStatus           String?              // ex: "Bom" | "TROCAR LAMPADA"
+  lastVisitAt          DateTime?
+
+  // Equipamentos fixos dinâmicos adicionais
+  fixedEquipment       RoomFixedEquipment[]
+  currentAssets        Asset[]              @relation("RoomCurrentAssets")
+  requests             Request[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([name])
+  @@index([floor])
+  @@index([active])
+}
+
+model RoomFixedEquipment {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  itemId    String?  // Opcional: vínculo ao catálogo
+  item      Item?    @relation(fields: [itemId], references: [id])
+  assetId   String?  // Vínculo ao Patrimônio do TI (Asset)
+  asset     Asset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  label     String   // ex: "Projetor Epson PowerLite", "TV 55 pol", "PC"
+  status    String?  // ex: "OK", "Com defeito", "Em Manutenção"
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([assetId])
+}
+
+model Request {
+  id               String         @id @default(cuid())
+  date             DateTime       // Data da realização do atendimento
+  startTime        DateTime       // Data e hora real de início
+  endTime          DateTime       // Data e hora real de término
+  shift            Shift          // Calculado automaticamente pelo ShiftService
+  roomId           String
+  room             Room           @relation(fields: [roomId], references: [id])
+  professorName    String?
+  discipline       String?
+  attendanceType   String?
+  notes            String?
+  status           RequestStatus  @default(AGENDADO)
+  origin           RequestOrigin  @default(MANUAL)
+  needsReview      Boolean        @default(false)
+
+  assignedUserId   String?
+  assignedUser     User?          @relation("RequestAssignedUser", fields: [assignedUserId], references: [id])
+  createdById      String
+  createdBy        User           @relation("RequestCreatedBy", fields: [createdById], references: [id])
+
+  // Integração Google Calendar (Sync de saída)
+  googleEventId    String?
+  googleCalendarId String?
+  lastGoogleSyncAt DateTime?
+  syncStatus       String?        // "SYNCED" | "PENDING" | "ERROR"
+
+  // Recorrência
+  seriesId         String?
+  series           RequestSeries? @relation(fields: [seriesId], references: [id])
+
+  items            RequestItem[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([date])
+  @@index([shift])
+  @@index([status])
+  @@index([roomId])
+  @@index([assignedUserId])
+  @@index([seriesId])
+}
+
+model RequestItem {
+  id         String   @id @default(cuid())
+  requestId  String
+  request    Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemId     String?
+  item       Item?    @relation(fields: [itemId], references: [id])
+  assetId    String?
+  asset      Asset?   @relation(fields: [assetId], references: [id])
+  label      String   // Descrição do item (ex: "Notebook i5", "Cabo HDMI 10m")
+  quantity   Int      @default(1)
+  separated  Boolean  @default(false)
+
+  @@index([assetId])
+  @@index([requestId])
+}
+
+model RequestSeries {
+  id                  String    @id @default(cuid())
+  frequency           String    // "WEEKLY"
+  dayOfWeek           Int?      // 0-6 (0 = Domingo, 1 = Segunda...)
+  startDate           DateTime
+  endDate             DateTime?
+  googleMasterEventId String?
+  requests            Request[]
+  createdAt           DateTime  @default(now())
+}
+
+model GoogleIntegration {
+  id           String    @id @default("default")
+  accountEmail String?
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
+  expiryDate   DateTime?
+  calendarId   String?   @default("primary")
+  calendarName String?
+  connected    Boolean   @default(false)
+  updatedAt    DateTime  @updatedAt
 }

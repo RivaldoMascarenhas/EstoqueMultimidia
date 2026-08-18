@@ -1,5 +1,19 @@
-import { PrismaClient, Role, ItemType, AssetStatus, LoanStatus, MovementType, MaintenanceStatus } from '@prisma/client';
+import { 
+  PrismaClient, 
+  Role, 
+  ItemType, 
+  AssetStatus, 
+  LoanStatus, 
+  MovementType, 
+  MaintenanceStatus,
+  Shift,
+  ItemLogisticsType,
+  RequestStatus,
+  RequestOrigin
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -8,6 +22,12 @@ async function main() {
 
   // 1. Limpeza de dados antigos para seed idempotente
   await prisma.auditLog.deleteMany();
+  await prisma.requestItem.deleteMany();
+  await prisma.request.deleteMany();
+  await prisma.requestSeries.deleteMany();
+  await prisma.roomFixedEquipment.deleteMany();
+  await prisma.room.deleteMany();
+  await prisma.shiftConfig.deleteMany();
   await prisma.stockMovement.deleteMany();
   await prisma.assetHistory.deleteMany();
   await prisma.loan.deleteMany();
@@ -26,7 +46,7 @@ async function main() {
 
   const rivaldo = await prisma.user.create({
     data: {
-      name: 'Rivaldo',
+      name: 'Rivaldo Mascarenhas',
       email: 'rivaldo@unifap.br',
       passwordHash: defaultPassword,
       role: Role.ADMIN,
@@ -35,7 +55,7 @@ async function main() {
 
   const rodrigo = await prisma.user.create({
     data: {
-      name: 'Rodrigo',
+      name: 'Rodrigo Gestor',
       email: 'rodrigo@unifap.br',
       passwordHash: defaultPassword,
       role: Role.GESTOR,
@@ -44,7 +64,7 @@ async function main() {
 
   const thomas = await prisma.user.create({
     data: {
-      name: 'Thomas',
+      name: 'Thomas Operador',
       email: 'thomas@unifap.br',
       passwordHash: defaultPassword,
       role: Role.OPERADOR,
@@ -53,16 +73,57 @@ async function main() {
 
   const pedro = await prisma.user.create({
     data: {
-      name: 'Pedro',
+      name: 'Pedro Operador',
       email: 'pedro@unifap.br',
       passwordHash: defaultPassword,
       role: Role.OPERADOR,
     },
   });
 
-  console.log('✅ Usuários cadastrados: Rivaldo (Admin), Rodrigo (Gestor), Thomas (Operador), Pedro (Operador)');
+  const paloma = await prisma.user.create({
+    data: {
+      name: 'Profa. Paloma Morais (Apoio Acadêmico)',
+      email: 'paloma@unifap.br',
+      passwordHash: defaultPassword,
+      role: Role.ACADEMIC_SUPPORT,
+    },
+  });
 
-  // 3. Estrutura do Armário (Portas 1, 2 e 3)
+  console.log('✅ Usuários cadastrados: Rivaldo (Admin), Rodrigo (Gestor), Thomas (Operador), Pedro (Operador), Paloma (Apoio Acadêmico)');
+
+  // 3. Configurações de Turno Padrão
+  await prisma.shiftConfig.createMany({
+    data: [
+      {
+        shift: Shift.MORNING,
+        startTime: '07:00',
+        endTime: '12:00',
+        label: 'Manhã',
+        emoji: '🌅',
+        orderIndex: 1,
+      },
+      {
+        shift: Shift.AFTERNOON,
+        startTime: '12:00',
+        endTime: '18:00',
+        label: 'Tarde',
+        emoji: '☀️',
+        orderIndex: 2,
+      },
+      {
+        shift: Shift.NIGHT,
+        startTime: '18:00',
+        endTime: '22:30',
+        label: 'Noite',
+        emoji: '🌙',
+        orderIndex: 3,
+      },
+    ],
+  });
+
+  console.log('✅ Configurações de Turno registradas (Manhã 07:00-12:00, Tarde 12:00-18:00, Noite 18:00-22:30)');
+
+  // 4. Estrutura do Armário (Portas 1, 2 e 3)
   const porta1 = await prisma.door.create({
     data: {
       code: 'PORTA-1',
@@ -121,7 +182,7 @@ async function main() {
 
   console.log('✅ Armário configurado com 3 Portas e 17 Caixas com códigos únicos');
 
-  // 4. Categorias
+  // 5. Categorias
   const catCabos = await prisma.category.create({
     data: { name: 'Cabos & Conectividade', slug: 'cabos', description: 'Cabos HDMI, VGA, P2, Rede e Força' },
   });
@@ -141,13 +202,70 @@ async function main() {
     data: { name: 'Energia & Acessórios', slug: 'energia', description: 'Extensões elétricas, filtros e pilhas' },
   });
 
-  // 5. Itens de Estoque Quantitativo (Material)
+  // 6. Itens de Estoque Quantitativo e Logística de Sala
+  const itemDatashowFixo = await prisma.item.create({
+    data: {
+      name: 'Datashow (Projetor fixo em sala)',
+      sku: 'SRV-DATASHOW-FIXO',
+      categoryId: catProjetores.id,
+      itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.FIXED_IN_ROOM,
+      unit: 'UN',
+      description: 'Projetor já instalado no teto da sala de aula (requer apenas acionamento/teste)',
+      minStock: 0,
+      idealStock: 0,
+    },
+  });
+
+  const itemDatashowMovel = await prisma.item.create({
+    data: {
+      name: 'Datashow Móvel (Projetor Portátil)',
+      sku: 'EQUIP-PROJ-MOVEL',
+      categoryId: catProjetores.id,
+      itemType: ItemType.ASSET_EQUIPMENT,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
+      unit: 'UN',
+      description: 'Projetor móvel que deve ser retirado do estoque e levado até a sala',
+      minStock: 2,
+      idealStock: 5,
+    },
+  });
+
+  const itemNotebook = await prisma.item.create({
+    data: {
+      name: 'Notebook Dell Core i5 para Aula',
+      sku: 'EQUIP-NOTEBOOK-AULA',
+      categoryId: catInformatica.id,
+      itemType: ItemType.ASSET_EQUIPMENT,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
+      unit: 'UN',
+      description: 'Notebook institucional para suporte a professores e apresentações',
+      minStock: 3,
+      idealStock: 8,
+    },
+  });
+
+  const itemPassadorSlides = await prisma.item.create({
+    data: {
+      name: 'Passador de Slides Wireless Laser',
+      sku: 'MAT-PASSADOR-SLIDES',
+      categoryId: catInformatica.id,
+      itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
+      unit: 'UN',
+      description: 'Apresentador multimídia sem fio com ponteiro laser',
+      minStock: 5,
+      idealStock: 15,
+    },
+  });
+
   const itemHdmi10m = await prisma.item.create({
     data: {
       name: 'Cabo HDMI 10 metros',
       sku: 'CAB-HDMI-10M',
       categoryId: catCabos.id,
       itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'UN',
       description: 'Cabo HDMI 2.0 4K 10 metros blindado para auditórios e salas grandes',
       minStock: 5,
@@ -162,6 +280,7 @@ async function main() {
       sku: 'CAB-HDMI-5M',
       categoryId: catCabos.id,
       itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'UN',
       description: 'Cabo HDMI 1.4 High Speed 5 metros com filtro',
       minStock: 8,
@@ -176,6 +295,7 @@ async function main() {
       sku: 'CAB-HDMI-2M',
       categoryId: catCabos.id,
       itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'UN',
       description: 'Cabo HDMI padrão 2m para conexão direta em bancada',
       minStock: 10,
@@ -190,6 +310,7 @@ async function main() {
       sku: 'ADP-USBC-HDMI',
       categoryId: catAdaptadores.id,
       itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'UN',
       description: 'Conversor USB Tipo C para saída HDMI fêmea 4K',
       minStock: 5,
@@ -204,6 +325,7 @@ async function main() {
       sku: 'ENE-PILHA-AA',
       categoryId: catEnergia.id,
       itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'CX',
       description: 'Cartela com 4 pilhas alcalinas AA para microfones e passadores',
       minStock: 8,
@@ -218,6 +340,7 @@ async function main() {
       sku: 'ENE-EXT-5M',
       categoryId: catEnergia.id,
       itemType: ItemType.MATERIAL,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'UN',
       description: 'Extensão reforçada com 3 tomadas novo padrão NBR',
       minStock: 4,
@@ -226,97 +349,34 @@ async function main() {
     },
   });
 
-  // 6. Inventário Físico nas Caixas
+  // 7. Inventário Físico nas Caixas
   const c017 = boxesPorta2.find(b => b.code === 'C017')!;
   const c014 = boxesPorta2.find(b => b.code === 'C014')!;
   const c001 = boxesPorta1.find(b => b.code === 'C001')!;
+  const c004 = boxesPorta1.find(b => b.code === 'C004')!;
+  const c005 = boxesPorta1.find(b => b.code === 'C005')!;
   const c010 = boxesPorta2.find(b => b.code === 'C010')!;
   const c020 = boxesPorta3.find(b => b.code === 'C020')!;
   const c021 = boxesPorta3.find(b => b.code === 'C021')!;
   const c022 = boxesPorta3.find(b => b.code === 'C022')!;
   const c015 = boxesPorta2.find(b => b.code === 'C015')!;
 
-  // HDMI 10m -> 6 unidades na C017 (Normal)
-  await prisma.inventory.create({
-    data: { itemId: itemHdmi10m.id, boxId: c017.id, quantity: 6 },
-  });
+  await prisma.inventory.create({ data: { itemId: itemHdmi10m.id, boxId: c017.id, quantity: 6 } });
+  await prisma.inventory.create({ data: { itemId: itemHdmi5m.id, boxId: c014.id, quantity: 8 } });
+  await prisma.inventory.create({ data: { itemId: itemHdmi2m.id, boxId: c001.id, quantity: 15 } });
+  await prisma.inventory.create({ data: { itemId: itemAdaptadorUsbC.id, boxId: c010.id, quantity: 2 } });
+  await prisma.inventory.create({ data: { itemId: itemPilhasAA.id, boxId: c020.id, quantity: 18 } });
+  await prisma.inventory.create({ data: { itemId: itemExtensao5m.id, boxId: c021.id, quantity: 6 } });
+  await prisma.inventory.create({ data: { itemId: itemPassadorSlides.id, boxId: c004.id, quantity: 7 } });
 
-  // HDMI 5m -> 8 unidades na C014 (Normal)
-  await prisma.inventory.create({
-    data: { itemId: itemHdmi5m.id, boxId: c014.id, quantity: 8 },
-  });
-
-  // HDMI 2m -> 15 unidades na C001 (Normal)
-  await prisma.inventory.create({
-    data: { itemId: itemHdmi2m.id, boxId: c001.id, quantity: 15 },
-  });
-
-  // Adaptador USB-C -> 2 unidades na C010 (CRÍTICO: min 5, atual 2)
-  await prisma.inventory.create({
-    data: { itemId: itemAdaptadorUsbC.id, boxId: c010.id, quantity: 2 },
-  });
-
-  // Pilhas AA -> 18 caixas na C020
-  await prisma.inventory.create({
-    data: { itemId: itemPilhasAA.id, boxId: c020.id, quantity: 18 },
-  });
-
-  // Extensões -> 6 unidades na C021
-  await prisma.inventory.create({
-    data: { itemId: itemExtensao5m.id, boxId: c021.id, quantity: 6 },
-  });
-
-  // Registrar movimentações iniciais no log de estoque
-  await prisma.stockMovement.create({
-    data: {
-      type: MovementType.ENTRY,
-      itemId: itemHdmi10m.id,
-      destBoxId: c017.id,
-      quantity: 6,
-      balanceBefore: 0,
-      balanceAfter: 6,
-      observation: 'Carga inicial do estoque do setor',
-      userId: rivaldo.id,
-    },
-  });
-
-  await prisma.stockMovement.create({
-    data: {
-      type: MovementType.ENTRY,
-      itemId: itemAdaptadorUsbC.id,
-      destBoxId: c010.id,
-      quantity: 2,
-      balanceBefore: 0,
-      balanceAfter: 2,
-      observation: 'Estoque baixo - necessária reposição urgente',
-      userId: rivaldo.id,
-    },
-  });
-
-  console.log('✅ Estoque quantitativo e movimentações iniciais registradas');
-
-  // 7. Equipamentos Patrimoniais (Ativos)
-  const itemProjetorX49 = await prisma.item.create({
-    data: {
-      name: 'Projetor Epson PowerLite X49',
-      sku: 'EQUIP-PROJ-X49',
-      categoryId: catProjetores.id,
-      itemType: ItemType.ASSET_EQUIPMENT,
-      unit: 'UN',
-      description: 'Projetor 3LCD 3600 Lumens XGA com entrada HDMI e VGA',
-      minStock: 2,
-      idealStock: 5,
-      manufacturer: 'Epson',
-      model: 'PowerLite X49',
-    },
-  });
-
+  // 8. Equipamentos Patrimoniais (Ativos)
   const itemMicSemFio = await prisma.item.create({
     data: {
       name: 'Kit Microfone Sem Fio Duplo Shure BLX288/PG58',
       sku: 'EQUIP-MIC-SHURE',
       categoryId: catAudio.id,
       itemType: ItemType.ASSET_EQUIPMENT,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       unit: 'UN',
       description: 'Sistema duplo sem fio com 2 transmissores de mão PG58',
       minStock: 1,
@@ -326,13 +386,13 @@ async function main() {
     },
   });
 
-  // Ativo 1: Projetor Disponível na Caixa 022
+  // Ativo 1: Projetor Móvel Disponível
   const assetProjetor1 = await prisma.asset.create({
     data: {
-      itemId: itemProjetorX49.id,
+      itemId: itemDatashowMovel.id,
       assetTag: '123456',
       serialNumber: 'X49A987654',
-      model: 'PowerLite X49',
+      model: 'PowerLite X49 Móvel',
       status: AssetStatus.AVAILABLE,
       currentBoxId: c022.id,
       acquisitionDate: new Date('2024-03-10'),
@@ -341,25 +401,13 @@ async function main() {
     },
   });
 
-  await prisma.assetHistory.create({
-    data: {
-      assetId: assetProjetor1.id,
-      action: 'CADASTRADO',
-      toStatus: AssetStatus.AVAILABLE,
-      toLocation: 'Porta 3 / Caixa 022',
-      userId: rivaldo.id,
-      userName: rivaldo.name,
-      observation: 'Patrimônio tombado e alocado na Caixa 022',
-    },
-  });
-
-  // Ativo 2: Projetor Emprestado (com data prevista de devolução)
+  // Ativo 2: Projetor Móvel Emprestado
   const assetProjetor2 = await prisma.asset.create({
     data: {
-      itemId: itemProjetorX49.id,
+      itemId: itemDatashowMovel.id,
       assetTag: '123457',
       serialNumber: 'X49A987655',
-      model: 'PowerLite X49',
+      model: 'PowerLite X49 Móvel',
       status: AssetStatus.LOANED,
       currentBoxId: null,
       acquisitionDate: new Date('2024-03-10'),
@@ -368,84 +416,36 @@ async function main() {
     },
   });
 
-  const loanProjetor2 = await prisma.loan.create({
+  // Ativo 3: Notebook para Aulas
+  const assetNotebook1 = await prisma.asset.create({
     data: {
-      assetId: assetProjetor2.id,
-      borrowerName: 'Prof. João da Silva',
-      borrowerEmail: 'joao.silva@unifap.br',
-      borrowerPhone: '(96) 98111-2233',
-      borrowerDepartment: 'Coordenação de Medicina',
-      destination: 'Auditório de Medicina - Sala 203',
-      loanDate: new Date('2026-08-10T09:00:00Z'),
-      expectedReturnDate: new Date('2026-08-14T18:00:00Z'), // Hoje / Vencendo
-      status: LoanStatus.ACTIVE,
-      notes: 'Solicitado para defesa de TCC e seminário',
-      createdByUserId: rodrigo.id,
+      itemId: itemNotebook.id,
+      assetTag: 'PAT-NOT-001',
+      serialNumber: 'DELL-LAT-7420-01',
+      model: 'Latitude 7420 i5 16GB',
+      status: AssetStatus.AVAILABLE,
+      currentBoxId: c005.id,
+      acquisitionDate: new Date('2024-02-15'),
+      acquisitionValue: 5200.00,
+      notes: 'Notebook institucional com Windows 11 e Pacote Office',
     },
   });
 
-  await prisma.assetHistory.create({
+  const assetNotebook2 = await prisma.asset.create({
     data: {
-      assetId: assetProjetor2.id,
-      action: 'EMPRESTADO',
-      fromStatus: AssetStatus.AVAILABLE,
-      toStatus: AssetStatus.LOANED,
-      fromLocation: 'Porta 3 / Caixa 022',
-      toLocation: 'Auditório de Medicina - Sala 203 (Prof. João)',
-      userId: rodrigo.id,
-      userName: rodrigo.name,
-      observation: 'Empréstimo registrado com sucesso',
+      itemId: itemNotebook.id,
+      assetTag: 'PAT-NOT-002',
+      serialNumber: 'DELL-LAT-7420-02',
+      model: 'Latitude 7420 i5 16GB',
+      status: AssetStatus.AVAILABLE,
+      currentBoxId: c005.id,
+      acquisitionDate: new Date('2024-02-15'),
+      acquisitionValue: 5200.00,
+      notes: 'Notebook de reserva para eventos',
     },
   });
 
-  // Ativo 3: Projetor em Manutenção
-  const assetProjetor3 = await prisma.asset.create({
-    data: {
-      itemId: itemProjetorX49.id,
-      assetTag: '123458',
-      serialNumber: 'X49A987656',
-      model: 'PowerLite X49',
-      status: AssetStatus.IN_MAINTENANCE,
-      currentBoxId: null,
-      acquisitionDate: new Date('2023-08-15'),
-      acquisitionValue: 3600.00,
-      notes: 'Lâmpada queimada durante aula',
-    },
-  });
-
-  await prisma.maintenance.create({
-    data: {
-      orderNumber: 'OS-2026-0001',
-      assetId: assetProjetor3.id,
-      issueDescription: 'Lâmpada com vida útil esgotada - necessita troca da lâmpada original e limpeza do filtro',
-      maintenanceType: 'EXTERNAL',
-      priority: 'HIGH',
-      entryDate: new Date('2026-08-08T14:00:00Z'),
-      status: MaintenanceStatus.IN_PROGRESS,
-      serviceProvider: 'Assistência Técnica Especializada Projetores AP',
-      cost: 450.00,
-      technicalNotes: 'Orçamento aprovado. Aguardando chegada da peça de reposição',
-      replacedParts: 'Lâmpada Epson ELPLP96 Original',
-      contactName: 'Carlos Assistência',
-      contactPhone: '(88) 99876-5432',
-      createdByUserId: rivaldo.id,
-    },
-  });
-
-  await prisma.assetHistory.create({
-    data: {
-      assetId: assetProjetor3.id,
-      action: 'ENVIADO_MANUTENCAO',
-      fromStatus: AssetStatus.DAMAGED,
-      toStatus: AssetStatus.IN_MAINTENANCE,
-      toLocation: 'Assistência Técnica Especializada',
-      userId: rivaldo.id,
-      userName: rivaldo.name,
-      observation: 'Lâmpada danificada enviada para conserto',
-    },
-  });
-
-  // Ativo 4: Microfone Shure Disponível na Caixa 015
+  // Ativo 4: Microfone Shure
   const assetMic1 = await prisma.asset.create({
     data: {
       itemId: itemMicSemFio.id,
@@ -460,29 +460,238 @@ async function main() {
     },
   });
 
-  await prisma.assetHistory.create({
-    data: {
-      assetId: assetMic1.id,
-      action: 'CADASTRADO',
-      toStatus: AssetStatus.AVAILABLE,
-      toLocation: 'Porta 2 / Caixa 015',
-      userId: rivaldo.id,
-      userName: rivaldo.name,
-      observation: 'Cadastro inicial e teste de RF aprovado',
-    },
-  });
+  // 9. Carga do Seed Real de Salas (rooms-seed.json)
+  const seedPath = path.join(__dirname, 'rooms-seed.json');
+  if (fs.existsSync(seedPath)) {
+    const rawSeedData = fs.readFileSync(seedPath, 'utf-8');
+    const parsedData = JSON.parse(rawSeedData);
 
-  console.log('✅ Patrimônio individual (ativos), histórico, empréstimo e manutenção cadastrados');
+    const roomRecords = [];
+    const seenNames = new Set<string>();
 
-  // 8. Trilha de Auditoria Inicial
+    for (const r of parsedData.rooms) {
+      let uniqueName = r.name.trim();
+      if (seenNames.has(uniqueName)) {
+        uniqueName = `${uniqueName} (${r.fixedProjectorModel || 'Extra'})`;
+      }
+      seenNames.add(uniqueName);
+
+      let lastVisit: Date | null = null;
+      if (r.lastVisitDate) {
+        if (r.lastVisitDate.includes('/')) {
+          const parts = r.lastVisitDate.split('/');
+          if (parts.length === 3) {
+            const year = parseInt(parts[2], 10) < 50 ? 2000 + parseInt(parts[2], 10) : 1900 + parseInt(parts[2], 10);
+            lastVisit = new Date(year, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+          }
+        } else {
+          lastVisit = new Date(r.lastVisitDate);
+        }
+      }
+
+      roomRecords.push({
+        name: uniqueName,
+        floor: r.floor || null,
+        block: 'Bloco Principal',
+        active: true,
+        fixedProjectorModel: r.fixedProjectorModel || null,
+        vgaCableOk: typeof r.vgaCableOk === 'boolean' ? r.vgaCableOk : null,
+        hdmiCableOk: typeof r.hdmiCableOk === 'boolean' ? r.hdmiCableOk : null,
+        lampHours: typeof r.lampHours === 'number' ? Math.round(r.lampHours) : null,
+        lampStatus: r.lampStatus || null,
+        lastVisitAt: lastVisit && !isNaN(lastVisit.getTime()) ? lastVisit : null,
+      });
+    }
+
+    for (const roomData of roomRecords) {
+      await prisma.room.create({ data: roomData });
+    }
+
+    console.log(`✅ ${roomRecords.length} Salas de aula cadastradas com sucesso a partir do inventário real!`);
+  }
+
+  // 10. Agendamentos de Demonstração para o Dia de Hoje
+  const sala1A = await prisma.room.findFirst({ where: { name: '1A' } });
+  const sala2N = await prisma.room.findFirst({ where: { name: '2N' } });
+  const salaSIMU1B = await prisma.room.findFirst({ where: { name: 'SIMU 1B' } });
+  const salaLAB2A = await prisma.room.findFirst({ where: { name: 'LAB 2A' } });
+
+  const today = new Date();
+  const dateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+
+  // Solicitação 1: Manhã (08:00 - 10:00) na Sala 1A
+  if (sala1A) {
+    const startMorning = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 0, 0);
+    const endMorning = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0, 0);
+
+    const reqMorning = await prisma.request.create({
+      data: {
+        date: dateOnly,
+        startTime: startMorning,
+        endTime: endMorning,
+        shift: Shift.MORNING,
+        roomId: sala1A.id,
+        professorName: 'Prof. Carlos Eduardo',
+        discipline: 'Cálculo Diferencial e Integral I',
+        attendanceType: 'Aula Teórica',
+        notes: 'Professor solicitou ligar e testar o projetor da sala com antecedência de 15 minutos.',
+        status: RequestStatus.PREPARADO,
+        origin: RequestOrigin.MANUAL,
+        needsReview: false,
+        assignedUserId: thomas.id,
+        createdById: paloma.id,
+        syncStatus: 'SYNCED',
+        items: {
+          create: [
+            {
+              itemId: itemDatashowFixo.id,
+              label: 'Datashow (Projetor fixo em sala 1A)',
+              quantity: 1,
+              separated: true,
+            },
+            {
+              itemId: itemPassadorSlides.id,
+              label: 'Passador de Slides Wireless Laser',
+              quantity: 1,
+              separated: true,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  // Solicitação 2: Tarde (14:00 - 16:30) na Sala 2N
+  if (sala2N) {
+    const startAfternoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 14, 0, 0);
+    const endAfternoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 16, 30, 0);
+
+    await prisma.request.create({
+      data: {
+        date: dateOnly,
+        startTime: startAfternoon,
+        endTime: endAfternoon,
+        shift: Shift.AFTERNOON,
+        roomId: sala2N.id,
+        professorName: 'Profa. Paloma Morais',
+        discipline: 'Engenharia de Software Avançada',
+        attendanceType: 'Seminário de Apresentação',
+        notes: 'Notebook institucional com HDMI + Datashow já instalado na sala 2N.',
+        status: RequestStatus.AGENDADO,
+        origin: RequestOrigin.MANUAL,
+        needsReview: false,
+        assignedUserId: pedro.id,
+        createdById: paloma.id,
+        syncStatus: 'SYNCED',
+        items: {
+          create: [
+            {
+              itemId: itemNotebook.id,
+              assetId: assetNotebook1.id,
+              label: 'Notebook Dell Core i5 para Aula',
+              quantity: 1,
+              separated: false,
+            },
+            {
+              itemId: itemHdmi5m.id,
+              label: 'Cabo HDMI 5 metros',
+              quantity: 1,
+              separated: false,
+            },
+            {
+              itemId: itemDatashowFixo.id,
+              label: 'Datashow fixo (Sala 2N)',
+              quantity: 1,
+              separated: true, // fixo não bloqueia
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  // Solicitação 3: Noite (18:30 - 22:00) na Sala LAB 2A
+  if (salaLAB2A) {
+    const startNight = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 18, 30, 0);
+    const endNight = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 22, 0, 0);
+
+    await prisma.request.create({
+      data: {
+        date: dateOnly,
+        startTime: startNight,
+        endTime: endNight,
+        shift: Shift.NIGHT,
+        roomId: salaLAB2A.id,
+        professorName: 'Prof. Marcos Andrade',
+        discipline: 'Laboratório de Redes e Sistemas Distribuídos',
+        attendanceType: 'Aula Prática em Laboratório',
+        notes: 'Necessário kit de áudio sem fio para gravação da aula.',
+        status: RequestStatus.AGENDADO,
+        origin: RequestOrigin.MANUAL,
+        needsReview: false,
+        assignedUserId: null,
+        createdById: paloma.id,
+        syncStatus: 'SYNCED',
+        items: {
+          create: [
+            {
+              itemId: itemMicSemFio.id,
+              assetId: assetMic1.id,
+              label: 'Kit Microfone Sem Fio Shure',
+              quantity: 1,
+              separated: false,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  // Solicitação 4: Importação Legada Aguardando Revisão
+  if (salaSIMU1B) {
+    const startLegado = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 19, 0, 0);
+    const endLegado = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 21, 0, 0);
+
+    await prisma.request.create({
+      data: {
+        date: dateOnly,
+        startTime: startLegado,
+        endTime: endLegado,
+        shift: Shift.NIGHT,
+        roomId: salaSIMU1B.id,
+        professorName: 'Prof. Desconhecido (Detectado do Google Calendar)',
+        discipline: 'Reserva Google Calendar',
+        attendanceType: 'Reserva Legada',
+        notes: 'Texto original do evento: "Notebook e Datashow móvel para SIMU 1B". Necessário confirmar com o professor.',
+        status: RequestStatus.AGENDADO,
+        origin: RequestOrigin.IMPORTADO_LEGADO,
+        needsReview: true,
+        createdById: rivaldo.id,
+        syncStatus: 'PENDING',
+        items: {
+          create: [
+            {
+              label: 'Notebook e Datashow (Texto livre importado)',
+              quantity: 1,
+              separated: false,
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  console.log('✅ Solicitações de atendimento de exemplo para o dia atual criadas!');
+
+  // 11. Trilha de Auditoria Inicial
   await prisma.auditLog.create({
     data: {
       userId: rivaldo.id,
       action: 'SYSTEM_SEED',
       entity: 'System',
       details: {
-        message: 'Carga inicial do sistema concluída com sucesso',
-        seedVersion: '1.0.0',
+        message: 'Carga inicial do sistema com módulo de Agenda por Turnos e Salas concluída',
+        seedVersion: '2.0.0',
         environment: 'development',
       },
     },
@@ -490,11 +699,12 @@ async function main() {
 
   console.log('🎉 SEED FINALIZADO COM SUCESSO!');
   console.log('----------------------------------------------------');
-  console.log('Credenciais de Acesso Inicial:');
-  console.log('  Rivaldo (ADMIN)   : rivaldo@unifap.br / UniFAP@2026');
-  console.log('  Rodrigo (GESTOR)  : rodrigo@unifap.br / UniFAP@2026');
-  console.log('  Thomas (OPERADOR) : thomas@unifap.br  / UniFAP@2026');
-  console.log('  Pedro (OPERADOR)  : pedro@unifap.br   / UniFAP@2026');
+  console.log('Credenciais de Acesso:');
+  console.log('  Rivaldo (ADMIN)            : rivaldo@unifap.br / UniFAP@2026');
+  console.log('  Rodrigo (GESTOR)           : rodrigo@unifap.br / UniFAP@2026');
+  console.log('  Thomas (OPERADOR)          : thomas@unifap.br  / UniFAP@2026');
+  console.log('  Pedro (OPERADOR)           : pedro@unifap.br   / UniFAP@2026');
+  console.log('  Paloma (APOIO ACADÊMICO)   : paloma@unifap.br  / UniFAP@2026');
   console.log('----------------------------------------------------');
 }
 
