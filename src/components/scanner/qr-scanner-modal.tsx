@@ -11,7 +11,8 @@ import {
   AlertCircle, 
   RefreshCw, 
   QrCode,
-  Sparkles
+  Sparkles,
+  FlipHorizontal
 } from "lucide-react";
 import {
   Dialog,
@@ -34,34 +35,81 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
   const [manualCode, setManualCode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isSwitchingRef = useRef(false);
 
-  const startScanner = async () => {
+  const loadCameras = async () => {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length > 0) {
+        setCameras(devices);
+        const backIdx = devices.findIndex((d) =>
+          /back|rear|environment|traseira/i.test(d.label)
+        );
+        if (backIdx !== -1) {
+          setSelectedCameraIndex(backIdx);
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao enumerar câmeras no modal:", e);
+    }
+  };
+
+  const startScanner = async (targetFacing?: "environment" | "user", targetCameraId?: string) => {
     try {
       setCameraError(null);
       setIsScanning(true);
 
+      const modeToUse = targetFacing || facingMode;
+
+      if (scannerRef.current) {
+        try {
+          if (scannerRef.current.isScanning) {
+            await scannerRef.current.stop();
+          }
+          await scannerRef.current.clear();
+        } catch (e) {}
+      }
+
+      // Parar tracks de vídeo anteriores
+      const existingVideo = document.querySelector("#qr-reader-container video") as HTMLVideoElement;
+      if (existingVideo && existingVideo.srcObject) {
+        try {
+          const stream = existingVideo.srcObject as MediaStream;
+          stream.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+      }
+
       const html5QrCode = new Html5Qrcode("qr-reader-container");
       scannerRef.current = html5QrCode;
 
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        (decodedText) => {
-          // Sucesso no scan
-          html5QrCode.stop().then(() => {
-            handleScanSuccess(decodedText);
-          }).catch(() => {
-            handleScanSuccess(decodedText);
-          });
-        },
-        () => {
-          // Erro de frame normal ignorado
-        }
-      );
+      const cameraConfig: any = targetCameraId 
+        ? { deviceId: { exact: targetCameraId } }
+        : { facingMode: modeToUse };
+
+      const scanConfig = {
+        fps: 15,
+        qrbox: { width: 250, height: 250 },
+      };
+
+      const handleSuccess = (decodedText: string) => {
+        html5QrCode.stop().then(() => {
+          handleScanSuccess(decodedText);
+        }).catch(() => {
+          handleScanSuccess(decodedText);
+        });
+      };
+
+      try {
+        await html5QrCode.start(cameraConfig, scanConfig, handleSuccess, () => {});
+      } catch (firstErr) {
+        await html5QrCode.start({ facingMode: modeToUse }, scanConfig, handleSuccess, () => {});
+      }
+
+      loadCameras();
     } catch (err: any) {
       console.warn("Erro ao iniciar câmera:", err);
       setCameraError(
@@ -78,9 +126,43 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     setIsScanning(false);
   };
 
+  const handleToggleCamera = async () => {
+    if (isSwitchingRef.current) return;
+    isSwitchingRef.current = true;
+
+    try {
+      if (cameras.length > 1) {
+        const nextIndex = (selectedCameraIndex + 1) % cameras.length;
+        setSelectedCameraIndex(nextIndex);
+        const nextCam = cameras[nextIndex];
+        const isFront = /front|user|frontal/i.test(nextCam.label);
+        const nextMode = isFront ? "user" : "environment";
+        setFacingMode(nextMode);
+
+        stopScanner();
+        setTimeout(async () => {
+          await startScanner(nextMode, nextCam.id);
+          isSwitchingRef.current = false;
+        }, 200);
+        toast.info(`Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`}`);
+      } else {
+        const nextMode = facingMode === "environment" ? "user" : "environment";
+        setFacingMode(nextMode);
+
+        stopScanner();
+        setTimeout(async () => {
+          await startScanner(nextMode);
+          isSwitchingRef.current = false;
+        }, 200);
+        toast.info(nextMode === "environment" ? "Câmera Traseira" : "Câmera Frontal");
+      }
+    } catch (e) {
+      isSwitchingRef.current = false;
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
-      // Tentar iniciar scanner automaticamente
       const timer = setTimeout(() => {
         startScanner();
       }, 300);
@@ -123,11 +205,26 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md p-6">
         <DialogHeader>
-          <div className="flex items-center gap-2 text-primary">
-            <QrCode className="w-5 h-5" />
-            <DialogTitle className="text-base font-bold text-foreground">
-              Escanear QR Code da Caixa
-            </DialogTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-primary">
+              <QrCode className="w-5 h-5" />
+              <DialogTitle className="text-base font-bold text-foreground">
+                Escanear QR Code da Caixa
+              </DialogTitle>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleToggleCamera}
+              className="h-8 px-2.5 text-xs rounded-xl gap-1.5 border-border shrink-0"
+              title="Alternar Câmera (Traseira/Frontal)"
+            >
+              <FlipHorizontal className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-semibold">
+                {facingMode === "environment" ? "Traseira" : "Frontal"}
+              </span>
+            </Button>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
             Aponte a câmera do celular para a etiqueta da caixa ou digite o código físico.
@@ -148,7 +245,7 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={startScanner}
+                  onClick={() => startScanner()}
                   className="text-xs rounded-xl gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
