@@ -3,6 +3,7 @@
 import React from "react";
 import { ThemeProvider } from "./theme-provider";
 import { SessionProvider } from "./session-provider";
+import { LogoutProvider } from "@/components/auth/logout-provider";
 import { Toaster } from "sonner";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
@@ -14,7 +15,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         enableSystem
         disableTransitionOnChange
       >
-        {children}
+        <LogoutProvider>
+          {children}
+        </LogoutProvider>
         <Toaster
           position="top-right"
           richColors

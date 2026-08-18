@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useLogout } from "@/components/auth/logout-provider";
 import { useTheme } from "next-themes";
 import { 
   Menu, 
@@ -37,6 +38,7 @@ interface HeaderProps {
 
 export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
   const { data: session } = useSession();
+  const { triggerLogout } = useLogout();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -304,7 +306,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={triggerLogout}
               className="gap-2 text-xs text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-500/10 cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />

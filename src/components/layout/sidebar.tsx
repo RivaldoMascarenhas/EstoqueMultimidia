@@ -3,7 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { useLogout } from "@/components/auth/logout-provider";
 import { 
   Package, 
   LayoutDashboard, 
@@ -58,6 +59,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
+  const { triggerLogout } = useLogout();
 
   const userRole = session?.user?.role || "OPERADOR";
   const userName = session?.user?.name || "Usuário";
@@ -339,9 +341,9 @@ export function Sidebar({
 
             {!collapsed && (
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                onClick={triggerLogout}
                 title="Sair da conta"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-500/15 hover:text-rose-600 transition-colors"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-500/15 hover:text-rose-600 transition-colors cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
               </button>
