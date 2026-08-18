@@ -12,12 +12,20 @@ import {
   Check, 
   AlertTriangle,
   Tag,
-  Sparkles
+  Sparkles,
+  Home,
+  ShieldCheck
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface MaintenanceUpdateModalProps {
   isOpen: boolean;
@@ -36,9 +44,9 @@ export function MaintenanceUpdateModal({
 
   // Form State
   const [issueDescription, setIssueDescription] = useState("");
-  const [maintenanceType, setMaintenanceType] = useState<any>("CORRECTIVE");
-  const [priority, setPriority] = useState<any>("MEDIUM");
-  const [status, setStatus] = useState<any>("IN_PROGRESS");
+  const [maintenanceType, setMaintenanceType] = useState<string>("INTERNAL");
+  const [priority, setPriority] = useState<string>("MEDIUM");
+  const [status, setStatus] = useState<string>("IN_PROGRESS");
   const [serviceProvider, setServiceProvider] = useState("");
   const [cost, setCost] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
@@ -52,7 +60,7 @@ export function MaintenanceUpdateModal({
   useEffect(() => {
     if (isOpen && maintenance) {
       setIssueDescription(maintenance.issueDescription || "");
-      setMaintenanceType(maintenance.maintenanceType || "CORRECTIVE");
+      setMaintenanceType(maintenance.maintenanceType || "INTERNAL");
       setPriority(maintenance.priority || "MEDIUM");
       setStatus(maintenance.status || "IN_PROGRESS");
       setServiceProvider(maintenance.serviceProvider || "");
@@ -63,12 +71,17 @@ export function MaintenanceUpdateModal({
       setContactPhone(maintenance.contactPhone || "");
       setTechnicalNotes(maintenance.technicalNotes || "");
       setReplacedParts(maintenance.replacedParts || "");
-      setLampHours(maintenance.lampHours ? String(maintenance.lampHours) : "");
+      setLampHours(
+        maintenance.lampHours !== null && maintenance.lampHours !== undefined
+          ? String(maintenance.lampHours)
+          : ""
+      );
     }
   }, [isOpen, maintenance]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!maintenance) return;
 
     try {
       setIsSubmitting(true);
@@ -78,15 +91,15 @@ export function MaintenanceUpdateModal({
         maintenanceType,
         priority,
         status,
-        serviceProvider: serviceProvider.trim() || undefined,
-        cost: cost ? parseFloat(cost.replace(",", ".")) : null,
+        serviceProvider: maintenanceType === "EXTERNAL" ? serviceProvider.trim() || undefined : undefined,
+        cost: cost ? parseFloat(cost.replace(",", ".")) : undefined,
         diagnosis: diagnosis.trim() || undefined,
         solution: solution.trim() || undefined,
-        contactName: contactName.trim() || undefined,
-        contactPhone: contactPhone.trim() || undefined,
+        contactName: maintenanceType === "EXTERNAL" ? contactName.trim() || undefined : undefined,
+        contactPhone: maintenanceType === "EXTERNAL" ? contactPhone.trim() || undefined : undefined,
         technicalNotes: technicalNotes.trim() || undefined,
         replacedParts: replacedParts.trim() || undefined,
-        lampHours: lampHours ? parseInt(lampHours, 10) : null,
+        lampHours: lampHours ? parseInt(lampHours, 10) : undefined,
       };
 
       const res = await fetch(`/api/v1/maintenances/${maintenance.id}`, {
@@ -111,29 +124,31 @@ export function MaintenanceUpdateModal({
     }
   };
 
-  if (!isOpen || !maintenance) return null;
+  if (!maintenance) return null;
+
+  const isInternal = maintenanceType === "INTERNAL" || maintenanceType === "PREVENTIVE";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-0 duration-200">
-      <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent hideClose className="max-w-3xl max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-card border-border shadow-2xl gap-0">
         
-        {/* Header */}
-        <div className="px-6 py-4.5 border-b border-border/80 flex items-center justify-between bg-accent/30">
+        {/* Header Fixo */}
+        <div className="px-6 py-4 border-b border-border/80 flex items-center justify-between bg-accent/20 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-md shadow-primary/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-md shadow-primary/20 shrink-0">
               <Edit3 className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground">
+                <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
                   Editar Ordem de Serviço
-                </h2>
+                </DialogTitle>
                 <Badge variant="outline" className="text-xs font-mono">
                   {maintenance.orderNumber || `#OS-${maintenance.id.slice(0, 8)}`}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                Atualização de diagnóstico, assistência técnica, custos e status do reparo
+                Atualização de diagnóstico, procedimentos técnicos e status do reparo
               </p>
             </div>
           </div>
@@ -141,17 +156,20 @@ export function MaintenanceUpdateModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="rounded-xl p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Content Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
-          
+        {/* Content Form Scrollável */}
+        <form 
+          id="maintenance-update-form"
+          onSubmit={handleSubmit} 
+          className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4"
+        >
           {/* Card Resumo do Equipamento */}
-          <div className="p-3.5 rounded-xl bg-accent/40 border border-border/60 flex items-center justify-between text-xs">
+          <div className="p-3.5 rounded-2xl bg-accent/40 border border-border/60 flex items-center justify-between text-xs">
             <div className="space-y-0.5">
               <p className="font-semibold text-foreground flex items-center gap-1.5">
                 <Tag className="h-3.5 w-3.5 text-primary" />
@@ -166,22 +184,23 @@ export function MaintenanceUpdateModal({
             </Badge>
           </div>
 
-          {/* Defeito Relatado */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
-              Defeito Relatado
-            </label>
-            <textarea
-              rows={2}
-              value={issueDescription}
-              onChange={(e) => setIssueDescription(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
-            />
-          </div>
+          {/* Tipo de Manutenção e Status */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Tipo de Manutenção
+              </label>
+              <select
+                value={maintenanceType}
+                onChange={(e) => setMaintenanceType(e.target.value)}
+                className="w-full h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                <option value="INTERNAL">🛠️ Manutenção Interna</option>
+                <option value="EXTERNAL">🏢 Assistência Externa</option>
+                <option value="PREVENTIVE">🛡️ Preventiva</option>
+              </select>
+            </div>
 
-          {/* Status e Prioridade */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground">
                 Status Atual do Chamado
@@ -192,7 +211,7 @@ export function MaintenanceUpdateModal({
                 className="w-full h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
               >
                 <option value="PENDING">Pendente (Aguardando Análise)</option>
-                <option value="IN_PROGRESS">Em Andamento (Na Oficina/Bancada)</option>
+                <option value="IN_PROGRESS">Em Andamento (Bancada/Oficina)</option>
                 <option value="COMPLETED">Concluído</option>
                 <option value="CANCELLED">Cancelado</option>
               </select>
@@ -215,79 +234,114 @@ export function MaintenanceUpdateModal({
             </div>
           </div>
 
-          {/* Prestador e Custo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                <Building2 className="h-3.5 w-3.5 text-primary" />
-                Prestador / Assistência
-              </label>
-              <Input
-                value={serviceProvider}
-                onChange={(e) => setServiceProvider(e.target.value)}
-                className="h-10 rounded-xl text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                Custo Orçado / Aprovado (R$)
-              </label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={cost}
-                onChange={(e) => setCost(e.target.value)}
-                placeholder="0,00"
-                className="h-10 rounded-xl text-xs"
-              />
-            </div>
+          {/* Defeito Relatado */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              Defeito Relatado
+            </label>
+            <textarea
+              rows={2}
+              value={issueDescription}
+              onChange={(e) => setIssueDescription(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
+            />
           </div>
+
+          {/* Campos Exclusivos de Manutenção Externa */}
+          {!isInternal && (
+            <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-3 animate-in fade-in-50">
+              <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-semibold text-xs border-b border-purple-500/20 pb-2">
+                <Building2 className="w-4 h-4" />
+                <span>Dados da Assistência Externa / Fornecedor</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Prestador / Assistência
+                  </label>
+                  <Input
+                    value={serviceProvider}
+                    onChange={(e) => setServiceProvider(e.target.value)}
+                    placeholder="Ex: Epson Autorizada"
+                    className="h-10 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+                    Custo Orçado / Aprovado (R$)
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                    placeholder="0,00"
+                    className="h-10 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">
+                    Nome do Contato na Assistência
+                  </label>
+                  <Input
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="Ex: Carlos (Técnico)"
+                    className="h-10 rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    WhatsApp para Acompanhamento
+                  </label>
+                  <Input
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="(88) 99999-9999"
+                    className="h-10 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Diagnóstico Preliminar */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground flex items-center gap-1">
               <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              Diagnóstico / Laudo Preliminar
+              {isInternal ? "Diagnóstico / Procedimentos da Bancada TI" : "Diagnóstico / Laudo Preliminar"}
             </label>
             <textarea
               rows={2}
               value={diagnosis}
               onChange={(e) => setDiagnosis(e.target.value)}
-              placeholder="Diagnóstico inicial realizado pelo técnico..."
+              placeholder="Diagnóstico realizado pelo técnico..."
               className="w-full p-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
             />
           </div>
 
-          {/* Peças e Contato */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                Peças Solicitadas / Necessárias
-              </label>
-              <Input
-                value={replacedParts}
-                onChange={(e) => setReplacedParts(e.target.value)}
-                placeholder="Ex: Lâmpada ELPLP96, Cooler..."
-                className="h-10 rounded-xl text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                Contato / WhatsApp
-              </label>
-              <Input
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-                placeholder="(88) 99999-9999"
-                className="h-10 rounded-xl text-xs"
-              />
-            </div>
+          {/* Peças e Componentes */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              Peças Necessárias / Utilizadas do Estoque
+            </label>
+            <Input
+              value={replacedParts}
+              onChange={(e) => setReplacedParts(e.target.value)}
+              placeholder="Ex: Lâmpada ELPLP96, Cabo HDMI 2.0, Filtro de Ar..."
+              className="h-10 rounded-xl text-xs"
+            />
           </div>
 
           {/* Notas Gerais */}
@@ -299,43 +353,45 @@ export function MaintenanceUpdateModal({
               rows={2}
               value={technicalNotes}
               onChange={(e) => setTechnicalNotes(e.target.value)}
-              placeholder="Histórico de ligações, prazos prometidos pelo fornecedor, etc..."
+              placeholder="Anotações de testes, histórico e andamento do chamado..."
               className="w-full p-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
             />
           </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border/80">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="rounded-xl h-10 px-4 text-xs"
-            >
-              Cancelar
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-xl h-10 px-5 text-xs font-semibold gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Salvando...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4" />
-                  <span>Salvar Alterações</span>
-                </>
-              )}
-            </Button>
-          </div>
         </form>
-      </div>
-    </div>
+
+        {/* Footer Fixo */}
+        <div className="p-4 px-6 border-t border-border/80 bg-muted/20 flex items-center justify-end gap-3 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="rounded-xl h-10 px-4 text-xs cursor-pointer"
+          >
+            Cancelar
+          </Button>
+
+          <Button
+            type="submit"
+            form="maintenance-update-form"
+            disabled={isSubmitting}
+            className="rounded-xl h-10 px-5 text-xs font-semibold gap-2 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Salvando...</span>
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4" />
+                <span>Salvar Alterações</span>
+              </>
+            )}
+          </Button>
+        </div>
+
+      </DialogContent>
+    </Dialog>
   );
 }

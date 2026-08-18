@@ -13,8 +13,15 @@ import {
   Sparkles, 
   AlertTriangle,
   Lightbulb,
-  Boxes
+  Boxes,
+  Clock,
+  ShieldCheck
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +33,15 @@ interface MaintenanceCompleteModalProps {
   onSuccess: () => void;
   maintenance: any | null;
 }
+
+const COMMON_SOLUTIONS = [
+  "Limpeza interna, desobstrução do cooler e troca de pasta térmica concluídas com sucesso.",
+  "Substituição da lâmpada efetuada com lâmpada nova do estoque e horímetro zerado.",
+  "Conector / cabo reparado e sinal de vídeo testado com sucesso em bancada.",
+  "Atualização de firmware aplicada e cores calibradas para projeção em sala.",
+  "Equipamento revisado pela assistência técnica, peças trocadas e aprovado nos testes.",
+  "Limpeza preventiva completa realizada e filtros de ar higienizados.",
+];
 
 export function MaintenanceCompleteModal({
   isOpen,
@@ -48,13 +64,18 @@ export function MaintenanceCompleteModal({
   const [writeOffReason, setWriteOffReason] = useState("");
 
   useEffect(() => {
-    if (isOpen && maintenance) {
+    if (isOpen) {
       fetchBoxes();
-      setCost(maintenance.cost ? String(maintenance.cost) : "");
-      setReplacedParts(maintenance.replacedParts || "");
-      setLampHours(maintenance.lampHours ? String(maintenance.lampHours) : "");
-      setSolution(maintenance.solution || "");
-      setTechnicalNotes(maintenance.technicalNotes || "");
+      if (maintenance) {
+        setCost(maintenance.cost ? String(maintenance.cost) : "");
+        setTechnicalNotes(maintenance.technicalNotes || "");
+        setReplacedParts(maintenance.replacedParts || "");
+        setLampHours(
+          maintenance.lampHours !== null && maintenance.lampHours !== undefined
+            ? String(maintenance.lampHours)
+            : ""
+        );
+      }
     }
   }, [isOpen, maintenance]);
 
@@ -75,19 +96,20 @@ export function MaintenanceCompleteModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!maintenance) return;
 
     if (!solution.trim() || solution.trim().length < 3) {
-      toast.error("Descreva a solução técnica ou laudo de conclusão (mínimo 3 caracteres).");
+      toast.error("Descreva o laudo técnico ou solução aplicada (mínimo 3 caracteres).");
       return;
     }
 
     if (outcome === "AVAILABLE" && !returnBoxId) {
-      toast.error("Selecione a caixa física do armário para guardar o equipamento.");
+      toast.error("Selecione uma caixa física do armário para armazenar o equipamento recuperado.");
       return;
     }
 
     if (outcome === "WRITTEN_OFF" && (!writeOffReason.trim() || writeOffReason.trim().length < 5)) {
-      toast.error("Informe a justificativa detalhada para baixa definitiva / sucata.");
+      toast.error("Informe a justificativa técnica detalhada para a baixa patrimonial (mínimo 5 caracteres).");
       return;
     }
 
@@ -96,9 +118,9 @@ export function MaintenanceCompleteModal({
 
       const payload = {
         outcome,
-        solution: solution.trim(),
         returnBoxId: outcome === "AVAILABLE" ? returnBoxId : undefined,
         writeOffReason: outcome === "WRITTEN_OFF" ? writeOffReason.trim() : undefined,
+        solution: solution.trim(),
         replacedParts: replacedParts.trim() || undefined,
         lampHours: lampHours ? parseInt(lampHours, 10) : undefined,
         cost: cost ? parseFloat(cost.replace(",", ".")) : undefined,
@@ -114,10 +136,14 @@ export function MaintenanceCompleteModal({
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Erro ao concluir Ordem de Serviço.");
+        throw new Error(json.error || "Erro ao concluir chamado de manutenção.");
       }
 
-      toast.success(json.message || "Ordem de Serviço concluída com sucesso!");
+      toast.success(
+        outcome === "AVAILABLE"
+          ? "Ordem de Serviço concluída! Equipamento reintegrado ao armário."
+          : "Ordem de Serviço finalizada com baixa patrimonial registrada."
+      );
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -127,7 +153,7 @@ export function MaintenanceCompleteModal({
     }
   };
 
-  if (!isOpen || !maintenance) return null;
+  if (!maintenance) return null;
 
   // Agrupar caixas por porta
   const groupedBoxes: { [doorName: string]: any[] } = {};
@@ -138,46 +164,48 @@ export function MaintenanceCompleteModal({
   });
 
   const isProjector = maintenance.asset?.item?.category?.slug === "projetores";
+  const isInternal = maintenance.maintenanceType === "INTERNAL" || maintenance.maintenanceType === "PREVENTIVE";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in-0 duration-200">
-      <div className="relative w-full max-w-2xl bg-card border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent hideClose className="max-w-3xl max-h-[92vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-card border-border shadow-2xl gap-0">
         
-        {/* Header */}
-        <div className="px-6 py-4.5 border-b border-border/80 flex items-center justify-between bg-emerald-500/10 dark:bg-emerald-500/5">
+        {/* Header Fixo */}
+        <div className="px-6 py-4 border-b border-border/80 flex items-center justify-between bg-emerald-500/10 dark:bg-emerald-500/5 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 shrink-0">
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-foreground">
+                <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
                   Concluir Ordem de Serviço
-                </h2>
+                </DialogTitle>
                 <Badge variant="outline" className="text-xs font-mono">
                   {maintenance.orderNumber || `#OS-${maintenance.id.slice(0, 8)}`}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Registro de laudo técnico, peças substituídas, custos e reintegração física ao armário
-              </p>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="rounded-xl p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Content Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
+        {/* Content Form Scrollável */}
+        <form 
+          id="maintenance-complete-form"
+          onSubmit={handleSubmit} 
+          className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-4"
+        >
           
           {/* Card Resumo do Equipamento */}
-          <div className="p-3.5 rounded-xl bg-accent/40 border border-border/60 flex items-center justify-between text-xs">
+          <div className="p-3.5 rounded-2xl bg-accent/40 border border-border/60 flex items-center justify-between text-xs">
             <div className="space-y-0.5">
               <p className="font-semibold text-foreground flex items-center gap-1.5">
                 <Tag className="h-3.5 w-3.5 text-primary" />
@@ -192,162 +220,165 @@ export function MaintenanceCompleteModal({
               </p>
             </div>
             <div className="text-right">
-              <Badge variant="maintenance">
-                {maintenance.daysInMaintenance} {maintenance.daysInMaintenance === 1 ? "dia" : "dias"} em reparo
+              <Badge variant="outline" className="text-xs">
+                Entrada: {new Date(maintenance.entryDate).toLocaleDateString("pt-BR")}
               </Badge>
             </div>
           </div>
 
-          {/* Decisão de Destino (Reintegrar ao Armário vs Baixa Definitiva) */}
-          <div className="space-y-2">
+          {/* Destino Final do Equipamento (Disponível vs Baixa) */}
+          <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground">
-              Resultado da Manutenção & Destino do Equipamento <span className="text-rose-500">*</span>
+              Resultado / Destino do Equipamento <span className="text-rose-500">*</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              
-              {/* Opção 1: Reintegrar */}
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setOutcome("AVAILABLE")}
-                className={`p-3.5 rounded-xl border flex items-start gap-3 text-left transition-all ${
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                   outcome === "AVAILABLE"
-                    ? "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/50"
-                    : "bg-background border-input hover:bg-accent"
+                    ? "bg-emerald-500/10 border-emerald-500 text-foreground ring-1 ring-emerald-500"
+                    : "bg-background border-input text-muted-foreground hover:bg-accent"
                 }`}
               >
-                <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 mt-0.5">
-                  <Archive className="h-4 w-4" />
+                <div className="flex items-center gap-2 font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Reparo Concluído com Sucesso</span>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    Reintegrar ao Armário Físico
-                    {outcome === "AVAILABLE" && <span className="text-[10px] text-emerald-500">● Selecionado</span>}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Equipamento consertado, testado e pronto para voltar a ficar Disponível.
-                  </p>
-                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Equipamento 100% funcional. Devolver para uma gaveta/box do armário.
+                </p>
               </button>
 
-              {/* Opção 2: Baixa Definitiva */}
               <button
                 type="button"
                 onClick={() => setOutcome("WRITTEN_OFF")}
-                className={`p-3.5 rounded-xl border flex items-start gap-3 text-left transition-all ${
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                   outcome === "WRITTEN_OFF"
-                    ? "bg-rose-500/10 border-rose-500/50 ring-1 ring-rose-500/50"
-                    : "bg-background border-input hover:bg-accent"
+                    ? "bg-rose-500/10 border-rose-500 text-foreground ring-1 ring-rose-500"
+                    : "bg-background border-input text-muted-foreground hover:bg-accent"
                 }`}
               >
-                <div className="p-2 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 mt-0.5">
-                  <Trash2 className="h-4 w-4" />
+                <div className="flex items-center gap-2 font-bold text-xs text-rose-600 dark:text-rose-400">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Inviabilidade Técnica / Baixa</span>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    Baixa Definitiva (Inviável)
-                    {outcome === "WRITTEN_OFF" && <span className="text-[10px] text-rose-500">● Selecionado</span>}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Reparo inviável/condenado. Item será baixado para descarte ou sucata.
-                  </p>
-                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Sem conserto ou reparo economicamente inviável. Condenar equipamento.
+                </p>
               </button>
             </div>
           </div>
 
-          {/* Seleção de Caixa do Armário se Disponível */}
+          {/* Seleção da Caixa Física de Retorno (Quando AVAILABLE) */}
           {outcome === "AVAILABLE" && (
-            <div className="space-y-2 p-3.5 rounded-xl bg-accent/30 border border-border/60 animate-in fade-in-50">
+            <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2 animate-in fade-in-50">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Boxes className="h-3.5 w-3.5 text-primary" />
-                Caixa Física do Armário (Local de Guarda) <span className="text-rose-500">*</span>
+                <Boxes className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Alocar de Volta na Gaveta / Caixa Física <span className="text-rose-500">*</span></span>
               </label>
-
+              
               <select
                 value={returnBoxId}
                 onChange={(e) => setReturnBoxId(e.target.value)}
                 disabled={isLoadingBoxes}
-                className="w-full h-11 px-3.5 rounded-xl border border-input bg-background text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+                className="w-full h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               >
-                <option value="">-- Selecione a caixa física onde o item foi guardado --</option>
-                {Object.entries(groupedBoxes).map(([doorName, doorBoxes]) => (
-                  <optgroup key={doorName} label={`🚪 ${doorName}`}>
-                    {doorBoxes.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.code} - {b.name} ({b.description || "Sem descrição"})
+                <option value="">-- Selecione a caixa física do armário --</option>
+                {Object.keys(groupedBoxes).map((doorName) => (
+                  <optgroup key={doorName} label={`Porta: ${doorName}`}>
+                    {groupedBoxes[doorName].map((box) => (
+                      <option key={box.id} value={box.id}>
+                        {box.name} ({box.code}) {box.assets?.length ? `[${box.assets.length} item(ns) presentes]` : "[LIVRE]"}
                       </option>
                     ))}
                   </optgroup>
                 ))}
               </select>
               <p className="text-[10px] text-muted-foreground">
-                O equipamento será vinculado imediatamente a esta caixa física no sistema e no QR Code.
+                O equipamento será vinculado imediatamente a este compartimento e voltará a ficar disponível para empréstimos.
               </p>
             </div>
           )}
 
-          {/* Motivo de Baixa se Baixa Definitiva */}
+          {/* Motivo da Baixa (Quando WRITTEN_OFF) */}
           {outcome === "WRITTEN_OFF" && (
-            <div className="space-y-2 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 animate-in fade-in-50">
-              <label className="text-xs font-semibold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Justificativa para Baixa Definitiva do Patrimônio <span className="text-rose-500">*</span>
+            <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-2 animate-in fade-in-50">
+              <label className="text-xs font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <AlertTriangle className="h-4 w-4" />
+                Justificativa Técnica da Baixa Patrimonial <span className="text-rose-500">*</span>
               </label>
               <textarea
                 rows={2}
                 value={writeOffReason}
                 onChange={(e) => setWriteOffReason(e.target.value)}
-                placeholder="Ex: Placa principal carbonizada sem possibilidade de substituição de componentes / Custo de reparo superior a 80% do valor do bem novo..."
-                className="w-full p-2.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-background text-xs text-foreground focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all resize-none"
+                placeholder="Ex: Placa mãe queimada sem reposição pelo fabricante, custo de reparo superior a 80% do valor do ativo..."
+                className="w-full p-2.5 rounded-xl border border-rose-500/30 bg-background text-xs text-foreground focus:ring-2 focus:ring-rose-500 focus:outline-none transition-all resize-none"
               />
             </div>
           )}
 
-          {/* Laudo Técnico / Solução Aplicada */}
+          {/* Laudo e Solução Aplicada */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              <Wrench className="h-3.5 w-3.5 text-primary" />
-              Laudo Técnico / Solução Executada <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                Laudo Técnico & Solução Aplicada <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[10px] text-muted-foreground">Clique nas tags para preencher</span>
+            </div>
+
             <textarea
-              rows={3}
+              rows={2}
               value={solution}
               onChange={(e) => setSolution(e.target.value)}
-              placeholder="Descreva detalhadamente o reparo efetuado, testes realizados e o estado final do equipamento..."
-              className="w-full p-3 rounded-xl border border-input bg-background text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
+              placeholder="Descreva detalhadamente o serviço executado pelo técnico ou fornecedor..."
+              className="w-full p-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
             />
+
+            {/* Quick solution tags */}
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {COMMON_SOLUTIONS.map((s, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSolution(s)}
+                  className="text-[10px] px-2 py-0.5 rounded-lg bg-accent/60 hover:bg-accent text-muted-foreground hover:text-foreground border border-border/50 transition-colors text-left cursor-pointer"
+                >
+                  + {s}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Peças Substituídas e Horas de Lâmpada */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            {/* Peças Substituídas */}
+          {/* Peças Substituídas, Horímetro e Custo */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                Peças / Insumos Substituídos
+                Peças Substituídas / Insumos
               </label>
               <Input
                 value={replacedParts}
                 onChange={(e) => setReplacedParts(e.target.value)}
-                placeholder="Ex: Lâmpada Epson ELPLP96 Original, Pasta Térmica..."
+                placeholder="Ex: Lâmpada Original ELPLP96, Cooler 12V..."
                 className="h-10 rounded-xl text-xs"
               />
             </div>
 
-            {/* Horas de Lâmpada (Se Projetor) ou Custo */}
+            {/* Se for projetor, exibir campo de horímetro */}
             {isProjector ? (
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                  <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
-                  Horas da Nova Lâmpada (Horímetro)
+                  <Clock className="h-3.5 w-3.5 text-blue-500" />
+                  Horímetro da Lâmpada (Horas)
                 </label>
                 <Input
                   type="number"
                   min="0"
                   value={lampHours}
                   onChange={(e) => setLampHours(e.target.value)}
-                  placeholder="0 (Horas zeradas no menu)"
+                  placeholder="0 (Zerar caso lâmpada seja nova)"
                   className="h-10 rounded-xl text-xs"
                 />
               </div>
@@ -355,7 +386,7 @@ export function MaintenanceCompleteModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                  Custo Final Aprovado (R$)
+                  Custo Final {isInternal ? "(Opcional)" : "Aprovado (R$)"}
                 </label>
                 <Input
                   type="number"
@@ -363,7 +394,7 @@ export function MaintenanceCompleteModal({
                   min="0"
                   value={cost}
                   onChange={(e) => setCost(e.target.value)}
-                  placeholder="0,00"
+                  placeholder={isInternal ? "0,00 (Sem custo externo)" : "0,00"}
                   className="h-10 rounded-xl text-xs"
                 />
               </div>
@@ -372,11 +403,11 @@ export function MaintenanceCompleteModal({
 
           {/* Custo se for Projetor (já que o campo acima foi usado para lâmpada) */}
           {isProjector && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                  Custo Final Aprovado (R$)
+                  Custo Final {isInternal ? "(Opcional)" : "Aprovado (R$)"}
                 </label>
                 <Input
                   type="number"
@@ -384,58 +415,59 @@ export function MaintenanceCompleteModal({
                   min="0"
                   value={cost}
                   onChange={(e) => setCost(e.target.value)}
-                  placeholder="0,00"
+                  placeholder={isInternal ? "0,00 (Sem custo externo)" : "0,00"}
                   className="h-10 rounded-xl text-xs"
                 />
               </div>
-
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  Observações Finais / Garantia
+                  Observações Finais
                 </label>
                 <Input
                   value={technicalNotes}
                   onChange={(e) => setTechnicalNotes(e.target.value)}
-                  placeholder="Ex: Garantia da lâmpada de 90 dias com o fornecedor"
+                  placeholder="Ex: Garantia de 90 dias com fornecedor"
                   className="h-10 rounded-xl text-xs"
                 />
               </div>
             </div>
           )}
-
-          {/* Footer Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border/80">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="rounded-xl h-10 px-4 text-xs"
-            >
-              Voltar
-            </Button>
-
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-xl h-10 px-5 text-xs font-semibold gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md shadow-emerald-500/20"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Concluindo Chamado...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>Finalizar & Reintegrar</span>
-                </>
-              )}
-            </Button>
-          </div>
         </form>
-      </div>
-    </div>
+
+        {/* Footer Fixo */}
+        <div className="p-4 px-6 border-t border-border/80 bg-muted/20 flex items-center justify-end gap-3 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="rounded-xl h-10 px-4 text-xs cursor-pointer"
+          >
+            Voltar
+          </Button>
+
+          <Button
+            type="submit"
+            form="maintenance-complete-form"
+            disabled={isSubmitting}
+            className="rounded-xl h-10 px-5 text-xs font-semibold gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md shadow-emerald-500/20 cursor-pointer"
+          >
+            {isSubmitting ? (
+              <>
+                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span>Concluindo Chamado...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="h-4 w-4" />
+                <span>Finalizar & Reintegrar</span>
+              </>
+            )}
+          </Button>
+        </div>
+
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -54,7 +54,11 @@ export class MaintenanceService {
     }
 
     if (maintenanceType && maintenanceType !== "ALL") {
-      whereClause.maintenanceType = maintenanceType;
+      if (maintenanceType === "INTERNAL") {
+        whereClause.maintenanceType = { in: ["INTERNAL", "CORRECTIVE"] };
+      } else {
+        whereClause.maintenanceType = maintenanceType;
+      }
     }
 
     if (status && status !== "ALL") {

@@ -327,8 +327,12 @@ export function MaintenanceOsModal({
                 <div className="font-black text-xs sm:text-sm uppercase tracking-wider text-neutral-900">
                   CENTRO UNIVERSITÁRIO PARAÍSO • UNIFAP
                 </div>
-                <p className="text-[11px] font-semibold text-neutral-700">
-                  Setor de Suporte de TI & Multimídia
+                <p className="text-[11px] font-bold text-neutral-800">
+                  {maintenance.maintenanceType === "EXTERNAL" 
+                    ? "ORDEM DE SERVIÇO & GUIA DE REMESSA EXTERNA"
+                    : maintenance.maintenanceType === "PREVENTIVE"
+                    ? "ORDEM DE SERVIÇO DE MANUTENÇÃO PREVENTIVA"
+                    : "ORDEM DE SERVIÇO INTERNA - SUPORTE TI"}
                 </p>
                 <p className="text-[10px] text-neutral-500">
                   Juazeiro do Norte - CE • Sistema Oficial de Manutenção e Laudos Técnicos
@@ -360,7 +364,8 @@ export function MaintenanceOsModal({
               </div>
               <p className="text-[11px] text-neutral-800 font-medium">
                 <strong>Tipo:</strong> {getTypeLabel(maintenance.maintenanceType)}
-                {maintenance.serviceProvider && ` • Prestador: ${maintenance.serviceProvider}`}
+                {maintenance.maintenanceType === "EXTERNAL" && maintenance.serviceProvider && ` • Prestador: ${maintenance.serviceProvider}`}
+                {(maintenance.maintenanceType === "INTERNAL" || !maintenance.maintenanceType) && " • Execução: Laboratório Interno TI UniFAP"}
               </p>
             </div>
 
@@ -488,9 +493,15 @@ export function MaintenanceOsModal({
                   <td className="w-1/2 px-4 align-top">
                     <div className="border-t border-neutral-600 pt-1.5">
                       <p className="font-bold text-[11px] text-neutral-900">
-                        {maintenance.serviceProvider || "Coordenação de TI & Multimídia"}
+                        {maintenance.maintenanceType === "EXTERNAL" && maintenance.serviceProvider 
+                          ? maintenance.serviceProvider
+                          : "Coordenação de TI & Multimídia"}
                       </p>
-                      <p className="text-[9px] text-neutral-500">Validação Técnica / Prestador</p>
+                      <p className="text-[9px] text-neutral-500">
+                        {maintenance.maintenanceType === "EXTERNAL"
+                          ? "Prestador / Assistência Autorizada"
+                          : "Validação Interna / Coordenação"}
+                      </p>
                       <p className="text-[8px] text-neutral-400">Centro Universitário Paraíso</p>
                     </div>
                   </td>
