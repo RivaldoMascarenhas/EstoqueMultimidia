@@ -113,12 +113,14 @@ export function LoanFormModal({
       setIsLoadingAssets(true);
       const res = await fetch("/api/v1/loans/available-assets");
       const json = await res.json();
-      if (json.success) {
+      if (json && json.success && Array.isArray(json.data)) {
         setAvailableAssets(json.data);
+      } else {
+        setAvailableAssets([]);
       }
       setIsLoadingAssets(false);
     } catch (err) {
-      toast.error("Erro ao carregar equipamentos disponíveis.");
+      setAvailableAssets([]);
       setIsLoadingAssets(false);
     }
   };

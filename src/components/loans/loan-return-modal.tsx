@@ -63,7 +63,7 @@ export function LoanReturnModal({
       setIsLoadingBoxes(true);
       const res = await fetch("/api/v1/boxes");
       const json = await res.json();
-      if (json.success) {
+      if (json && json.success && Array.isArray(json.data)) {
         setAllBoxes(json.data);
         // Sugerir caixa anterior se houver ou primeira caixa
         if (loan?.asset?.currentBoxId) {
@@ -71,10 +71,12 @@ export function LoanReturnModal({
         } else if (json.data.length > 0) {
           setReturnBoxId(json.data[0].id);
         }
+      } else {
+        setAllBoxes([]);
       }
       setIsLoadingBoxes(false);
     } catch (err) {
-      toast.error("Erro ao carregar caixas do armário.");
+      setAllBoxes([]);
       setIsLoadingBoxes(false);
     }
   };

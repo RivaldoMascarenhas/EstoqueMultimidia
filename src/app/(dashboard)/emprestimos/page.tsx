@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   Handshake, 
   Plus, 
@@ -47,7 +48,11 @@ import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
-export default function EmprestimosPage() {
+function EmprestimosContent() {
+  const searchParams = useSearchParams();
+  const initialAssetId = searchParams.get("assetId") || undefined;
+  const initialSearch = searchParams.get("search") || "";
+
   const [loans, setLoans] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({
     totalLoans: 0,
@@ -61,11 +66,12 @@ export default function EmprestimosPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filtros
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [statusTab, setStatusTab] = useState<"ALL" | "ACTIVE" | "OVERDUE" | "RETURNED" | "RETURNED_DAMAGED">("ACTIVE");
 
   // Modais
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(!!initialAssetId);
+  const [preSelectedAssetId, setPreSelectedAssetId] = useState<string | undefined>(initialAssetId);
   const [selectedLoanForReturn, setSelectedLoanForReturn] = useState<any | null>(null);
   const [selectedLoanForRenew, setSelectedLoanForRenew] = useState<any | null>(null);
   const [selectedLoanForReceipt, setSelectedLoanForReceipt] = useState<any | null>(null);
@@ -86,12 +92,19 @@ export default function EmprestimosPage() {
       const loansJson = await loansRes.json();
       const metricsJson = await metricsRes.json();
 
-      if (loansJson.success) setLoans(loansJson.data);
-      if (metricsJson.success) setMetrics(metricsJson.data);
+      if (loansJson && loansJson.success && Array.isArray(loansJson.data)) {
+        setLoans(loansJson.data);
+      } else {
+        setLoans([]);
+      }
+
+      if (metricsJson && metricsJson.success && metricsJson.data) {
+        setMetrics(metricsJson.data);
+      }
 
       setIsLoading(false);
     } catch (err) {
-      toast.error("Erro ao carregar dados de empréstimos.");
+      setLoans([]);
       setIsLoading(false);
     }
   };
@@ -581,7 +594,11 @@ export default function EmprestimosPage() {
       {/* Modais do Fluxo de Empréstimos */}
       <LoanFormModal
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setIsFormOpen(false);
+          setPreSelectedAssetId(undefined);
+        }}
+        preSelectedAssetId={preSelectedAssetId}
         onSuccess={(createdLoan) => {
           fetchData();
           if (createdLoan) {
@@ -620,5 +637,22 @@ export default function EmprestimosPage() {
         loan={selectedLoanForWhatsApp}
       />
     </div>
+  );
+}
+
+export default function EmprestimosPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 w-full items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground text-xs">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span>Carregando módulo de empréstimos...</span>
+          </div>
+        </div>
+      }
+    >
+      <EmprestimosContent />
+    </Suspense>
   );
 }
