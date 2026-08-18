@@ -12,24 +12,21 @@ import {
   Tv, 
   CheckCircle2, 
   AlertTriangle, 
-  RefreshCw, 
+  RefreshCw,
   Layers, 
   Calendar,
   Sparkles,
-  ArrowRight,
-  ShieldCheck,
   X,
   Package,
   Barcode,
   Tag,
-  Check,
   Info
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 

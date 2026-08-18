@@ -3,20 +3,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { 
-  X, 
-  Calendar, 
+  Calendar,
   Clock, 
   MapPin, 
   User, 
   BookOpen, 
   CheckCircle2, 
   AlertTriangle, 
-  RefreshCw, 
+  RefreshCw,
   Package, 
   Monitor, 
   Tv, 
   Sparkles,
-  ExternalLink,
   ShieldCheck,
   Check,
   Ban,
