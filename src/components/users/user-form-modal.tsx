@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 import { toast } from "sonner";
 
 interface UserFormModalProps {
@@ -30,6 +31,8 @@ export function UserFormModal({
   const [active, setActive] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const passwordPolicy = validatePasswordPolicy(password);
 
   useEffect(() => {
     if (userToEdit) {
@@ -57,9 +60,11 @@ export function UserFormModal({
       return;
     }
 
-    if (!userToEdit && (!password || password.length < 6)) {
-      toast.error("A senha deve ter pelo menos 6 caracteres.");
-      return;
+    if (!userToEdit) {
+      if (!passwordPolicy.isValid) {
+        toast.error(passwordPolicy.error || "A senha deve ter pelo menos 6 caracteres contendo letras e números.");
+        return;
+      }
     }
 
     try {
@@ -163,21 +168,43 @@ export function UserFormModal({
 
           {/* Senha (apenas na criação) */}
           {!userToEdit && (
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-foreground">
-                Senha Inicial: *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  required
-                  className="pl-9 h-10 rounded-xl text-xs bg-background"
-                />
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">
+                  Senha Inicial de Acesso: *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres (letras e números)"
+                    required
+                    className="pl-9 h-10 rounded-xl text-xs bg-background"
+                  />
+                </div>
               </div>
+
+              {/* Requisitos da Senha */}
+              {password.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 space-y-1 text-[11px]">
+                  <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">
+                    Requisitos da Senha:
+                  </p>
+                  <div className="grid grid-cols-3 gap-1">
+                    <span className={passwordPolicy.hasMinLength ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
+                      {passwordPolicy.hasMinLength ? "✓" : "•"} 6+ caracteres
+                    </span>
+                    <span className={passwordPolicy.hasLetter ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
+                      {passwordPolicy.hasLetter ? "✓" : "•"} 1+ letra
+                    </span>
+                    <span className={passwordPolicy.hasNumber ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
+                      {passwordPolicy.hasNumber ? "✓" : "•"} 1+ número
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

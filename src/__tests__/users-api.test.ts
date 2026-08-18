@@ -102,7 +102,7 @@ describe("Users API - Security & Role Authorization", () => {
       expect(res.status).toBe(403);
     });
 
-    it("deve validar tamanho mínimo de senha", async () => {
+    it("deve validar tamanho mínimo de senha e formato", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
         user: { id: "adm-1", role: Role.ADMIN },
       } as any);
@@ -115,7 +115,35 @@ describe("Users API - Security & Role Authorization", () => {
 
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toMatch(/pelo menos 6 caracteres/);
+      expect(json.error).toMatch(/no mínimo 6 caracteres/);
+    });
+
+    it("deve exigir que a senha contenha letras e números", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { id: "adm-1", role: Role.ADMIN },
+      } as any);
+
+      const reqOnlyNumbers = new NextRequest("http://localhost:3000/api/v1/users", {
+        method: "POST",
+        body: JSON.stringify({ name: "Novo", email: "novo@unifap.br", password: "12345678" }),
+      });
+      const resOnlyNumbers = await createUser(reqOnlyNumbers);
+      expect(resOnlyNumbers.status).toBe(400);
+      const jsonNumbers = await resOnlyNumbers.json();
+      expect(jsonNumbers.error).toMatch(/pelo menos uma letra/);
+
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { id: "adm-1", role: Role.ADMIN },
+      } as any);
+
+      const reqOnlyLetters = new NextRequest("http://localhost:3000/api/v1/users", {
+        method: "POST",
+        body: JSON.stringify({ name: "Novo", email: "novo2@unifap.br", password: "passwordonly" }),
+      });
+      const resOnlyLetters = await createUser(reqOnlyLetters);
+      expect(resOnlyLetters.status).toBe(400);
+      const jsonLetters = await resOnlyLetters.json();
+      expect(jsonLetters.error).toMatch(/pelo menos um número/);
     });
   });
 
@@ -137,7 +165,7 @@ describe("Users API - Security & Role Authorization", () => {
   });
 
   describe("PATCH /api/v1/users/[id]/password", () => {
-    it("deve permitir que o próprio usuário altere sua senha", async () => {
+    it("deve permitir que o próprio usuário altere sua senha com formato válido", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
         user: { id: "op-1", role: Role.OPERADOR },
       } as any);
@@ -146,6 +174,7 @@ describe("Users API - Security & Role Authorization", () => {
         id: "op-1",
         name: "Operador 1",
         email: "op1@unifap.br",
+        passwordHash: "$2a$10$old_different_password_hash",
       } as any);
 
       vi.mocked(prisma.user.update).mockResolvedValueOnce({} as any);
