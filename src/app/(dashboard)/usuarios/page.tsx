@@ -5,19 +5,13 @@ import {
   Users, 
   UserPlus, 
   Shield, 
-  ShieldCheck, 
+  ShieldCheck,
   Key, 
   Edit, 
   Trash2, 
   CheckCircle2, 
   XCircle, 
-  Sparkles,
-  Handshake,
-  History,
-  Wrench,
-  Search,
-  Lock,
-  UserCheck
+  Search
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { UserFormModal } from "@/components/users/user-form-modal";
 import { UserPasswordModal } from "@/components/users/user-password-modal";
-import { formatDateTime, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function UsuariosPage() {

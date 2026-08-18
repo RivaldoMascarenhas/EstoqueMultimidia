@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { 
   CalendarDays, 
-  Calendar as CalendarIcon, 
   ChevronLeft, 
   ChevronRight, 
   Plus, 
@@ -16,8 +15,6 @@ import {
   Layers, 
   AlertTriangle,
   History,
-  Filter,
-  School,
   Maximize2,
   Minimize2
 } from "lucide-react";

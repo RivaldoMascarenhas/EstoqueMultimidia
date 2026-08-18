@@ -1,24 +1,19 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { 
-  Monitor, 
   ArrowLeft, 
   Printer, 
   Wrench, 
   Handshake, 
   History, 
   Archive, 
-  Calendar, 
-  DollarSign, 
   ShieldCheck, 
-  CheckCircle2, 
   AlertTriangle, 
   Loader2,
   Clock,
-  User,
   ExternalLink
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -29,11 +24,9 @@ import { QrCodeDisplay } from "@/components/scanner/qr-code-display";
 import { AssetStatusModal } from "@/components/assets/asset-status-modal";
 import { AssetLabelPrinter } from "@/components/assets/asset-label-printer";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { toast } from "sonner";
 
 export default function AssetDetailsPage() {
   const params = useParams();
-  const router = useRouter();
   const assetId = params?.id as string;
 
   const [asset, setAsset] = useState<any | null>(null);

@@ -12,9 +12,6 @@ import {
   AlertTriangle, 
   Loader2, 
   CheckCircle2, 
-  Eye, 
-  Archive, 
-  ChevronRight,
   Sparkles
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -24,7 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { StockExitModal } from "@/components/inventory/stock-exit-modal";
 import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
-import { StockTransferModal } from "@/components/inventory/stock-transfer-modal";
 import { ItemFormModal } from "@/components/inventory/item-form-modal";
 import { Tooltip } from "@/components/ui/tooltip";
 import { toast } from "sonner";
