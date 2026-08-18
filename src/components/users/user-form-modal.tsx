@@ -159,7 +159,7 @@ export function UserFormModal({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="usuario@unifap.br"
+                placeholder="nome.sobrenome@fapce.edu.br"
                 required
                 className="pl-9 h-10 rounded-xl text-xs bg-background"
               />
