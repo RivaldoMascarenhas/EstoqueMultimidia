@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -9,7 +9,7 @@ import {
   Package, 
   LayoutDashboard, 
   Archive, 
-  Boxes,
+  Boxes, 
   Monitor, 
   Handshake, 
   Wrench, 
@@ -64,6 +64,20 @@ export function Sidebar({
   const userRole = session?.user?.role || "OPERADOR";
   const userName = session?.user?.name || "Usuário";
   const userAvatar = session?.user?.avatarUrl || null;
+
+  // Travar o scroll da página de fundo no mobile enquanto o menu lateral estiver aberto
+  useEffect(() => {
+    if (isMobileOpen) {
+      const originalOverflow = document.body.style.overflow;
+      const originalTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = "hidden";
+      document.body.style.touchAction = "none";
+      return () => {
+        document.body.style.overflow = originalOverflow;
+        document.body.style.touchAction = originalTouchAction;
+      };
+    }
+  }, [isMobileOpen]);
 
   const getRoleVariant = (role: string) => {
     switch (role) {
@@ -180,9 +194,9 @@ export function Sidebar({
     const collapsed = isMobileView ? false : isCollapsed;
 
     return (
-      <div className="flex h-full flex-col justify-between overflow-y-auto overflow-x-hidden">
-        {/* Brand Header */}
-        <div>
+      <div className="flex h-full flex-col overflow-hidden overscroll-contain">
+        {/* Brand Header (Fixo no Topo) */}
+        <div className="shrink-0">
           <div className={cn(
             "flex h-16 items-center border-b border-border/80 transition-all",
             collapsed ? "justify-center px-0" : "justify-between px-4"
@@ -231,82 +245,87 @@ export function Sidebar({
             {isMobileView && (
               <button
                 onClick={onCloseMobile}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer transition-colors"
+                title="Fechar menu"
+                aria-label="Fechar menu"
               >
                 <X className="h-5 w-5" />
               </button>
             )}
           </div>
-
-          {/* Navigation Sections */}
-          <div className={cn("space-y-6 py-4", collapsed ? "px-2" : "px-3")}>
-            {navSections.map((section, idx) => {
-              const filteredItems = section.items.filter(
-                (item) => !item.roles || item.roles.includes(userRole)
-              );
-
-              if (filteredItems.length === 0) return null;
-
-              return (
-                <div key={idx} className="space-y-1">
-                  {!collapsed ? (
-                    <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                      {section.title}
-                    </p>
-                  ) : (
-                    <div className="h-px bg-border/60 mx-2 my-2" />
-                  )}
-                  
-                  <nav className="space-y-1">
-                    {filteredItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive =
-                        item.href === "/dashboard"
-                          ? pathname === "/dashboard"
-                          : pathname.startsWith(item.href);
-
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={onCloseMobile}
-                          title={collapsed ? item.title : undefined}
-                          className={cn(
-                            "group flex items-center rounded-xl text-xs font-medium transition-all duration-150 relative",
-                            collapsed
-                              ? "justify-center h-10 w-10 mx-auto px-0"
-                              : "gap-3 px-3 py-2.5 w-full",
-                            isActive
-                              ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 font-semibold"
-                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                          )}
-                        >
-                          <Icon
-                            className={cn(
-                              "h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
-                              isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                            )}
-                          />
-                          {!collapsed && (
-                            <span className="truncate flex-1">{item.title}</span>
-                          )}
-                          {!collapsed && item.badge && (
-                            <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    })}
-                  </nav>
-                </div>
-              );
-            })}
-          </div>
         </div>
 
-        {/* Footer / User Profile & Desktop Collapse Button */}
-        <div className={cn("border-t border-border/80 space-y-2", collapsed ? "p-2" : "p-3")}>
+        {/* Navigation Sections (Área Rolável com Contenção de Scroll) */}
+        <div className={cn(
+          "flex-1 min-h-0 overflow-y-auto overscroll-y-contain overflow-x-hidden touch-pan-y space-y-6 py-4",
+          collapsed ? "px-2" : "px-3"
+        )}>
+          {navSections.map((section, idx) => {
+            const filteredItems = section.items.filter(
+              (item) => !item.roles || item.roles.includes(userRole)
+            );
+
+            if (filteredItems.length === 0) return null;
+
+            return (
+              <div key={idx} className="space-y-1">
+                {!collapsed ? (
+                  <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {section.title}
+                  </p>
+                ) : (
+                  <div className="h-px bg-border/60 mx-2 my-2" />
+                )}
+                
+                <nav className="space-y-1">
+                  {filteredItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive =
+                      item.href === "/dashboard"
+                        ? pathname === "/dashboard"
+                        : pathname.startsWith(item.href);
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onCloseMobile}
+                        title={collapsed ? item.title : undefined}
+                        className={cn(
+                          "group flex items-center rounded-xl text-xs font-medium transition-all duration-150 relative",
+                          collapsed
+                            ? "justify-center h-10 w-10 mx-auto px-0"
+                            : "gap-3 px-3 py-2.5 w-full",
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 font-semibold"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                            isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                          )}
+                        />
+                        {!collapsed && (
+                          <span className="truncate flex-1">{item.title}</span>
+                        )}
+                        {!collapsed && item.badge && (
+                          <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer / User Profile & Desktop Collapse Button (Fixo no Rodapé) */}
+        <div className={cn("shrink-0 border-t border-border/80 space-y-2", collapsed ? "p-2" : "p-3")}>
           {/* User Card Link to /perfil */}
           <div className="flex items-center gap-1.5">
             <Link
@@ -356,7 +375,7 @@ export function Sidebar({
               <button
                 onClick={onToggleCollapse}
                 className={cn(
-                  "flex items-center justify-center rounded-xl text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
+                  "flex items-center justify-center rounded-xl text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer",
                   collapsed ? "h-9 w-9" : "w-full gap-2 py-2"
                 )}
                 title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
@@ -382,7 +401,7 @@ export function Sidebar({
       {/* Desktop Fixed Sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 border-r border-border/80 bg-card/95 backdrop-blur-xl transition-all duration-300",
+          "hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 border-r border-border/80 bg-card/95 backdrop-blur-xl transition-all duration-300 overscroll-contain",
           isCollapsed ? "w-20" : "w-64"
         )}
       >
@@ -392,7 +411,7 @@ export function Sidebar({
       {/* Mobile Drawer Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in-0 duration-200"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden animate-in fade-in-0 duration-200 touch-none"
           onClick={onCloseMobile}
         />
       )}
@@ -400,7 +419,7 @@ export function Sidebar({
       {/* Mobile Drawer Sheet */}
       <aside
         className={cn(
-          "fixed left-0 top-0 bottom-0 z-50 w-72 bg-card border-r border-border shadow-2xl md:hidden transition-transform duration-300 ease-in-out",
+          "fixed left-0 top-0 bottom-0 z-50 w-72 max-w-[85vw] bg-card border-r border-border shadow-2xl md:hidden transition-transform duration-300 ease-in-out overscroll-contain touch-pan-y",
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
