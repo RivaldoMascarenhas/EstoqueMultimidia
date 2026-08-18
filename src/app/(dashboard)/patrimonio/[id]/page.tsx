@@ -14,7 +14,13 @@ import {
   AlertTriangle, 
   Loader2,
   Clock,
-  ExternalLink
+  ExternalLink,
+  MapPin,
+  User,
+  Calendar,
+  Phone,
+  Mail,
+  Info
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -122,6 +128,15 @@ export default function AssetDetailsPage() {
 
   const historyList = asset.history || [];
   const loansList = asset.loans || [];
+  const activeLoan = loansList.find((l: any) => l.status === "ACTIVE" || l.status === "OVERDUE") || null;
+  const activeMaintenance = asset.maintenances?.find((m: any) => m.status === "PENDING" || m.status === "IN_PROGRESS") || null;
+  const activeRes = asset.reservations && asset.reservations.length > 0 ? asset.reservations[0] : null;
+
+  const now = new Date();
+  const isCurrentlyInClass =
+    activeRes &&
+    new Date(activeRes.startTime).getTime() <= now.getTime() + 15 * 60 * 1000 &&
+    new Date(activeRes.endTime).getTime() >= now.getTime();
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -149,7 +164,13 @@ export default function AssetDetailsPage() {
             <span className="text-xl sm:text-2xl font-bold text-muted-foreground">
               {asset.item?.name}
             </span>
-            {getStatusBadge(asset.status)}
+            {isCurrentlyInClass ? (
+              <Badge variant="in_use" dot className="text-xs font-semibold bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30">
+                Em Atendimento (Sala {activeRes.request?.room?.name})
+              </Badge>
+            ) : (
+              getStatusBadge(asset.status)
+            )}
           </div>
 
           {asset.model && (
@@ -159,8 +180,8 @@ export default function AssetDetailsPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {asset.status === "AVAILABLE" && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {asset.status === "AVAILABLE" && !isCurrentlyInClass && (
             <Link href={`/emprestimos?assetId=${asset.id}`}>
               <Button
                 size="sm"
@@ -168,6 +189,32 @@ export default function AssetDetailsPage() {
               >
                 <Handshake className="w-4 h-4" />
                 <span>Novo Empréstimo</span>
+              </Button>
+            </Link>
+          )}
+
+          {isCurrentlyInClass && activeRes.request && (
+            <Link href={`/agenda?requestId=${activeRes.request.id}`}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 rounded-xl text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 cursor-pointer font-bold"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Ver Solicitação na Agenda</span>
+              </Button>
+            </Link>
+          )}
+
+          {asset.status === "LOANED" && activeLoan && (
+            <Link href={`/emprestimos?search=${asset.assetTag}`}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 rounded-xl text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10 cursor-pointer font-bold"
+              >
+                <Handshake className="w-4 h-4" />
+                <span>Ver Empréstimo</span>
               </Button>
             </Link>
           )}
@@ -193,6 +240,200 @@ export default function AssetDetailsPage() {
           </Button>
         </div>
       </div>
+
+      {/* BANNER 0: Em Atendimento / Aula Agora na Agenda */}
+      {isCurrentlyInClass && activeRes.request && (
+        <Card className="rounded-3xl border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 via-card to-card shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 border-b border-indigo-500/15 bg-indigo-500/5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold text-foreground">
+                    Equipamento em Atendimento na Sala {activeRes.request.room?.name || ""}
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Alocado e em uso pela equipe de Multimídia para aula/evento
+                  </CardDescription>
+                </div>
+              </div>
+              <Badge variant="in_use" className="text-[11px] font-bold">
+                Em Andamento Agora
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-500" /> Sala de Aula:
+                </span>
+                <p className="font-bold text-foreground text-sm">
+                  Sala {activeRes.request.room?.name} {activeRes.request.room?.floor && `(${activeRes.request.room.floor})`}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-indigo-500" /> Docente / Solicitante:
+                </span>
+                <p className="font-bold text-foreground text-sm">
+                  {activeRes.request.professorName || "Não informado"}
+                </p>
+                {activeRes.request.discipline && (
+                  <p className="text-[11px] text-muted-foreground">{activeRes.request.discipline}</p>
+                )}
+              </div>
+
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-indigo-500" /> Horário da Aula:
+                </span>
+                <p className="font-bold text-foreground font-mono">
+                  {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} às {new Date(activeRes.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+                <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                  Status: {activeRes.request.status}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 flex flex-col justify-between">
+                <span className="text-muted-foreground text-[10px]">Ação Rápida:</span>
+                <Link href={`/agenda?requestId=${activeRes.request.id}`}>
+                  <Button size="sm" variant="outline" className="w-full text-xs rounded-xl gap-1 text-indigo-600 dark:text-indigo-400 font-bold">
+                    <span>Abrir na Agenda</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* BANNER 1: Detalhes do Empréstimo Ativo (Onde e com quem está) */}
+      {asset.status === "LOANED" && (
+        <Card className="rounded-3xl border-blue-500/30 bg-gradient-to-br from-blue-500/10 via-card to-card shadow-sm overflow-hidden">
+          <CardHeader className="pb-3 border-b border-blue-500/15 bg-blue-500/5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <Handshake className="w-4 h-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-bold text-foreground">
+                    Equipamento Atualmente Emprestado
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Informações de posse e destino deste patrimônio
+                  </CardDescription>
+                </div>
+              </div>
+
+              {activeLoan && (
+                <Badge variant={activeLoan.status === "OVERDUE" ? "destructive" : "loaned"} className="text-[11px] font-bold">
+                  {activeLoan.status === "OVERDUE" ? "⚠️ Empréstimo em Atraso" : "Empréstimo em Andamento"}
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-5 space-y-4">
+            {activeLoan ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-blue-500" /> Destino / Local:
+                  </span>
+                  <p className="font-bold text-foreground text-sm">
+                    {activeLoan.destination || "Não especificado"}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-blue-500" /> Responsável / Solicitante:
+                  </span>
+                  <p className="font-bold text-foreground text-sm">
+                    {activeLoan.borrowerName}
+                  </p>
+                  {activeLoan.borrowerEmail && (
+                    <p className="text-[11px] text-muted-foreground">{activeLoan.borrowerEmail}</p>
+                  )}
+                </div>
+
+                <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-blue-500" /> Data do Empréstimo:
+                  </span>
+                  <p className="font-medium text-foreground">
+                    {formatDateTime(activeLoan.loanDate)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Por: {activeLoan.createdByUser?.name || "Operador"}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-1">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 text-blue-500" /> Previsão de Devolução:
+                  </span>
+                  <p className="font-bold text-foreground font-mono">
+                    {formatDate(activeLoan.expectedReturnDate)}
+                  </p>
+                  {activeLoan.borrowerPhone && (
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <Phone className="w-3 h-3" /> {activeLoan.borrowerPhone}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
+                <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
+                  <Info className="w-4 h-4 text-amber-600" />
+                  <span>Empréstimo sem registro formal de Ordem no sistema</span>
+                </div>
+                <p className="text-muted-foreground">
+                  Este equipamento foi marcado com status <strong>Emprestado</strong> no cadastro manual/legado.
+                  {asset.notes && (
+                    <span className="block mt-1 text-foreground">
+                      Observação / Destino registrado: <strong>"{asset.notes}"</strong>
+                    </span>
+                  )}
+                </p>
+                <div className="pt-2 flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsStatusModalOpen(true)}
+                    className="rounded-xl text-xs bg-card hover:bg-muted font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/40"
+                  >
+                    <Archive className="w-3.5 h-3.5 mr-1" />
+                    <span>Guardar no Armário (Devolver)</span>
+                  </Button>
+
+                  <Link href={`/emprestimos?assetId=${asset.id}`}>
+                    <Button size="sm" className="rounded-xl text-xs bg-primary text-primary-foreground font-bold">
+                      <Handshake className="w-3.5 h-3.5 mr-1" />
+                      <span>Formalizar Registro de Empréstimo</span>
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {activeLoan?.notes && (
+              <div className="p-3 rounded-xl bg-card border border-border/80 text-xs">
+                <span className="font-semibold text-foreground">Observações do Empréstimo:</span>
+                <p className="text-muted-foreground mt-0.5">{activeLoan.notes}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Grid: QR Code & Detalhes Técnicos */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
@@ -233,7 +474,17 @@ export default function AssetDetailsPage() {
                 <Archive className="w-4 h-4" />
                 <span>Localização Física Atual</span>
               </div>
-              {asset.currentRoom ? (
+              {asset.status === "LOANED" ? (
+                <div>
+                  <p className="text-base font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    <span>{activeLoan?.destination || asset.notes || "Emprestado (Fora do armário)"}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Em posse de <strong>{activeLoan?.borrowerName || "Uso Externo"}</strong>
+                  </p>
+                </div>
+              ) : asset.currentRoom ? (
                 <div>
                   <Link
                     href={`/salas`}
@@ -348,13 +599,19 @@ export default function AssetDetailsPage() {
                       </span>
                     </div>
 
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {hist.observation || (hist.toStatus ? `Status alterado para ${hist.toStatus}` : "Ação registrada")}
-                    </p>
-                    {hist.userName && (
-                      <span className="text-[10px] text-muted-foreground/70 block">
-                        Por: {hist.userName}
-                      </span>
+                    {hist.details && typeof hist.details === "object" ? (
+                      <div className="text-xs text-muted-foreground space-y-1 pt-1">
+                        {Object.entries(hist.details).map(([key, val]) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-foreground/70">{key}:</span>
+                            <span className="font-semibold text-foreground text-[11px]">
+                              {typeof val === "object" ? JSON.stringify(val) : String(val)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">{String(hist.details || "Sem detalhes adicionais")}</p>
                     )}
                   </div>
                 </div>
@@ -364,97 +621,33 @@ export default function AssetDetailsPage() {
         </CardContent>
       </Card>
 
-      {/* Histórico Recente de Empréstimos */}
-      {loansList.length > 0 && (
-        <Card className="shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Handshake className="w-4 h-4 text-blue-500" />
-              <span>Histórico de Empréstimos Deste Equipamento</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Protocolo</TableHead>
-                  <TableHead>Solicitante / Setor</TableHead>
-                  <TableHead>Data Empréstimo</TableHead>
-                  <TableHead>Devolução Prevista</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loansList.map((loan: any) => (
-                  <TableRow key={loan.id}>
-                    <TableCell className="font-mono font-bold text-xs text-primary">
-                      #EMP-{loan.id.slice(0, 8).toUpperCase()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-xs text-foreground">
-                          {loan.borrowerName}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {loan.borrowerDepartment || loan.destination}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-mono">
-                      {formatDateTime(loan.loanDate)}
-                    </TableCell>
-                    <TableCell className="text-xs font-mono">
-                      {formatDateTime(loan.expectedReturnDate)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={loan.status === "ACTIVE" ? "loaned" : "available"}
-                        dot
-                        className="text-[10px]"
-                      >
-                        {loan.status === "ACTIVE" ? "Ativo" : "Devolvido"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Modais */}
+      {/* Modais de Status e Etiqueta */}
       {isStatusModalOpen && (
         <AssetStatusModal
           isOpen={isStatusModalOpen}
-          onClose={() => setIsStatusModalOpen(false)}
           asset={{
             id: asset.id,
             assetTag: asset.assetTag,
-            itemName: asset.item.name,
+            itemName: asset.item?.name || "Equipamento",
             currentStatus: asset.status,
             currentBoxId: asset.currentBoxId,
           }}
           boxes={allBoxes}
-          onSuccess={fetchAssetData}
+          onClose={() => setIsStatusModalOpen(false)}
+          onSuccess={() => {
+            setIsStatusModalOpen(false);
+            fetchAssetData();
+          }}
         />
       )}
 
-      <AssetLabelPrinter
-        isOpen={isPrinterOpen}
-        onClose={() => setIsPrinterOpen(false)}
-        assets={[
-          {
-            id: asset.id,
-            assetTag: asset.assetTag,
-            itemName: asset.item.name,
-            serialNumber: asset.serialNumber,
-            model: asset.model,
-            boxCode: asset.currentBox?.code,
-          },
-        ]}
-        selectedTag={asset.assetTag}
-      />
+      {isPrinterOpen && (
+        <AssetLabelPrinter
+          isOpen={isPrinterOpen}
+          assets={[asset]}
+          onClose={() => setIsPrinterOpen(false)}
+        />
+      )}
     </div>
   );
 }

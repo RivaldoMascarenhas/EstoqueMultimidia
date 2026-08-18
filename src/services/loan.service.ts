@@ -212,6 +212,35 @@ export class LoanService {
         throw new Error("Data prevista de devolução inválida.");
       }
 
+      // 1.1 Validar se o equipamento está agendado/em atendimento na Agenda
+      const now = new Date();
+      const overlappingReservation = await tx.reservation.findFirst({
+        where: {
+          assetId: data.assetId,
+          status: "ACTIVE",
+          OR: [
+            {
+              startTime: { lte: expectedDate },
+              endTime: { gte: now },
+            },
+          ],
+        },
+        include: {
+          request: {
+            include: { room: true },
+          },
+        },
+      });
+
+      if (overlappingReservation) {
+        const req = overlappingReservation.request;
+        const startStr = req.startTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const endStr = req.endTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        throw new Error(
+          `O equipamento #${asset.assetTag} está agendado para a Sala ${req.room?.name || ""} (${req.professorName || "Atendimento"}) das ${startStr} às ${endStr} e não pode ser emprestado neste período.`
+        );
+      }
+
       const originLocation = asset.currentBox
         ? `${asset.currentBox.name} (${asset.currentBox.door.name})`
         : "Localização não atribuída";

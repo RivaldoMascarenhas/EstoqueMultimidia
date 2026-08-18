@@ -88,7 +88,6 @@ export async function POST(req: NextRequest) {
           origin: RequestOrigin.IMPORTADO_LEGADO,
           needsReview: true,
           createdById: resolvedUserId,
-          syncStatus: "SYNCED",
           items: {
             create: [
               {

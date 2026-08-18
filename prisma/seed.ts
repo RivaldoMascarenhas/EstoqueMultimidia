@@ -540,7 +540,6 @@ async function main() {
         needsReview: false,
         assignedUserId: thomas.id,
         createdById: paloma.id,
-        syncStatus: 'SYNCED',
         items: {
           create: [
             {
@@ -582,7 +581,6 @@ async function main() {
         needsReview: false,
         assignedUserId: pedro.id,
         createdById: paloma.id,
-        syncStatus: 'SYNCED',
         items: {
           create: [
             {
@@ -631,7 +629,6 @@ async function main() {
         needsReview: false,
         assignedUserId: null,
         createdById: paloma.id,
-        syncStatus: 'SYNCED',
         items: {
           create: [
             {
@@ -667,7 +664,6 @@ async function main() {
         origin: RequestOrigin.IMPORTADO_LEGADO,
         needsReview: true,
         createdById: rivaldo.id,
-        syncStatus: 'PENDING',
         items: {
           create: [
             {

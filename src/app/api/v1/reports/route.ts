@@ -101,6 +101,12 @@ export async function GET(req: NextRequest) {
               box: { include: { door: true } },
             },
           },
+          assets: {
+            where: { active: true },
+            include: {
+              currentBox: { include: { door: true } },
+            },
+          },
         },
         orderBy: { name: "asc" },
       });
@@ -112,7 +118,19 @@ export async function GET(req: NextRequest) {
       let totalUnitsNeeded = 0;
 
       items.forEach((item) => {
-        const currentQty = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+        let currentQty = 0;
+        let locationStr = "";
+
+        if (item.itemType === "MATERIAL") {
+          currentQty = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+          locationStr = item.inventories
+            .map((inv) => `${inv.box?.door?.name || "Porta"}/${inv.box?.name || "Caixa"} (${inv.quantity} ${item.unit})`)
+            .join("; ");
+        } else {
+          currentQty = item.assets ? item.assets.length : 0;
+          locationStr = `${currentQty} ativos cadastrados no armário`;
+        }
+
         const diffToIdeal = Math.max(0, item.idealStock - currentQty);
 
         const itemData = {
@@ -125,7 +143,7 @@ export async function GET(req: NextRequest) {
           idealStock: item.idealStock,
           currentStock: currentQty,
           suggestedPurchase: diffToIdeal,
-          boxes: item.inventories.map((inv) => `${inv.box.door?.name || "Porta"}/${inv.box.name} (${inv.quantity} ${item.unit})`).join("; "),
+          boxes: locationStr,
         };
 
         if (currentQty <= 0 || currentQty <= Math.floor(item.minStock / 2)) {

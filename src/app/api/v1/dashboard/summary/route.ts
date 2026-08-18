@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, LoanStatus, MaintenanceStatus, MovementType } from "@prisma/client";
 import { requireSession } from "@/lib/api-guard";
+import { RequestService } from "@/services/request.service";
 
 export async function GET(req: NextRequest) {
   try {
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
         include: {
           inventories: true,
           category: true,
+          assets: { where: { active: true } },
         },
       }),
 
@@ -112,7 +114,12 @@ export async function GET(req: NextRequest) {
     const criticalStockAlerts: any[] = [];
 
     items.forEach((item) => {
-      const currentQty = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      let currentQty = 0;
+      if (item.itemType === "MATERIAL") {
+        currentQty = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      } else {
+        currentQty = item.assets ? item.assets.length : 0;
+      }
       totalStockUnits += currentQty;
 
       if (currentQty <= 0 || currentQty <= Math.floor(item.minStock / 2)) {
@@ -290,6 +297,7 @@ export async function GET(req: NextRequest) {
           criticalMaintenance: criticalOsList.slice(0, 5),
           totalAlerts: overdueLoansList.length + criticalStockAlerts.length + criticalOsList.length,
         },
+        todayOperations: await RequestService.getRequestsByShift(now),
         timeline: topTimeline,
       },
     });

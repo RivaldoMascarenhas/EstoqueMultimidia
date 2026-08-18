@@ -24,12 +24,22 @@ export async function GET(req: NextRequest) {
         inventories: {
           select: { quantity: true },
         },
+        assets: {
+          where: { active: true },
+          select: { id: true },
+        },
       },
       take: 30,
     });
 
     for (const item of items) {
-      const totalQty = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      let totalQty = 0;
+      if (item.itemType === "MATERIAL") {
+        totalQty = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
+      } else {
+        totalQty = item.assets ? item.assets.length : 0;
+      }
+
       if (item.minStock > 0 && totalQty <= item.minStock) {
         notifications.push({
           id: `stock-${item.id}`,

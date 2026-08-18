@@ -57,17 +57,15 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Buscar atendimentos conflitantes no mesmo intervalo de horário
-    const overlappingRequestItems = await prisma.requestItem.findMany({
+    // 3. Buscar reservas ativas conflitantes no mesmo intervalo de horário
+    const overlappingReservations = await prisma.reservation.findMany({
       where: {
         requestId: excludeRequestId ? { not: excludeRequestId } : undefined,
-        request: {
-          status: { notIn: [RequestStatus.CANCELADO, RequestStatus.FINALIZADO] },
-          AND: [
-            { startTime: { lt: endDateTime } },
-            { endTime: { gt: startDateTime } },
-          ],
-        },
+        status: "ACTIVE",
+        AND: [
+          { startTime: { lt: endDateTime } },
+          { endTime: { gt: startDateTime } },
+        ],
       },
       select: {
         itemId: true,
@@ -78,10 +76,10 @@ export async function GET(req: NextRequest) {
 
     // Agrupar quantidades já reservadas por itemId
     const reservedCountsByItemId = new Map<string, number>();
-    for (const ri of overlappingRequestItems) {
-      if (ri.itemId) {
-        const cur = reservedCountsByItemId.get(ri.itemId) || 0;
-        reservedCountsByItemId.set(ri.itemId, cur + ri.quantity);
+    for (const res of overlappingReservations) {
+      if (res.itemId) {
+        const cur = reservedCountsByItemId.get(res.itemId) || 0;
+        reservedCountsByItemId.set(res.itemId, cur + res.quantity);
       }
     }
 
