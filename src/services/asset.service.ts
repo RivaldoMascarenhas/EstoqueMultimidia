@@ -95,6 +95,7 @@ export class AssetService {
             door: true,
           },
         },
+        currentRoom: true,
         loans: {
           include: {
             createdByUser: { select: { name: true, email: true } },
