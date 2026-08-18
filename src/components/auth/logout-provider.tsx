@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { LogOut, ShieldCheck, Sparkles, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, Sparkles } from "lucide-react";
 
 interface LogoutContextType {
   isLoggingOut: boolean;
@@ -54,8 +54,8 @@ export function LogoutProvider({ children }: { children: React.ReactNode }) {
               <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping duration-1000" />
               <div className="absolute -inset-2 rounded-full border border-primary/30 animate-spin [animation-duration:6s]" />
 
-              {/* Avatar ou Ícone Central */}
-              <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-indigo-600 p-0.5 shadow-xl flex items-center justify-center overflow-hidden">
+              {/* Avatar Central */}
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-tr from-primary to-indigo-600 p-0.5 shadow-xl flex items-center justify-center">
                 <div className="w-full h-full rounded-full bg-card flex items-center justify-center overflow-hidden">
                   {userAvatar ? (
                     <img
@@ -68,11 +68,6 @@ export function LogoutProvider({ children }: { children: React.ReactNode }) {
                       {userFirstName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                </div>
-
-                {/* Badge de Logout Sobreposta */}
-                <div className="absolute bottom-0 right-0 p-1.5 rounded-full bg-rose-600 text-white shadow-lg">
-                  <LogOut className="w-3.5 h-3.5" />
                 </div>
               </div>
             </div>
