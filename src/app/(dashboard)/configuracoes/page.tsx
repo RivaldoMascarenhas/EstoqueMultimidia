@@ -21,8 +21,9 @@ import {
   Globe,
   Terminal,
   Code2,
-  ExternalLink,
-  Edit
+  Edit,
+  CalendarDays,
+  Calendar
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import { BoxFormModal } from "@/components/cabinet/box-form-modal";
 import { DoorFormModal } from "@/components/cabinet/door-form-modal";
 import { CategoryFormModal } from "@/components/categories/category-form-modal";
 import { ApiKeysManager } from "@/components/configuracoes/api-keys-manager";
+import { ShiftConfigManager } from "@/components/configuracoes/shift-config-manager";
 import { toast } from "sonner";
 
 export default function ConfiguracoesPage() {
@@ -213,16 +215,20 @@ export default function ConfiguracoesPage() {
       </div>
 
       <Tabs defaultValue="armario" className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md">
-          <TabsTrigger value="armario" className="text-xs font-semibold gap-1.5">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 max-w-xl h-auto p-1 gap-1">
+          <TabsTrigger value="armario" className="text-xs font-semibold gap-1.5 py-2">
             <Archive className="w-3.5 h-3.5" />
             <span>Portas & Caixas</span>
           </TabsTrigger>
-          <TabsTrigger value="categorias" className="text-xs font-semibold gap-1.5">
+          <TabsTrigger value="categorias" className="text-xs font-semibold gap-1.5 py-2">
             <Layers className="w-3.5 h-3.5" />
             <span>Categorias</span>
           </TabsTrigger>
-          <TabsTrigger value="api" className="text-xs font-semibold gap-1.5">
+          <TabsTrigger value="turnos" className="text-xs font-semibold gap-1.5 py-2">
+            <CalendarDays className="w-3.5 h-3.5" />
+            <span>Horários de Turno</span>
+          </TabsTrigger>
+          <TabsTrigger value="api" className="text-xs font-semibold gap-1.5 py-2">
             <Key className="w-3.5 h-3.5" />
             <span>Chaves & n8n</span>
           </TabsTrigger>
@@ -659,7 +665,11 @@ export default function ConfiguracoesPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
 
+        {/* ABA: Configuração de Turnos */}
+        <TabsContent value="turnos" className="space-y-6 pt-4">
+          <ShiftConfigManager />
         </TabsContent>
       </Tabs>
 

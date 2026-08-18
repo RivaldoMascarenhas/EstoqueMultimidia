@@ -26,6 +26,7 @@ import { StockExitModal } from "@/components/inventory/stock-exit-modal";
 import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
 import { StockTransferModal } from "@/components/inventory/stock-transfer-modal";
 import { ItemFormModal } from "@/components/inventory/item-form-modal";
+import { Tooltip } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 export default function EstoquePage() {
@@ -366,29 +367,54 @@ export default function EstoquePage() {
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           {/* Botão Saída */}
-                          {firstBox && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                setSelectedItemForExit({
-                                  item,
-                                  box: {
-                                    id: firstBox.id,
-                                    code: firstBox.code,
-                                    name: firstBox.name,
-                                    doorName: firstBox.door?.name,
-                                    currentQuantity: firstBoxQty,
-                                  },
-                                })
-                              }
-                              disabled={firstBoxQty <= 0}
-                              className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
-                              title={`Registrar saída de ${item.name} na Caixa ${firstBox.code}`}
+                          {item.itemType === "ASSET_EQUIPMENT" ? (
+                            <Tooltip
+                              content="Equipamento de patrimônio — saída registrada via Empréstimo ou vinculação em Sala"
+                              side="top"
                             >
-                              <ArrowDownLeft className="w-3.5 h-3.5" />
-                              <span>Saída</span>
-                            </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled
+                                className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-muted text-muted-foreground border border-border shadow-xs opacity-50 cursor-not-allowed pointer-events-none"
+                              >
+                                <ArrowDownLeft className="w-3.5 h-3.5" />
+                                <span>Saída</span>
+                              </Button>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip
+                              content={
+                                !firstBox || firstBoxQty <= 0
+                                  ? "Sem estoque disponível nas caixas para este material"
+                                  : `Registrar saída de ${item.name} (${firstBox.code})`
+                              }
+                              side="top"
+                            >
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (firstBox) {
+                                    setSelectedItemForExit({
+                                      item,
+                                      box: {
+                                        id: firstBox.id,
+                                        code: firstBox.code,
+                                        name: firstBox.name,
+                                        doorName: firstBox.door?.name,
+                                        currentQuantity: firstBoxQty,
+                                      },
+                                    });
+                                  }
+                                }}
+                                disabled={!firstBox || firstBoxQty <= 0}
+                                className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                              >
+                                <ArrowDownLeft className="w-3.5 h-3.5" />
+                                <span>Saída</span>
+                              </Button>
+                            </Tooltip>
                           )}
 
                           {/* Botão Entrada */}

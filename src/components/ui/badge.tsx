@@ -41,6 +41,8 @@ const badgeVariants = cva(
           "border-indigo-500/40 bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-bold",
         consulta:
           "border-slate-500/40 bg-slate-500/20 text-slate-700 dark:text-slate-300",
+        academic:
+          "border-amber-500/40 bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold",
       },
     },
     defaultVariants: {

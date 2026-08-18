@@ -28,7 +28,8 @@ import {
   FileSpreadsheet,
   Search,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Calendar
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,8 +126,20 @@ export default function DashboardPage() {
             size="sm"
             className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5 justify-center"
           >
+            <Link href="/agenda">
+              <Calendar className="w-4 h-4 shrink-0" />
+              <span className="truncate">Agenda de Turnos</span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
+          >
             <Link href="/emprestimos">
-              <Handshake className="w-4 h-4 shrink-0" />
+              <Handshake className="w-4 h-4 text-purple-500 shrink-0" />
               <span className="truncate">Novo Empréstimo</span>
             </Link>
           </Button>
@@ -149,9 +162,9 @@ export default function DashboardPage() {
             size="sm"
             className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
           >
-            <Link href="/armario">
+            <Link href="/salas">
               <Boxes className="w-4 h-4 text-blue-500 shrink-0" />
-              <span className="truncate">Armário</span>
+              <span className="truncate">Salas</span>
             </Link>
           </Button>
 
