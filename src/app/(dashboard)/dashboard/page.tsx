@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
+import { AcademicSupportDashboard } from "@/components/dashboard/academic-support-dashboard";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -77,8 +78,15 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (userRole !== "ACADEMIC_SUPPORT") {
+      fetchDashboardData();
+    }
+  }, [userRole]);
+
+  // Se o perfil for Apoio Acadêmico, renderiza o painel focado e simplificado para o solicitante
+  if (userRole === "ACADEMIC_SUPPORT") {
+    return <AcademicSupportDashboard userName={userName} userRole={userRole} />;
+  }
 
   const getRoleVariant = (role: string) => {
     switch (role) {
