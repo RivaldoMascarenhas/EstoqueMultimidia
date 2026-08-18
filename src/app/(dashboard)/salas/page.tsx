@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -64,6 +65,10 @@ export default function SalasPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Modal de Confirmação de Desativação
+  const [deactivateTarget, setDeactivateTarget] = useState<any | null>(null);
+  const [isConfirmDeactivateOpen, setIsConfirmDeactivateOpen] = useState(false);
 
   // Form Fields
   const [name, setName] = useState("");
@@ -313,14 +318,19 @@ export default function SalasPage() {
     }
   };
 
-  const handleDeactivateRoom = async (room: any) => {
-    if (!confirm(`Deseja realmente desativar a Sala ${room.name}?`)) return;
+  const handleDeactivateRoom = (room: any) => {
+    setDeactivateTarget(room);
+    setIsConfirmDeactivateOpen(true);
+  };
+
+  const executeDeactivateRoom = async () => {
+    if (!deactivateTarget) return;
 
     try {
-      const res = await fetch(`/api/v1/rooms/${room.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/rooms/${deactivateTarget.id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        toast.success(`Sala ${room.name} desativada com sucesso.`);
+        toast.success(`Sala ${deactivateTarget.name} desativada com sucesso.`);
         fetchRooms();
         fetchAssets();
       } else {
@@ -1006,6 +1016,18 @@ export default function SalasPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={isConfirmDeactivateOpen}
+        onClose={() => setIsConfirmDeactivateOpen(false)}
+        onConfirm={executeDeactivateRoom}
+        title="Desativar Sala de Aula"
+        description="Tem certeza que deseja desativar esta sala? Os equipamentos vinculados retornarão automaticamente como disponíveis no estoque."
+        itemName={deactivateTarget ? `Sala ${deactivateTarget.name} (${deactivateTarget.floor || "Geral"})` : undefined}
+        confirmText="Sim, Desativar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
 
     </div>
   );

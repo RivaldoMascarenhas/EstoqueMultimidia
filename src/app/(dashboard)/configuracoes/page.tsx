@@ -36,6 +36,7 @@ import { DoorFormModal } from "@/components/cabinet/door-form-modal";
 import { CategoryFormModal } from "@/components/categories/category-form-modal";
 import { ApiKeysManager } from "@/components/configuracoes/api-keys-manager";
 import { ShiftConfigManager } from "@/components/configuracoes/shift-config-manager";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
 export default function ConfiguracoesPage() {
@@ -45,6 +46,8 @@ export default function ConfiguracoesPage() {
   const [isDoorModalOpen, setIsDoorModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<any | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<any | null>(null);
+  const [isDeleteCategoryModalOpen, setIsDeleteCategoryModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Playground de Teste de API
@@ -93,13 +96,16 @@ export default function ConfiguracoesPage() {
     setIsCategoryModalOpen(true);
   };
 
-  const handleDeleteCategory = async (cat: any) => {
-    if (!confirm(`Deseja realmente excluir a categoria "${cat.name}"?`)) {
-      return;
-    }
+  const handleDeleteCategory = (cat: any) => {
+    setCategoryToDelete(cat);
+    setIsDeleteCategoryModalOpen(true);
+  };
+
+  const executeDeleteCategory = async () => {
+    if (!categoryToDelete) return;
 
     try {
-      const res = await fetch(`/api/v1/categories/${cat.id}`, {
+      const res = await fetch(`/api/v1/categories/${categoryToDelete.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
@@ -692,6 +698,18 @@ export default function ConfiguracoesPage() {
         onClose={() => setIsCategoryModalOpen(false)}
         categoryToEdit={categoryToEdit}
         onSuccess={fetchData}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteCategoryModalOpen}
+        onClose={() => setIsDeleteCategoryModalOpen(false)}
+        onConfirm={executeDeleteCategory}
+        title="Excluir Categoria"
+        description="Tem certeza que deseja excluir esta categoria? Os itens do catálogo precisarão ser reclassificados."
+        itemName={categoryToDelete?.name}
+        confirmText="Sim, Excluir"
+        cancelText="Cancelar"
+        variant="danger"
       />
     </div>
   );

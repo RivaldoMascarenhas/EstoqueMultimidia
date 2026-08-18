@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { UserFormModal } from "@/components/users/user-form-modal";
 import { UserPasswordModal } from "@/components/users/user-password-modal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
 export default function UsuariosPage() {
@@ -32,6 +33,8 @@ export default function UsuariosPage() {
   const [userToEdit, setUserToEdit] = useState<any | null>(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [userForPassword, setUserForPassword] = useState<any | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -69,25 +72,28 @@ export default function UsuariosPage() {
     setIsPasswordModalOpen(true);
   };
 
-  const handleDeleteUser = async (user: any) => {
-    if (!confirm(`Deseja realmente desativar ou excluir o acesso de "${user.name}"?`)) {
-      return;
-    }
+  const handleOpenDelete = (user: any) => {
+    setUserToDelete(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const executeDeleteUser = async () => {
+    if (!userToDelete) return;
 
     try {
-      const res = await fetch(`/api/v1/users/${user.id}`, {
+      const res = await fetch(`/api/v1/users/${userToDelete.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
 
       if (json.success) {
-        toast.success(json.message);
+        toast.success(json.message || "Acesso de usuário atualizado com sucesso!");
         fetchUsers();
       } else {
         toast.error(json.error || "Erro ao remover usuário.");
       }
     } catch (e) {
-      toast.error("Erro na requisição.");
+      toast.error("Erro na comunicação com o servidor.");
     }
   };
 
@@ -307,7 +313,7 @@ export default function UsuariosPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user)}
+                        onClick={() => handleOpenDelete(user)}
                         className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-rose-500 cursor-pointer"
                         title="Desativar / Excluir"
                       >
@@ -433,6 +439,18 @@ export default function UsuariosPage() {
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
         user={userForPassword}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={executeDeleteUser}
+        title="Desativar ou Excluir Usuário"
+        description="Tem certeza que deseja remover ou revogar o acesso deste colaborador no sistema? Ele perderá imediatamente a permissão de login."
+        itemName={userToDelete ? `${userToDelete.name} (${userToDelete.email})` : undefined}
+        confirmText="Sim, Desativar"
+        cancelText="Cancelar"
+        variant="danger"
       />
 
     </div>
