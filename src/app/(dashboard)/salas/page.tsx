@@ -52,7 +52,8 @@ interface AssetOption {
 export default function SalasPage() {
   const { data: session } = useSession();
   const userRole = session?.user?.role || "OPERADOR";
-  const isAdminOrGestor = ["ADMIN", "GESTOR"].includes(userRole);
+  const canManageRooms = ["ADMIN", "GESTOR", "OPERADOR"].includes(userRole);
+  const canDeleteRooms = ["ADMIN", "GESTOR"].includes(userRole);
 
   const [rooms, setRooms] = useState<any[]>([]);
   const [assets, setAssets] = useState<AssetOption[]>([]);
@@ -391,7 +392,7 @@ export default function SalasPage() {
           </p>
         </div>
 
-        {isAdminOrGestor && (
+        {canManageRooms && (
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -501,7 +502,7 @@ export default function SalasPage() {
                 <TableHead className="py-3 px-4 text-xs font-bold text-foreground">Cabos</TableHead>
                 <TableHead className="py-3 px-4 text-xs font-bold text-foreground">Lâmpada / Visita</TableHead>
                 <TableHead className="py-3 px-4 text-xs font-bold text-foreground">Equipamentos Fixos</TableHead>
-                {isAdminOrGestor && <TableHead className="py-3 px-4 text-xs font-bold text-right text-foreground">Ações</TableHead>}
+                {canManageRooms && <TableHead className="py-3 px-4 text-xs font-bold text-right text-foreground">Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -615,7 +616,7 @@ export default function SalasPage() {
                       </TableCell>
 
                       {/* Ações */}
-                      {isAdminOrGestor && (
+                      {canManageRooms && (
                         <TableCell className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -630,16 +631,18 @@ export default function SalasPage() {
                               <span className="hidden sm:inline">Editar</span>
                             </Button>
 
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeactivateRoom(room)}
-                              className="h-7 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 px-2 rounded-lg cursor-pointer"
-                              title="Desativar sala"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            {canDeleteRooms && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeactivateRoom(room)}
+                                className="h-7 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 px-2 rounded-lg cursor-pointer"
+                                title="Desativar sala"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       )}

@@ -57,4 +57,13 @@ describe("RBAC Permissions - Regras de Permissão para ACADEMIC_SUPPORT", () => 
     expect(sanitizedPayload.assignedUserId).toBeUndefined();
     expect(sanitizedPayload.status).toBeUndefined();
   });
+
+  it("deve permitir que OPERADOR, GESTOR e ADMIN gerenciem a infraestrutura de salas", () => {
+    const rolesAllowedToEditRooms: Role[] = [Role.ADMIN, Role.GESTOR, Role.OPERADOR];
+
+    expect(rolesAllowedToEditRooms.includes(Role.OPERADOR)).toBe(true);
+    expect(rolesAllowedToEditRooms.includes(Role.GESTOR)).toBe(true);
+    expect(rolesAllowedToEditRooms.includes(Role.ADMIN)).toBe(true);
+    expect(rolesAllowedToEditRooms.includes(Role.ACADEMIC_SUPPORT)).toBe(false);
+  });
 });
