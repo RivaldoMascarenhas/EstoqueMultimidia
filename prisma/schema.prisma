@@ -29,6 +29,32 @@ enum ItemLogisticsType {
   MOBILE_STOCK    // Retirado do estoque físico e levado até a sala (ex: Notebook, Datashow móvel)
 }
 
+enum ResourceType {
+  FIXED_IN_ROOM   // Infraestrutura Fixa instalada na sala (Datashow da sala, PC da sala, Áudio fixo)
+  MOBILE_ASSET    // Equipamento Móvel Patrimonial (Notebook, Datashow móvel, Caixa de som, Microfone)
+  QUANTITATIVE    // Item Quantitativo controlado por quantidade (HDMI, Adaptador, Cabos)
+}
+
+enum TaskType {
+  FIXED_EQUIPMENT // Ligar Datashow fixo, testar imagem/áudio da sala
+  SEPARATION      // Separar Notebook, Cabo HDMI, Caixa de som no armário
+  DELIVERY        // Levar equipamentos para a sala
+  COLLECTION      // Recolher equipamentos após o término da aula
+  CUSTOM          // Tarefa personalizada
+}
+
+enum ReservationStatus {
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
+enum RequestPriority {
+  NORMAL
+  ALTA
+  URGENTE
+}
+
 enum Shift {
   MORNING
   AFTERNOON
@@ -112,6 +138,7 @@ model User {
   apiKeys            ApiKey[]
   requestsCreated    Request[]         @relation("RequestCreatedBy")
   requestsAssigned   Request[]         @relation("RequestAssignedUser")
+  tasksCompleted     RequestTask[]
 }
 
 model ApiKey {
@@ -208,6 +235,7 @@ model Item {
   movements           StockMovement[]
   requestItems        RequestItem[]
   roomFixedEquipments RoomFixedEquipment[]
+  reservations        Reservation[]
 
   @@index([categoryId])
   @@index([sku])
@@ -257,6 +285,7 @@ model Asset {
   history              AssetHistory[]
   requestItems         RequestItem[]
   roomFixedEquipments  RoomFixedEquipment[]
+  reservations         Reservation[]
 
   @@index([assetTag])
   @@index([serialNumber])
@@ -269,7 +298,7 @@ model AssetHistory {
   id               String       @id @default(cuid())
   assetId          String
   asset            Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  action           String       // ex: "CADASTRADO", "EMPRESTADO", "DEVOLVIDO", "MANUTENCAO"
+  action           String       // ex: "CADASTRADO", "EMPRESTADO", "DEVOLVIDO", "MANUTENCAO", "REQUEST_ASSET_ALLOCATED", "REQUEST_ASSET_SWAP"
   fromStatus       AssetStatus?
   toStatus         AssetStatus
   fromLocation     String?
@@ -386,8 +415,8 @@ model AuditLog {
   id          String    @id @default(cuid())
   userId      String?
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action      String    // ex: "LOGIN", "CREATE_ITEM", "STOCK_EXIT", "LOAN_CREATE", "CREATE_REQUEST", etc.
-  entity      String    // ex: "Item", "Asset", "Loan", "Inventory", "Request", "Room"
+  action      String    // ex: "LOGIN", "CREATE_ITEM", "CREATE_REQUEST", "ALLOCATE_ASSET", "SWAP_ASSET", etc.
+  entity      String    // ex: "Item", "Asset", "Loan", "Inventory", "Request", "Room", "Reservation", "RequestTask"
   entityId    String?
   details     Json?     // Payload com estado antes e depois (diff)
   ipAddress   String?
@@ -461,40 +490,42 @@ model RoomFixedEquipment {
   @@index([assetId])
 }
 
+// ----------------------------------------------------
+// SOLICITAÇÕES OPERACIONAIS (MULTIMÍDIA)
+// ----------------------------------------------------
+
 model Request {
-  id               String         @id @default(cuid())
-  date             DateTime       // Data da realização do atendimento
-  startTime        DateTime       // Data e hora real de início
-  endTime          DateTime       // Data e hora real de término
-  shift            Shift          // Calculado automaticamente pelo ShiftService
+  id               String          @id @default(cuid())
+  date             DateTime        // Data da realização do atendimento
+  startTime        DateTime        // Data e hora real de início
+  endTime          DateTime        // Data e hora real de término
+  shift            Shift           // Calculado automaticamente pelo ShiftService
+  isOutsideShift   Boolean         @default(false) // Marcador se o atendimento está fora do expediente regular
+  priority         RequestPriority @default(NORMAL)
   roomId           String
-  room             Room           @relation(fields: [roomId], references: [id])
+  room             Room            @relation(fields: [roomId], references: [id])
   professorName    String?
   discipline       String?
   attendanceType   String?
   notes            String?
-  status           RequestStatus  @default(AGENDADO)
-  origin           RequestOrigin  @default(MANUAL)
-  needsReview      Boolean        @default(false)
+  status           RequestStatus   @default(AGENDADO)
+  origin           RequestOrigin   @default(MANUAL)
+  needsReview      Boolean         @default(false)
 
   assignedUserId   String?
-  assignedUser     User?          @relation("RequestAssignedUser", fields: [assignedUserId], references: [id])
+  assignedUser     User?           @relation("RequestAssignedUser", fields: [assignedUserId], references: [id])
   createdById      String
-  createdBy        User           @relation("RequestCreatedBy", fields: [createdById], references: [id])
-
-  // Integração Google Calendar (Sync de saída)
-  googleEventId    String?
-  googleCalendarId String?
-  lastGoogleSyncAt DateTime?
-  syncStatus       String?        // "SYNCED" | "PENDING" | "ERROR"
+  createdBy        User            @relation("RequestCreatedBy", fields: [createdById], references: [id])
 
   // Recorrência
   seriesId         String?
-  series           RequestSeries? @relation(fields: [seriesId], references: [id])
+  series           RequestSeries?  @relation(fields: [seriesId], references: [id])
 
   items            RequestItem[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  reservations     Reservation[]
+  tasks            RequestTask[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([date])
   @@index([shift])
@@ -505,40 +536,74 @@ model Request {
 }
 
 model RequestItem {
-  id         String   @id @default(cuid())
-  requestId  String
-  request    Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  itemId     String?
-  item       Item?    @relation(fields: [itemId], references: [id])
-  assetId    String?
-  asset      Asset?   @relation(fields: [assetId], references: [id])
-  label      String   // Descrição do item (ex: "Notebook i5", "Cabo HDMI 10m")
-  quantity   Int      @default(1)
-  separated  Boolean  @default(false)
+  id           String        @id @default(cuid())
+  requestId    String
+  request      Request       @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemId       String?
+  item         Item?         @relation(fields: [itemId], references: [id])
+  assetId      String?       // Patrimônio físico específico alocado pelo Multimídia
+  asset        Asset?        @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  resourceType ResourceType  @default(QUANTITATIVE)
+  label        String        // Descrição do recurso solicitado (ex: "Notebook", "Cabo HDMI 10m", "Datashow da sala")
+  quantity     Int           @default(1)
+  separated    Boolean       @default(false)
+  notes        String?
 
   @@index([assetId])
   @@index([requestId])
+  @@index([itemId])
+}
+
+model Reservation {
+  id           String            @id @default(cuid())
+  requestId    String
+  request      Request           @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemId       String?           // Vínculo com catálogo de itens
+  item         Item?             @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  assetId      String?           // Vínculo com patrimônio específico (quando alocado)
+  asset        Asset?            @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  resourceType ResourceType      @default(QUANTITATIVE)
+  quantity     Int               @default(1)
+  startTime    DateTime
+  endTime      DateTime
+  status       ReservationStatus @default(ACTIVE)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([requestId])
+  @@index([itemId])
+  @@index([assetId])
+  @@index([startTime, endTime])
+  @@index([status])
+}
+
+model RequestTask {
+  id                String    @id @default(cuid())
+  requestId         String
+  request           Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  title             String    // ex: "Ligar Datashow da Sala 2N", "Separar 1 Notebook"
+  description       String?
+  taskType          TaskType  @default(SEPARATION)
+  completed         Boolean   @default(false)
+  completedAt       DateTime?
+  completedByUserId String?
+  completedByUser   User?     @relation(fields: [completedByUserId], references: [id], onDelete: SetNull)
+  orderIndex        Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([requestId])
+  @@index([completed])
+  @@index([taskType])
 }
 
 model RequestSeries {
-  id                  String    @id @default(cuid())
-  frequency           String    // "WEEKLY"
-  dayOfWeek           Int?      // 0-6 (0 = Domingo, 1 = Segunda...)
-  startDate           DateTime
-  endDate             DateTime?
-  googleMasterEventId String?
-  requests            Request[]
-  createdAt           DateTime  @default(now())
-}
-
-model GoogleIntegration {
-  id           String    @id @default("default")
-  accountEmail String?
-  accessToken  String?   @db.Text
-  refreshToken String?   @db.Text
-  expiryDate   DateTime?
-  calendarId   String?   @default("primary")
-  calendarName String?
-  connected    Boolean   @default(false)
-  updatedAt    DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  frequency   String    // "WEEKLY"
+  dayOfWeek   Int?      // 0-6 (0 = Domingo, 1 = Segunda...)
+  startDate   DateTime
+  endDate     DateTime?
+  requests    Request[]
+  createdAt   DateTime  @default(now())
 }

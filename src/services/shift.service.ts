@@ -48,6 +48,46 @@ export class ShiftService {
   }
 
   /**
+   * Determina se um horário está estritamente fora de qualquer turno regular cadastrado
+   * (ex: 04:00 da madrugada ou 23:30 da noite)
+   */
+  static isOutsideRegularShifts(
+    timeInput: string | Date,
+    configs?: (ShiftConfig | ShiftInfo)[]
+  ): boolean {
+    let timeStr: string;
+
+    if (timeInput instanceof Date) {
+      const hours = String(timeInput.getHours()).padStart(2, "0");
+      const minutes = String(timeInput.getMinutes()).padStart(2, "0");
+      timeStr = `${hours}:${minutes}`;
+    } else if (typeof timeInput === "string") {
+      if (timeInput.includes("T")) {
+        const d = new Date(timeInput);
+        const hours = String(d.getHours()).padStart(2, "0");
+        const minutes = String(d.getMinutes()).padStart(2, "0");
+        timeStr = `${hours}:${minutes}`;
+      } else {
+        timeStr = timeInput.trim();
+      }
+    } else {
+      return false;
+    }
+
+    const targetMinutes = this.timeToMinutes(timeStr);
+    const activeConfigs = configs && configs.length > 0 ? configs : DEFAULT_SHIFTS;
+
+    const sorted = [...activeConfigs].sort(
+      (a, b) => this.timeToMinutes(a.startTime) - this.timeToMinutes(b.startTime)
+    );
+
+    const firstStart = this.timeToMinutes(sorted[0]?.startTime || "07:00");
+    const lastEnd = this.timeToMinutes(sorted[sorted.length - 1]?.endTime || "22:30");
+
+    return targetMinutes < firstStart || targetMinutes >= lastEnd;
+  }
+
+  /**
    * Determina o turno a partir de uma string "HH:mm" ou objeto Date,
    * respeitando as faixas configuradas no banco de dados ou a configuração padrão.
    *
@@ -60,8 +100,6 @@ export class ShiftService {
    * - 18:00 -> NIGHT (transição exata)
    * - 21:59 -> NIGHT
    * - 22:00 -> NIGHT
-   * - Horários antes do primeiro turno (< 07:00) caem no turno da Manhã (preparo antecipado).
-   * - Horários após o último turno (>= 22:30) caem no turno da Noite.
    */
   static getShiftFromTime(
     timeInput: string | Date,
@@ -117,6 +155,33 @@ export class ShiftService {
     }
 
     return Shift.MORNING;
+  }
+
+  /**
+   * Retorna os detalhes operacionais do turno incluindo verificação de fora de expediente
+   */
+  static getShiftDetails(
+    timeInput: string | Date,
+    configs?: (ShiftConfig | ShiftInfo)[]
+  ): {
+    shift: Shift;
+    isOutsideShift: boolean;
+    label: string;
+    emoji: string;
+    displayLabel: string;
+  } {
+    const shift = this.getShiftFromTime(timeInput, configs);
+    const isOutside = this.isOutsideRegularShifts(timeInput, configs);
+    const activeConfigs = configs && configs.length > 0 ? configs : DEFAULT_SHIFTS;
+    const config = activeConfigs.find((c) => c.shift === shift) || DEFAULT_SHIFTS[0];
+
+    return {
+      shift,
+      isOutsideShift: isOutside,
+      label: config.label,
+      emoji: config.emoji || "📅",
+      displayLabel: isOutside ? `${config.label} (Fora do Expediente)` : config.label,
+    };
   }
 
   /**

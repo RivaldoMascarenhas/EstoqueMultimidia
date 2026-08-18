@@ -3,6 +3,8 @@ import { LoanService } from "@/services/loan.service";
 import { loanCreateSchema } from "@/schemas/loan.schema";
 import { requireSession } from "@/lib/api-guard";
 
+import { Role } from "@prisma/client";
+
 export async function GET(req: NextRequest) {
   try {
     const { error } = await requireSession();
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession();
+    const { session, error } = await requireSession([Role.ADMIN, Role.OPERADOR, Role.GESTOR]);
     if (error) return error;
 
     const body = await req.json();

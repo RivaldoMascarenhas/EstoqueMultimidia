@@ -54,12 +54,35 @@ export class AssetService {
             door: true,
           },
         },
+        currentRoom: true,
         loans: {
-          where: { status: "ACTIVE" },
+          where: { status: { in: ["ACTIVE", "OVERDUE"] } },
+          include: {
+            createdByUser: { select: { name: true } },
+          },
+          orderBy: { expectedReturnDate: "asc" },
+          take: 1,
+        },
+        reservations: {
+          where: {
+            status: "ACTIVE",
+            endTime: { gte: new Date(Date.now() - 30 * 60 * 1000) },
+          },
+          include: {
+            request: {
+              include: {
+                room: true,
+              },
+            },
+          },
+          orderBy: { startTime: "asc" },
           take: 1,
         },
         maintenances: {
           where: { status: { in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS] } },
+          include: {
+            createdByUser: { select: { name: true } },
+          },
           take: 1,
         },
       },
@@ -101,6 +124,21 @@ export class AssetService {
             createdByUser: { select: { name: true, email: true } },
           },
           orderBy: { createdAt: "desc" },
+        },
+        reservations: {
+          where: {
+            status: "ACTIVE",
+            endTime: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+          },
+          include: {
+            request: {
+              include: {
+                room: true,
+              },
+            },
+          },
+          orderBy: { startTime: "asc" },
+          take: 5,
         },
         maintenances: {
           include: {

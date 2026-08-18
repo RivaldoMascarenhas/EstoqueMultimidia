@@ -17,6 +17,9 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       updateMany: vi.fn(),
     },
+    reservation: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
     assetHistory: {
       create: vi.fn(),
     },

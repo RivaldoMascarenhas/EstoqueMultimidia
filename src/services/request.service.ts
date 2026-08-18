@@ -3,14 +3,18 @@ import {
   RequestStatus, 
   RequestOrigin, 
   Shift, 
-  ItemLogisticsType,
   Role,
-  AssetStatus
+  AssetStatus,
+  ResourceType,
+  RequestPriority,
+  TaskType,
+  ReservationStatus
 } from "@prisma/client";
 import { 
   RequestCreateInput, 
   RequestUpdateInput, 
-  RequestLegacyConfirmInput 
+  RequestLegacyConfirmInput,
+  RequestTaskCreateInput
 } from "@/schemas/request.schema";
 import { ShiftService } from "@/services/shift.service";
 
@@ -38,7 +42,7 @@ export class RequestService {
   }
 
   /**
-   * Lista solicitações com múltiplos filtros e paginação
+   * Lista solicitações com múltiplos filtros
    */
   static async getRequests(params?: {
     date?: string | Date;
@@ -105,6 +109,10 @@ export class RequestService {
             },
           },
         },
+        tasks: {
+          orderBy: { orderIndex: "asc" },
+        },
+        reservations: true,
         series: true,
       },
       orderBy: [{ startTime: "asc" }],
@@ -112,8 +120,7 @@ export class RequestService {
   }
 
   /**
-   * Retorna os agendamentos de uma data organizados por Turno (Manhã / Tarde / Noite),
-   * contadores operacionais e próximo atendimento
+   * Retorna os atendimentos de uma data organizados por Turno (Manhã / Tarde / Noite)
    */
   static async getRequestsByShift(targetDate: string | Date = new Date()) {
     const { startOfDay, endOfDay } = this.normalizeDate(targetDate);
@@ -147,6 +154,10 @@ export class RequestService {
             },
           },
         },
+        tasks: {
+          orderBy: { orderIndex: "asc" },
+        },
+        reservations: true,
       },
       orderBy: [{ startTime: "asc" }],
     });
@@ -187,7 +198,6 @@ export class RequestService {
       };
     };
 
-    // Identificar próximo atendimento
     const now = new Date();
     const upcomingRequests = allRequests.filter(
       (r) =>
@@ -197,15 +207,12 @@ export class RequestService {
     );
     const nextRequest = upcomingRequests.length > 0 ? upcomingRequests[0] : null;
 
-    const totalDayCount = allRequests.length;
-    const totalDayPendingReview = allRequests.filter((r) => r.needsReview).length;
-
     return {
       date: startOfDay.toISOString().split("T")[0],
       configs,
       currentShift,
-      totalDayCount,
-      totalDayPendingReview,
+      totalDayCount: allRequests.length,
+      totalDayPendingReview: allRequests.filter((r) => r.needsReview).length,
       nextRequest,
       shifts: {
         MORNING: buildShiftSummary(Shift.MORNING),
@@ -225,7 +232,7 @@ export class RequestService {
         room: {
           include: {
             fixedEquipment: {
-              include: { item: true },
+              include: { item: true, asset: true },
             },
           },
         },
@@ -243,6 +250,13 @@ export class RequestService {
             },
           },
         },
+        tasks: {
+          include: { completedByUser: { select: { id: true, name: true } } },
+          orderBy: { orderIndex: "asc" },
+        },
+        reservations: {
+          include: { item: true, asset: true },
+        },
         series: true,
       },
     });
@@ -255,7 +269,7 @@ export class RequestService {
   }
 
   /**
-   * Validação de Conflito de Equipamento: impede reservar o mesmo Asset em horários sobrepostos
+   * Validação de Conflito de Patrimônio Individual no intervalo
    */
   static async validateAssetConflict(
     assetId: string,
@@ -264,36 +278,122 @@ export class RequestService {
     excludeRequestId?: string,
     tx: any = prisma
   ) {
-    // 1. Conflito com outros atendimentos da agenda
-    const overlappingRequests = await tx.requestItem.findMany({
+    // 1. Checar status estrutural do Asset
+    const asset = await tx.asset.findUnique({
+      where: { id: assetId },
+      include: { item: true, currentRoom: true },
+    });
+
+    if (!asset || !asset.active) {
+      throw new Error("Patrimônio não encontrado ou inativo no sistema.");
+    }
+
+    if (asset.status === AssetStatus.IN_MAINTENANCE) {
+      throw new Error(`O patrimônio ${asset.assetTag} (${asset.item.name}) está atualmente em manutenção.`);
+    }
+
+    if (asset.status === AssetStatus.DAMAGED || asset.status === AssetStatus.WRITTEN_OFF || asset.status === AssetStatus.LOST) {
+      throw new Error(`O patrimônio ${asset.assetTag} está indisponível (Status: ${asset.status}).`);
+    }
+
+    // 2. Checar se está alocado fixo em sala de aula
+    if (asset.currentRoomId) {
+      throw new Error(
+        `O patrimônio ${asset.assetTag} está alocado como infraestrutura fixa da sala ${asset.currentRoom?.name || "de aula"}.`
+      );
+    }
+
+    // 3. Conflito com outras reservas no mesmo intervalo
+    const conflictingReservations = await tx.reservation.findMany({
       where: {
         assetId,
         requestId: excludeRequestId ? { not: excludeRequestId } : undefined,
-        request: {
-          status: { notIn: [RequestStatus.CANCELADO, RequestStatus.FINALIZADO] },
-          AND: [
-            { startTime: { lt: endTime } },
-            { endTime: { gt: startTime } },
-          ],
-        },
+        status: ReservationStatus.ACTIVE,
+        AND: [
+          { startTime: { lt: endTime } },
+          { endTime: { gt: startTime } },
+        ],
       },
       include: {
         request: {
-          include: {
-            room: true,
+          include: { room: true },
+        },
+      },
+    });
+
+    if (conflictingReservations.length > 0) {
+      const conflict = conflictingReservations[0].request;
+      const startStr = new Date(conflict.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const endStr = new Date(conflict.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      throw new Error(
+        `Conflito de patrimônio: o equipamento ${asset.assetTag} já está reservado para a sala ${conflict.room.name} das ${startStr} às ${endStr} (${conflict.professorName || "Atendimento agendado"}).`
+      );
+    }
+  }
+
+  /**
+   * Validação de Disponibilidade de Recurso (Estoque vs Comprometido no Horário)
+   */
+  static async validateItemAvailability(
+    itemId: string,
+    quantity: number,
+    startTime: Date,
+    endTime: Date,
+    excludeRequestId?: string,
+    tx: any = prisma
+  ) {
+    const item = await tx.item.findUnique({
+      where: { id: itemId },
+      include: {
+        inventories: true,
+        assets: {
+          where: {
+            active: true,
+            status: AssetStatus.AVAILABLE,
+            currentRoomId: null, // Não fixado em salas
           },
         },
       },
     });
 
-    if (overlappingRequests.length > 0) {
-      const conflict = overlappingRequests[0].request;
-      const startStr = new Date(conflict.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const endStr = new Date(conflict.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    if (!item || !item.active) {
+      throw new Error("Item do catálogo não encontrado ou inativo.");
+    }
+
+    // Reservas ativas no mesmo período
+    const overlappingReservations = await tx.reservation.findMany({
+      where: {
+        itemId,
+        requestId: excludeRequestId ? { not: excludeRequestId } : undefined,
+        status: ReservationStatus.ACTIVE,
+        AND: [
+          { startTime: { lt: endTime } },
+          { endTime: { gt: startTime } },
+        ],
+      },
+      select: { quantity: true },
+    });
+
+    const alreadyReserved = overlappingReservations.reduce((acc: number, r: any) => acc + r.quantity, 0);
+
+    let netAvailable = 0;
+    if (item.itemType === "ASSET_EQUIPMENT" || (item.assets && item.assets.length > 0)) {
+      // Total de assets disponíveis livres menos reservas sobrepostas
+      const totalAvailableAssets = item.assets.length;
+      netAvailable = Math.max(0, totalAvailableAssets - alreadyReserved);
+    } else {
+      // Itens quantitativos (Inventory)
+      const totalInventory = item.inventories.reduce((acc: number, inv: any) => acc + inv.quantity, 0);
+      netAvailable = Math.max(0, totalInventory - alreadyReserved);
+    }
+
+    if (netAvailable < quantity) {
       throw new Error(
-        `Conflito de equipamento: este patrimônio já está reservado para a sala ${conflict.room.name} no horário ${startStr} às ${endStr} (${conflict.professorName || "Atendimento agendado"}).`
+        `Disponibilidade insuficiente para "${item.name}". Disponíveis neste horário: ${netAvailable} unidade(s), solicitadas: ${quantity}.`
       );
     }
+
+    return item;
   }
 
   /**
@@ -320,79 +420,49 @@ export class RequestService {
     }
 
     const shift = ShiftService.getShiftFromTime(startDateTime, shiftConfigs);
+    const isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
 
     return await prisma.$transaction(async (tx) => {
       // 1. Validar sala
-      const room = await tx.room.findUnique({ where: { id: data.roomId } });
+      const room = await tx.room.findUnique({
+        where: { id: data.roomId },
+        include: { fixedEquipment: true },
+      });
+
       if (!room || !room.active) {
         throw new Error("Sala selecionada não encontrada ou inativa.");
       }
 
-      // 2. Validar conflitos de Asset nos itens
-      for (const item of data.items) {
-        if (item.assetId) {
-          await this.validateAssetConflict(item.assetId, startDateTime, endDateTime, undefined, tx);
-        }
-      }
-
-      // 2.5 Validar Disponibilidade Real de Estoque para o intervalo solicitado
+      // 2. Validar cada item solicitado
       for (const itemInput of data.items) {
-        if (itemInput.itemId) {
-          const catItem = await tx.item.findUnique({
-            where: { id: itemInput.itemId },
-            include: { inventories: true, assets: true },
-          });
-
-          if (catItem) {
-            if (catItem.logisticsType === ItemLogisticsType.FIXED_IN_ROOM) {
-              if (!room.fixedProjectorModel) {
-                throw new Error(
-                  `A sala ${room.name} não possui projetor fixo instalado. Selecione um Datashow Móvel do estoque.`
-                );
-              }
-              if (room.lampStatus === "TROCAR LAMPADA") {
-                throw new Error(
-                  `O projetor fixo da sala ${room.name} está indisponível para uso (requer troca de lâmpada).`
-                );
-              }
-            } else if (catItem.logisticsType === ItemLogisticsType.MOBILE_STOCK) {
-              const hasAssets = catItem.assets && catItem.assets.length > 0;
-              let netAvailable = 0;
-
-              // Reservas conflitantes no mesmo horário
-              const overlappingRequests = await tx.requestItem.findMany({
-                where: {
-                  itemId: catItem.id,
-                  request: {
-                    status: { notIn: [RequestStatus.CANCELADO, RequestStatus.FINALIZADO] },
-                    AND: [
-                      { startTime: { lt: endDateTime } },
-                      { endTime: { gt: startDateTime } },
-                    ],
-                  },
-                },
-                select: { quantity: true },
-              });
-
-              const alreadyReserved = overlappingRequests.reduce((acc: number, r: any) => acc + r.quantity, 0);
-
-              if (hasAssets) {
-                // Para itens com controle patrimonial (Assets), conta apenas os disponíveis
-                const availableAssetsCount = catItem.assets.filter((a: any) => a.status === AssetStatus.AVAILABLE).length;
-                netAvailable = Math.max(0, availableAssetsCount - alreadyReserved);
-              } else {
-                // Para itens de quantidade contínua (Inventory), soma tudo nos armários
-                const totalCap = catItem.inventories.reduce((acc: number, inv: any) => acc + inv.quantity, 0);
-                netAvailable = Math.max(0, totalCap - alreadyReserved);
-              }
-
-              if (netAvailable < itemInput.quantity) {
-                throw new Error(
-                  `Estoque insuficiente para o item "${catItem.name}". Disponíveis para este horário: ${netAvailable} unidade(s), solicitadas: ${itemInput.quantity}.`
-                );
-              }
-            }
+        // Regra A: Infraestrutura Fixa (Datashow fixo / PC)
+        if (itemInput.resourceType === ResourceType.FIXED_IN_ROOM) {
+          if (!room.fixedProjectorModel) {
+            throw new Error(
+              `A sala ${room.name} não possui Datashow fixo instalado. Selecione "Datashow Móvel" do estoque.`
+            );
           }
+          if (room.lampStatus === "TROCAR LAMPADA") {
+            throw new Error(
+              `O Datashow fixo da sala ${room.name} está indisponível para uso (requer troca de lâmpada).`
+            );
+          }
+        }
+        // Regra B e C: Equipamentos móveis e itens quantitativos
+        else if (itemInput.itemId) {
+          await this.validateItemAvailability(
+            itemInput.itemId,
+            itemInput.quantity,
+            startDateTime,
+            endDateTime,
+            undefined,
+            tx
+          );
+        }
+
+        // Se informou patrimônio direto
+        if (itemInput.assetId) {
+          await this.validateAssetConflict(itemInput.assetId, startDateTime, endDateTime, undefined, tx);
         }
       }
 
@@ -405,7 +475,6 @@ export class RequestService {
           const [uY, uM, uD] = data.repeatUntilDate.split("-").map((v) => parseInt(v, 10));
           untilDate = new Date(uY, uM - 1, uD, 23, 59, 59);
         } else {
-          // Padrão: 8 semanas caso não informado
           const occurrences = data.repeatOccurrences || 8;
           untilDate = new Date(startDateTime.getTime() + occurrences * 7 * 24 * 60 * 60 * 1000);
         }
@@ -429,13 +498,60 @@ export class RequestService {
         safeCreatedById = fallback?.id || userId;
       }
 
-      // 4. Criar solicitação mestre / inicial
+      // 4. Montar tarefas operacionais automáticas
+      const initialTasks: Array<{ title: string; taskType: TaskType; orderIndex: number }> = [];
+      let taskOrder = 1;
+
+      // Tarefas para recursos fixos da sala
+      const hasFixedProjector = data.items.some((i) => i.resourceType === ResourceType.FIXED_IN_ROOM);
+      if (hasFixedProjector) {
+        initialTasks.push({
+          title: `Ligar Datashow da Sala ${room.name} (${room.fixedProjectorModel})`,
+          taskType: TaskType.FIXED_EQUIPMENT,
+          orderIndex: taskOrder++,
+        });
+        initialTasks.push({
+          title: `Testar sinal de vídeo/projeção na Sala ${room.name}`,
+          taskType: TaskType.FIXED_EQUIPMENT,
+          orderIndex: taskOrder++,
+        });
+      }
+
+      // Tarefas de separação para itens móveis e quantitativos
+      const mobileItems = data.items.filter((i) => i.resourceType !== ResourceType.FIXED_IN_ROOM);
+      for (const mobItem of mobileItems) {
+        initialTasks.push({
+          title: mobItem.quantity > 1 
+            ? `Separar ${mobItem.quantity}x ${mobItem.label}` 
+            : `Separar ${mobItem.label}`,
+          taskType: TaskType.SEPARATION,
+          orderIndex: taskOrder++,
+        });
+      }
+
+      // Tarefas de transporte e recolhimento
+      if (mobileItems.length > 0) {
+        initialTasks.push({
+          title: `Levar equipamentos para a Sala ${room.name}`,
+          taskType: TaskType.DELIVERY,
+          orderIndex: taskOrder++,
+        });
+        initialTasks.push({
+          title: `Recolher equipamentos da Sala ${room.name} após o término`,
+          taskType: TaskType.COLLECTION,
+          orderIndex: taskOrder++,
+        });
+      }
+
+      // 5. Criar solicitação principal
       const primaryRequest = await tx.request.create({
         data: {
           date: dateOnly,
           startTime: startDateTime,
           endTime: endDateTime,
           shift,
+          isOutsideShift,
+          priority: data.priority || RequestPriority.NORMAL,
           roomId: data.roomId,
           professorName: data.professorName?.trim() || null,
           discipline: data.discipline?.trim() || null,
@@ -447,30 +563,56 @@ export class RequestService {
           assignedUserId: data.assignedUserId || null,
           createdById: safeCreatedById,
           seriesId,
-          syncStatus: "SYNCED",
           items: {
             create: data.items.map((item) => ({
               itemId: item.itemId || null,
               assetId: item.assetId || null,
+              resourceType: item.resourceType || ResourceType.QUANTITATIVE,
               label: item.label.trim(),
               quantity: item.quantity || 1,
               separated: item.separated || false,
+              notes: item.notes?.trim() || null,
+            })),
+          },
+          tasks: {
+            create: initialTasks.map((t) => ({
+              title: t.title,
+              taskType: t.taskType,
+              orderIndex: t.orderIndex,
+              completed: false,
             })),
           },
         },
         include: {
           room: true,
-          items: {
-            include: { item: true, asset: true },
-          },
+          items: { include: { item: true, asset: true } },
+          tasks: true,
         },
       });
 
-      // 5. Se for recorrente, materializar as instâncias futuras no banco de dados
+      // 6. Criar reservas de recursos no período
+      for (const item of data.items) {
+        if (item.resourceType !== ResourceType.FIXED_IN_ROOM && item.itemId) {
+          await tx.reservation.create({
+            data: {
+              requestId: primaryRequest.id,
+              itemId: item.itemId,
+              assetId: item.assetId || null,
+              resourceType: item.resourceType,
+              quantity: item.quantity || 1,
+              startTime: startDateTime,
+              endTime: endDateTime,
+              status: ReservationStatus.ACTIVE,
+            },
+          });
+        }
+      }
+
+      // 7. Se for recorrente, materializar as instâncias futuras
       if (data.repeatWeekly && seriesId) {
         let currentDate = new Date(startDateTime.getTime() + 7 * 24 * 60 * 60 * 1000);
         let currentEndDate = new Date(endDateTime.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const maxDate = new Date(startDateTime.getTime() + 32 * 7 * 24 * 60 * 60 * 1000); // Teto de segurança: 32 semanas (semestre completo)
+        const maxDate = new Date(startDateTime.getTime() + 32 * 7 * 24 * 60 * 60 * 1000);
 
         const seriesEndDate = data.repeatUntilDate
           ? new Date(data.repeatUntilDate + "T23:59:59")
@@ -479,12 +621,14 @@ export class RequestService {
         while (currentDate <= seriesEndDate && currentDate <= maxDate) {
           const instDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
 
-          await tx.request.create({
+          const nextInstance = await tx.request.create({
             data: {
               date: instDateOnly,
               startTime: currentDate,
               endTime: currentEndDate,
               shift,
+              isOutsideShift,
+              priority: data.priority || RequestPriority.NORMAL,
               roomId: data.roomId,
               professorName: data.professorName?.trim() || null,
               discipline: data.discipline?.trim() || null,
@@ -496,25 +640,51 @@ export class RequestService {
               assignedUserId: data.assignedUserId || null,
               createdById: safeCreatedById,
               seriesId,
-              syncStatus: "SYNCED",
               items: {
                 create: data.items.map((item) => ({
                   itemId: item.itemId || null,
                   assetId: null,
+                  resourceType: item.resourceType || ResourceType.QUANTITATIVE,
                   label: item.label.trim(),
                   quantity: item.quantity || 1,
                   separated: false,
+                  notes: item.notes?.trim() || null,
+                })),
+              },
+              tasks: {
+                create: initialTasks.map((t) => ({
+                  title: t.title,
+                  taskType: t.taskType,
+                  orderIndex: t.orderIndex,
+                  completed: false,
                 })),
               },
             },
           });
+
+          for (const item of data.items) {
+            if (item.resourceType !== ResourceType.FIXED_IN_ROOM && item.itemId) {
+              await tx.reservation.create({
+                data: {
+                  requestId: nextInstance.id,
+                  itemId: item.itemId,
+                  assetId: null,
+                  resourceType: item.resourceType,
+                  quantity: item.quantity || 1,
+                  startTime: currentDate,
+                  endTime: currentEndDate,
+                  status: ReservationStatus.ACTIVE,
+                },
+              });
+            }
+          }
 
           currentDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
           currentEndDate = new Date(currentEndDate.getTime() + 7 * 24 * 60 * 60 * 1000);
         }
       }
 
-      // 6. Trilha de Auditoria Segura
+      // 8. Trilha de Auditoria
       await tx.auditLog.create({
         data: {
           userId: safeCreatedById,
@@ -525,8 +695,10 @@ export class RequestService {
             room: room.name,
             professor: data.professorName,
             shift,
+            isOutsideShift,
             startTime: startDateTime.toISOString(),
             isRecurring: data.repeatWeekly,
+            itemsCount: data.items.length,
           },
         },
       });
@@ -536,7 +708,353 @@ export class RequestService {
   }
 
   /**
-   * Atualização de solicitação existente com checagem de autorização por perfil
+   * Alocação de Patrimônio Físico a um item da solicitação (Operação Multimídia)
+   */
+  static async allocateAsset(
+    requestId: string,
+    itemId: string,
+    assetId: string,
+    userId: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const request = await tx.request.findUnique({
+        where: { id: requestId },
+        include: { items: true, room: true },
+      });
+
+      if (!request) {
+        throw new Error("Solicitação de atendimento não encontrada.");
+      }
+
+      const requestItem = request.items.find((i) => i.id === itemId);
+      if (!requestItem) {
+        throw new Error("Item de solicitação não encontrado.");
+      }
+
+      // Validar conflitos do asset no horário
+      await this.validateAssetConflict(assetId, request.startTime, request.endTime, requestId, tx);
+
+      const asset = await tx.asset.findUniqueOrThrow({
+        where: { id: assetId },
+        include: { item: true },
+      });
+
+      // Atualizar o item e a reserva
+      await tx.requestItem.update({
+        where: { id: itemId },
+        data: {
+          assetId,
+        },
+      });
+
+      await tx.reservation.updateMany({
+        where: {
+          requestId,
+          itemId: requestItem.itemId || undefined,
+        },
+        data: {
+          assetId,
+        },
+      });
+
+      // Atualizar status para EM_PREPARACAO se estava AGENDADO
+      if (request.status === RequestStatus.AGENDADO) {
+        await tx.request.update({
+          where: { id: requestId },
+          data: { status: RequestStatus.EM_PREPARACAO },
+        });
+      }
+
+      // Registrar no histórico do patrimônio
+      await tx.assetHistory.create({
+        data: {
+          assetId,
+          action: "REQUEST_ASSET_ALLOCATED",
+          fromStatus: asset.status,
+          toStatus: asset.status,
+          userId,
+          observation: `Alocado para atendimento na Sala ${request.room.name} (${request.professorName || "Agendado"})`,
+        },
+      });
+
+      // Trilha de auditoria
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "ALLOCATE_ASSET",
+          entity: "Request",
+          entityId: requestId,
+          details: {
+            itemId,
+            itemLabel: requestItem.label,
+            assetTag: asset.assetTag,
+            assetModel: asset.model,
+          },
+        },
+      });
+
+      return await this.getRequestById(requestId);
+    });
+  }
+
+  /**
+   * Troca de Patrimônio (Asset Swap) por problema ou readequação operacional
+   */
+  static async swapAsset(
+    requestId: string,
+    itemId: string,
+    newAssetId: string,
+    reason: string,
+    userId: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const request = await tx.request.findUnique({
+        where: { id: requestId },
+        include: { items: true, room: true },
+      });
+
+      if (!request) {
+        throw new Error("Solicitação de atendimento não encontrada.");
+      }
+
+      const requestItem = request.items.find((i) => i.id === itemId);
+      if (!requestItem) {
+        throw new Error("Item de solicitação não encontrado.");
+      }
+
+      const oldAssetId = requestItem.assetId;
+      let oldAssetTag = "Nenhum";
+      if (oldAssetId) {
+        const oldAsset = await tx.asset.findUnique({ where: { id: oldAssetId } });
+        if (oldAsset) oldAssetTag = oldAsset.assetTag;
+      }
+
+      // Validar novo asset no horário
+      await this.validateAssetConflict(newAssetId, request.startTime, request.endTime, requestId, tx);
+
+      const newAsset = await tx.asset.findUniqueOrThrow({
+        where: { id: newAssetId },
+        include: { item: true },
+      });
+
+      // Atualizar item e reserva
+      await tx.requestItem.update({
+        where: { id: itemId },
+        data: { assetId: newAssetId },
+      });
+
+      await tx.reservation.updateMany({
+        where: {
+          requestId,
+          itemId: requestItem.itemId || undefined,
+        },
+        data: { assetId: newAssetId },
+      });
+
+      // Adicionar observação na solicitação
+      const swapNote = `[Troca de Patrimônio: de ${oldAssetTag} para ${newAsset.assetTag} - Motivo: ${reason.trim()}]`;
+      const updatedNotes = request.notes ? `${request.notes} | ${swapNote}` : swapNote;
+
+      await tx.request.update({
+        where: { id: requestId },
+        data: { notes: updatedNotes },
+      });
+
+      // Registrar nos históricos de patrimônio
+      if (oldAssetId) {
+        await tx.assetHistory.create({
+          data: {
+            assetId: oldAssetId,
+            action: "REQUEST_ASSET_SWAP",
+            toStatus: AssetStatus.AVAILABLE,
+            userId,
+            observation: `Substituído por ${newAsset.assetTag} no atendimento da Sala ${request.room.name}. Motivo: ${reason}`,
+          },
+        });
+      }
+
+      await tx.assetHistory.create({
+        data: {
+          assetId: newAssetId,
+          action: "REQUEST_ASSET_SWAP",
+          toStatus: newAsset.status,
+          userId,
+          observation: `Substituto de ${oldAssetTag} no atendimento da Sala ${request.room.name}. Motivo: ${reason}`,
+        },
+      });
+
+      // Auditoria
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "SWAP_ASSET",
+          entity: "Request",
+          entityId: requestId,
+          details: {
+            itemId,
+            oldAssetId,
+            oldAssetTag,
+            newAssetId,
+            newAssetTag: newAsset.assetTag,
+            reason,
+          },
+        },
+      });
+
+      return await this.getRequestById(requestId);
+    });
+  }
+
+  /**
+   * Alternar conclusão de tarefa operacional (Checklist de Trabalho)
+   */
+  static async toggleTask(
+    requestId: string,
+    taskId: string,
+    completed: boolean,
+    userId: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const task = await tx.requestTask.findUnique({
+        where: { id: taskId },
+      });
+
+      if (!task || task.requestId !== requestId) {
+        throw new Error("Tarefa operacional não encontrada.");
+      }
+
+      await tx.requestTask.update({
+        where: { id: taskId },
+        data: {
+          completed,
+          completedAt: completed ? new Date() : null,
+          completedByUserId: completed ? userId : null,
+        },
+      });
+
+      // Avaliar todas as tarefas da solicitação
+      const allTasks = await tx.requestTask.findMany({
+        where: { requestId },
+      });
+
+      const prepTasks = allTasks.filter(
+        (t) => t.taskType === TaskType.FIXED_EQUIPMENT || t.taskType === TaskType.SEPARATION
+      );
+
+      const allPrepDone = prepTasks.length > 0 && prepTasks.every((t) => (t.id === taskId ? completed : t.completed));
+      const deliveryTask = allTasks.find((t) => t.taskType === TaskType.DELIVERY);
+      const isDeliveryDone = deliveryTask ? (deliveryTask.id === taskId ? completed : deliveryTask.completed) : false;
+      const allTasksDone = allTasks.every((t) => (t.id === taskId ? completed : t.completed));
+
+      const request = await tx.request.findUniqueOrThrow({ where: { id: requestId } });
+
+      let newStatus = request.status;
+      if (allTasksDone && request.status !== RequestStatus.FINALIZADO && request.status !== RequestStatus.CANCELADO) {
+        newStatus = RequestStatus.FINALIZADO;
+      } else if (isDeliveryDone && request.status !== RequestStatus.FINALIZADO) {
+        newStatus = RequestStatus.EM_ATENDIMENTO;
+      } else if (allPrepDone && (request.status === RequestStatus.AGENDADO || request.status === RequestStatus.EM_PREPARACAO)) {
+        newStatus = RequestStatus.PREPARADO;
+      } else if (!allPrepDone && request.status === RequestStatus.PREPARADO) {
+        newStatus = RequestStatus.EM_PREPARACAO;
+      }
+
+      if (newStatus !== request.status) {
+        await tx.request.update({
+          where: { id: requestId },
+          data: { status: newStatus },
+        });
+      }
+
+      return await this.getRequestById(requestId);
+    });
+  }
+
+  /**
+   * Adicionar tarefa personalizada a uma solicitação
+   */
+  static async addTask(requestId: string, data: RequestTaskCreateInput, userId: string) {
+    return await prisma.$transaction(async (tx) => {
+      const count = await tx.requestTask.count({ where: { requestId } });
+
+      const task = await tx.requestTask.create({
+        data: {
+          requestId,
+          title: data.title.trim(),
+          description: data.description?.trim() || null,
+          taskType: data.taskType || TaskType.CUSTOM,
+          orderIndex: count + 1,
+          completed: false,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "ADD_REQUEST_TASK",
+          entity: "RequestTask",
+          entityId: task.id,
+          details: { requestId, title: task.title },
+        },
+      });
+
+      return await this.getRequestById(requestId);
+    });
+  }
+
+  /**
+   * Excluir tarefa operacional
+   */
+  static async deleteTask(requestId: string, taskId: string, userId: string) {
+    return await prisma.$transaction(async (tx) => {
+      await tx.requestTask.delete({
+        where: { id: taskId },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "DELETE_REQUEST_TASK",
+          entity: "RequestTask",
+          entityId: taskId,
+          details: { requestId },
+        },
+      });
+
+      return await this.getRequestById(requestId);
+    });
+  }
+
+  /**
+   * Marcação de item separado (Compatibilidade com rotas legadas de separação)
+   */
+  static async toggleItemSeparated(
+    requestId: string,
+    itemId: string,
+    separated: boolean,
+    userId: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const requestItem = await tx.requestItem.findUnique({
+        where: { id: itemId },
+      });
+
+      if (!requestItem || requestItem.requestId !== requestId) {
+        throw new Error("Item de solicitação não encontrado.");
+      }
+
+      await tx.requestItem.update({
+        where: { id: itemId },
+        data: { separated },
+      });
+
+      return await this.getRequestById(requestId);
+    });
+  }
+
+
+  /**
+   * Atualização de solicitação com checagem de autorização por perfil
    */
   static async updateRequest(
     id: string,
@@ -552,12 +1070,10 @@ export class RequestService {
       throw new Error("Solicitação não encontrada.");
     }
 
-    // Regra de Permissão Apoio Acadêmico (ACADEMIC_SUPPORT)
     if (user.role === Role.ACADEMIC_SUPPORT) {
       if (existing.createdById !== user.id) {
         throw new Error("Permissão negada: você só pode editar as solicitações criadas pelo seu próprio usuário.");
       }
-      // ACADEMIC_SUPPORT não pode alterar campos operacionais internos do Multimídia
       if (data.assignedUserId !== undefined && data.assignedUserId !== existing.assignedUserId) {
         throw new Error("Permissão negada: o perfil Apoio Acadêmico não pode alterar o responsável operacional.");
       }
@@ -570,6 +1086,7 @@ export class RequestService {
       let shift = existing.shift;
       let startDateTime = existing.startTime;
       let endDateTime = existing.endTime;
+      let isOutsideShift = existing.isOutsideShift;
 
       if (data.startTime || data.date || data.endTime) {
         const dateStr = data.date || existing.date.toISOString().split("T")[0];
@@ -600,28 +1117,46 @@ export class RequestService {
 
         const shiftConfigs = await ShiftService.getShiftConfigs();
         shift = ShiftService.getShiftFromTime(startDateTime, shiftConfigs);
+        isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
       }
 
       // Se atualizou itens
       if (data.items !== undefined) {
-        for (const item of data.items) {
-          if (item.assetId) {
-            await this.validateAssetConflict(item.assetId, startDateTime, endDateTime, id, tx);
-          }
-        }
-
+        // Remover itens e reservas antigas
+        await tx.reservation.deleteMany({ where: { requestId: id } });
         await tx.requestItem.deleteMany({ where: { requestId: id } });
+
         if (data.items.length > 0) {
           await tx.requestItem.createMany({
             data: data.items.map((item) => ({
               requestId: id,
               itemId: item.itemId || null,
               assetId: item.assetId || null,
+              resourceType: item.resourceType || ResourceType.QUANTITATIVE,
               label: item.label.trim(),
               quantity: item.quantity || 1,
               separated: item.separated || false,
+              notes: item.notes?.trim() || null,
             })),
           });
+
+          for (const item of data.items) {
+            if (item.resourceType !== ResourceType.FIXED_IN_ROOM && item.itemId) {
+              await this.validateItemAvailability(item.itemId, item.quantity, startDateTime, endDateTime, id, tx);
+              await tx.reservation.create({
+                data: {
+                  requestId: id,
+                  itemId: item.itemId,
+                  assetId: item.assetId || null,
+                  resourceType: item.resourceType || ResourceType.QUANTITATIVE,
+                  quantity: item.quantity || 1,
+                  startTime: startDateTime,
+                  endTime: endDateTime,
+                  status: ReservationStatus.ACTIVE,
+                },
+              });
+            }
+          }
         }
       }
 
@@ -645,6 +1180,8 @@ export class RequestService {
           startTime: startDateTime,
           endTime: endDateTime,
           shift,
+          isOutsideShift,
+          priority: data.priority || undefined,
           roomId: data.roomId || undefined,
           professorName: data.professorName !== undefined ? (data.professorName ? data.professorName.trim() : null) : undefined,
           discipline: data.discipline !== undefined ? (data.discipline ? data.discipline.trim() : null) : undefined,
@@ -656,19 +1193,15 @@ export class RequestService {
         include: {
           room: true,
           items: { include: { item: true, asset: true } },
+          tasks: { orderBy: { orderIndex: "asc" } },
+          reservations: true,
           assignedUser: { select: { id: true, name: true } },
         },
       });
 
-      let validUpdateUserId: string | null = null;
-      if (user?.id) {
-        const u = await tx.user.findUnique({ where: { id: user.id }, select: { id: true } });
-        if (u) validUpdateUserId = u.id;
-      }
-
       await tx.auditLog.create({
         data: {
-          userId: validUpdateUserId,
+          userId: user.id,
           action: "UPDATE_REQUEST",
           entity: "Request",
           entityId: id,
@@ -697,100 +1230,29 @@ export class RequestService {
       throw new Error("Permissão negada: você só pode cancelar as solicitações criadas por você.");
     }
 
-    const updated = await prisma.request.update({
-      where: { id },
-      data: { status: RequestStatus.CANCELADO },
-    });
-
-    let validCancelUserId: string | null = null;
-    if (user?.id) {
-      const u = await prisma.user.findUnique({ where: { id: user.id }, select: { id: true } });
-      if (u) validCancelUserId = u.id;
-    }
-
-    await prisma.auditLog.create({
-      data: {
-        userId: validCancelUserId,
-        action: "CANCEL_REQUEST",
-        entity: "Request",
-        entityId: id,
-        details: { professor: existing.professorName, room: existing.room.name },
-      },
-    });
-
-    return updated;
-  }
-
-  /**
-   * Marcação de item separado (Checklist operacional de preparo)
-   */
-  static async toggleItemSeparated(
-    requestId: string,
-    itemId: string,
-    separated: boolean,
-    userId: string
-  ) {
     return await prisma.$transaction(async (tx) => {
-      const requestItem = await tx.requestItem.findUnique({
-        where: { id: itemId },
-        include: { item: true },
+      const updated = await tx.request.update({
+        where: { id },
+        data: { status: RequestStatus.CANCELADO },
       });
 
-      if (!requestItem || requestItem.requestId !== requestId) {
-        throw new Error("Item de solicitação não encontrado.");
-      }
-
-      await tx.requestItem.update({
-        where: { id: itemId },
-        data: { separated },
+      // Cancelar reservas ativas
+      await tx.reservation.updateMany({
+        where: { requestId: id },
+        data: { status: ReservationStatus.CANCELLED },
       });
 
-      // Checar todos os itens da solicitação
-      const allItems = await tx.requestItem.findMany({
-        where: { requestId },
-        include: { item: true },
-      });
-
-      // Itens FIXED_IN_ROOM não bloqueiam a prontidão
-      const mobileItems = allItems.filter(
-        (i) => !i.item || i.item.logisticsType === ItemLogisticsType.MOBILE_STOCK
-      );
-
-      const allMobileSeparated =
-        mobileItems.length === 0 || mobileItems.every((i) => (i.id === itemId ? separated : i.separated));
-
-      const request = await tx.request.findUniqueOrThrow({ where: { id: requestId } });
-
-      let newStatus = request.status;
-      if (allMobileSeparated && request.status === RequestStatus.AGENDADO) {
-        newStatus = RequestStatus.PREPARADO;
-      } else if (!allMobileSeparated && request.status === RequestStatus.PREPARADO) {
-        newStatus = RequestStatus.EM_PREPARACAO;
-      }
-
-      const updatedRequest = await tx.request.update({
-        where: { id: requestId },
-        data: { status: newStatus },
-        include: {
-          items: { include: { item: true, asset: true } },
-          room: true,
-          assignedUser: true,
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "CANCEL_REQUEST",
+          entity: "Request",
+          entityId: id,
+          details: { professor: existing.professorName, room: existing.room.name },
         },
       });
 
-      if (newStatus === RequestStatus.PREPARADO && request.status !== RequestStatus.PREPARADO) {
-        await tx.auditLog.create({
-          data: {
-            userId,
-            action: "MARK_REQUEST_PREPARED",
-            entity: "Request",
-            entityId: requestId,
-            details: { message: "Todos os itens móveis foram separados. Solicitação marcada como PREPARADA." },
-          },
-        });
-      }
-
-      return updatedRequest;
+      return updated;
     });
   }
 
@@ -843,6 +1305,7 @@ export class RequestService {
               requestId: id,
               itemId: item.itemId || null,
               assetId: item.assetId || null,
+              resourceType: item.resourceType || ResourceType.QUANTITATIVE,
               label: item.label.trim(),
               quantity: item.quantity || 1,
               separated: false,
@@ -866,18 +1329,13 @@ export class RequestService {
         include: {
           room: true,
           items: { include: { item: true, asset: true } },
+          tasks: true,
         },
       });
 
-      let validConfirmUserId: string | null = null;
-      if (userId) {
-        const u = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
-        if (u) validConfirmUserId = u.id;
-      }
-
       await tx.auditLog.create({
         data: {
-          userId: validConfirmUserId,
+          userId,
           action: "CONFIRM_IMPORTED_REQUEST",
           entity: "Request",
           entityId: id,
@@ -888,24 +1346,5 @@ export class RequestService {
       return updated;
     });
   }
-
-  /**
-   * Marca sincronização de solicitação
-   */
-  static async retrySync(id: string) {
-    const request = await prisma.request.findUnique({
-      where: { id },
-    });
-
-    if (!request) {
-      throw new Error("Solicitação não encontrada.");
-    }
-
-    return await prisma.request.update({
-      where: { id },
-      data: {
-        syncStatus: "SYNCED",
-      },
-    });
-  }
 }
+

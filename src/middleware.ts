@@ -5,10 +5,25 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
+    const role = token?.role as string;
 
-    // Se usuário não tem permissão para áreas administrativas restritas (ex: /usuarios)
-    if (pathname.startsWith("/usuarios") && token?.role !== "ADMIN") {
+    // 1. Áreas exclusivas de ADMIN (Usuários e Configurações globais)
+    if (
+      (pathname.startsWith("/usuarios") || pathname.startsWith("/configuracoes")) &&
+      role !== "ADMIN"
+    ) {
       return NextResponse.redirect(new URL("/dashboard?error=unauthorized", req.url));
+    }
+
+    // 2. Bloqueio de áreas operacionais internas para Apoio Acadêmico
+    if (
+      role === "ACADEMIC_SUPPORT" &&
+      (pathname.startsWith("/armario") ||
+        pathname.startsWith("/caixas") ||
+        pathname.startsWith("/manutencao") ||
+        pathname.startsWith("/movimentacoes"))
+    ) {
+      return NextResponse.redirect(new URL("/agenda", req.url));
     }
 
     return NextResponse.next();
@@ -26,6 +41,9 @@ export default withAuth(
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/agenda/:path*",
+    "/salas/:path*",
+    "/scanner/:path*",
     "/estoque/:path*",
     "/armario/:path*",
     "/caixas/:path*",

@@ -418,7 +418,108 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* 4. Grid Médio: Gráficos de Distribuição & Empréstimos Ativos */}
+      {/* 4. Operações de Multimídia por Turno (O que temos que fazer hoje?) */}
+      {summary?.todayOperations && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="space-y-0.5">
+              <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span>Operações de Multimídia Hoje</span>
+                <Badge variant="outline" className="text-xs font-mono">
+                  {summary.todayOperations.totalDayCount} agendamentos
+                </Badge>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Acompanhamento em tempo real dos preparos e entregas por turno na UniFAP
+              </p>
+            </div>
+
+            <Button asChild size="sm" variant="outline" className="rounded-xl text-xs h-8 gap-1.5 shadow-xs">
+              <Link href="/agenda">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                <span>Abrir Grade da Agenda</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </div>
+
+          {/* Cards dos 3 Turnos: Manhã, Tarde, Noite */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(["MORNING", "AFTERNOON", "NIGHT"] as const).map((shiftKey) => {
+              const shiftData = summary.todayOperations.shifts?.[shiftKey];
+              if (!shiftData) return null;
+
+              const isCurrent = summary.todayOperations.currentShift === shiftKey;
+              const stats = shiftData.stats;
+              const config = shiftData.config;
+
+              return (
+                <Card
+                  key={shiftKey}
+                  className={`rounded-3xl border transition-all ${
+                    isCurrent
+                      ? "border-primary/50 bg-gradient-to-b from-primary/10 via-card to-card shadow-md shadow-primary/5 ring-1 ring-primary/30"
+                      : "border-border/80 bg-card hover:border-primary/30 shadow-xs"
+                  }`}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{config.emoji}</span>
+                        <div>
+                          <CardTitle className="text-sm font-bold text-foreground">
+                            {config.label}
+                          </CardTitle>
+                          <span className="text-[10px] font-mono text-muted-foreground">
+                            {config.startTime} às {config.endTime}
+                          </span>
+                        </div>
+                      </div>
+
+                      {isCurrent && (
+                        <Badge variant="default" className="text-[9px] font-bold px-2 py-0.5">
+                          Turno Atual
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-3 text-xs">
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div className="p-2 rounded-xl bg-muted/40 border border-border/50">
+                        <span className="text-[10px] text-muted-foreground block">Total</span>
+                        <span className="text-base font-extrabold text-foreground">{stats.total}</span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-semibold">Preparados</span>
+                        <span className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">{stats.preparados}</span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-semibold">Pendentes</span>
+                        <span className="text-base font-extrabold text-amber-700 dark:text-amber-300">{stats.pendentes}</span>
+                      </div>
+                      <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                        <span className="text-[10px] text-purple-600 dark:text-purple-400 block font-semibold">Em Aula</span>
+                        <span className="text-base font-extrabold text-purple-700 dark:text-purple-300">{stats.emAtendimento}</span>
+                      </div>
+                    </div>
+
+                    <Button asChild size="sm" variant="ghost" className="w-full h-7 text-xs text-primary justify-between px-2 rounded-xl hover:bg-primary/10">
+                      <Link href={`/agenda?shift=${shiftKey}`}>
+                        <span>Ver solicitações da {config.label.toLowerCase()}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 5. Grid Médio: Gráficos de Distribuição & Empréstimos Ativos */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Coluna Esquerda: Status do Patrimônio & Saúde do Estoque */}

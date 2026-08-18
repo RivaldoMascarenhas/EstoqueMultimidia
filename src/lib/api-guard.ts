@@ -28,3 +28,13 @@ export async function requireSession(allowedRoles?: Role[]) {
 
   return { session, error: null };
 }
+
+export function requireRole(userRole: Role, allowedRoles: Role[]) {
+  if (!allowedRoles.includes(userRole)) {
+    return NextResponse.json(
+      { success: false, error: "Permissão insuficiente para esta operação." },
+      { status: 403 }
+    );
+  }
+  return null;
+}

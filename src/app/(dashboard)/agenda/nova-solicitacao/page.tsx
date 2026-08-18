@@ -406,11 +406,27 @@ export default function NovaSolicitacaoPage() {
           const finalLabel = i.itemNotes?.trim()
             ? `${i.label} (Obs: ${i.itemNotes.trim()})`
             : i.label;
+
+          let resourceType = "QUANTITATIVE";
+          if (i.logisticsType === "FIXED_IN_ROOM") {
+            resourceType = "FIXED_IN_ROOM";
+          } else if (
+            i.label.toLowerCase().includes("notebook") ||
+            i.label.toLowerCase().includes("datashow móvel") ||
+            i.label.toLowerCase().includes("caixa de som") ||
+            i.label.toLowerCase().includes("microfone") ||
+            i.label.toLowerCase().includes("projetor móvel")
+          ) {
+            resourceType = "MOBILE_ASSET";
+          }
+
           return {
             itemId: i.itemId,
+            resourceType,
             label: finalLabel,
             quantity: i.quantity,
             separated: false,
+            notes: i.itemNotes?.trim() || null,
           };
         }),
         repeatWeekly,
