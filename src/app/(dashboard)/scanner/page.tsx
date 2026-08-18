@@ -39,6 +39,8 @@ export default function ScannerPage() {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
+  const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
   const [selectedMode, setSelectedMode] = useState<ScanMode>("LOOKUP");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [manualCode, setManualCode] = useState("");
@@ -55,6 +57,7 @@ export default function ScannerPage() {
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const isSwitchingRef = useRef(false);
 
   // Tocar beep suave usando Web Audio API nativo
   const playBeep = () => {
@@ -89,8 +92,26 @@ export default function ScannerPage() {
     }
   };
 
+  // Listar todas as câmeras físicas disponíveis
+  const loadAvailableCameras = async () => {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length > 0) {
+        setCameras(devices);
+        const backIdx = devices.findIndex((d) =>
+          /back|rear|environment|traseira/i.test(d.label)
+        );
+        if (backIdx !== -1) {
+          setSelectedCameraIndex(backIdx);
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao enumerar câmeras:", e);
+    }
+  };
+
   // Iniciar Leitura da Câmera
-  const startCamera = async (targetFacing?: "environment" | "user") => {
+  const startCamera = async (targetFacing?: "environment" | "user", targetCameraId?: string) => {
     try {
       setCameraError(null);
       setIsScanning(true);
@@ -107,30 +128,58 @@ export default function ScannerPage() {
         } catch (e) {}
       }
 
+      // Parar tracks de mídia residuais
+      const existingVideo = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
+      if (existingVideo && existingVideo.srcObject) {
+        try {
+          const stream = existingVideo.srcObject as MediaStream;
+          stream.getTracks().forEach((t) => t.stop());
+        } catch (e) {}
+      }
+
       const html5QrCode = new Html5Qrcode("scanner-viewfinder");
       scannerRef.current = html5QrCode;
 
-      await html5QrCode.start(
-        { facingMode: modeToUse },
-        {
-          fps: 20,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const qrboxSize = Math.floor(minEdge * 0.72);
-            return {
-              width: qrboxSize,
-              height: qrboxSize,
-            };
+      const cameraConfig: any = targetCameraId 
+        ? { deviceId: { exact: targetCameraId } }
+        : { facingMode: modeToUse };
+
+      const scanConfig = {
+        fps: 20,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const qrboxSize = Math.floor(minEdge * 0.72);
+          return {
+            width: qrboxSize,
+            height: qrboxSize,
+          };
+        },
+        aspectRatio: 1.0,
+      };
+
+      try {
+        await html5QrCode.start(
+          cameraConfig,
+          scanConfig,
+          (decodedText) => {
+            handleCodeDetected(decodedText);
           },
-          aspectRatio: 1.0,
-        },
-        (decodedText) => {
-          handleCodeDetected(decodedText);
-        },
-        () => {
-          // Frame normal
-        }
-      );
+          () => {}
+        );
+      } catch (firstErr) {
+        // Fallback para facingMode padrão caso deviceId falhe
+        await html5QrCode.start(
+          { facingMode: modeToUse },
+          scanConfig,
+          (decodedText) => {
+            handleCodeDetected(decodedText);
+          },
+          () => {}
+        );
+      }
+
+      // Se lista de câmeras ainda não estiver carregada, carrega agora que a permissão foi concedida
+      loadAvailableCameras();
     } catch (err: any) {
       console.warn("Erro câmera:", err);
       setCameraError(
@@ -153,12 +202,40 @@ export default function ScannerPage() {
 
   // Alternar entre câmera traseira e frontal
   const handleToggleFacingMode = async () => {
-    const nextMode = facingMode === "environment" ? "user" : "environment";
-    setFacingMode(nextMode);
-    await stopCamera();
-    setTimeout(() => {
-      startCamera(nextMode);
-    }, 200);
+    if (isSwitchingRef.current) return;
+    isSwitchingRef.current = true;
+
+    try {
+      if (cameras.length > 1) {
+        const nextIndex = (selectedCameraIndex + 1) % cameras.length;
+        setSelectedCameraIndex(nextIndex);
+        const nextCam = cameras[nextIndex];
+        const isFront = /front|user|frontal/i.test(nextCam.label);
+        const nextMode = isFront ? "user" : "environment";
+        setFacingMode(nextMode);
+        
+        await stopCamera();
+        setTimeout(async () => {
+          await startCamera(nextMode, nextCam.id);
+          isSwitchingRef.current = false;
+        }, 200);
+
+        toast.info(`Câmera alterada: ${nextCam.label || `Câmera ${nextIndex + 1}`}`);
+      } else {
+        const nextMode = facingMode === "environment" ? "user" : "environment";
+        setFacingMode(nextMode);
+        
+        await stopCamera();
+        setTimeout(async () => {
+          await startCamera(nextMode);
+          isSwitchingRef.current = false;
+        }, 200);
+
+        toast.info(nextMode === "environment" ? "Câmera Traseira ativada" : "Câmera Frontal ativada");
+      }
+    } catch (e) {
+      isSwitchingRef.current = false;
+    }
   };
 
   useEffect(() => {
