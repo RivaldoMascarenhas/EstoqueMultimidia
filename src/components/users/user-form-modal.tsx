@@ -193,6 +193,7 @@ export function UserFormModal({
             >
               <option value="OPERADOR">OPERADOR (Empréstimos, devoluções, baixas e OS)</option>
               <option value="GESTOR">GESTOR (Gestão de caixas, catálogo e relatórios)</option>
+              <option value="ACADEMIC_SUPPORT">APOIO ACADÊMICO (Solicitações e agendamento de salas)</option>
               <option value="ADMIN">ADMINISTRADOR (Acesso total e gestão de usuários)</option>
               <option value="CONSULTA">CONSULTA (Apenas visualização sem alterações)</option>
             </select>

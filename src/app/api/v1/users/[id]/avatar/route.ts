@@ -8,9 +8,6 @@ export async function GET(
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const { error } = await requireSession();
-    if (error) return error;
-
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams?.id;
 

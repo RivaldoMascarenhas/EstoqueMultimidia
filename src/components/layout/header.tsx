@@ -77,6 +77,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
       case "ADMIN": return "admin";
       case "GESTOR": return "gestor";
       case "OPERADOR": return "operador";
+      case "ACADEMIC_SUPPORT": return "academic";
       default: return "consulta";
     }
   };
@@ -269,7 +270,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
                   {userName}
                 </span>
                 <span className="text-[10px] text-muted-foreground mt-0.5 capitalize">
-                  {userRole.toLowerCase()}
+                  {userRole === "ACADEMIC_SUPPORT" ? "Apoio Acadêmico" : userRole.toLowerCase()}
                 </span>
               </div>
             </button>
@@ -282,7 +283,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
                     {userName}
                   </p>
                   <Badge variant={getRoleVariant(userRole)} className="text-[10px] px-1.5 py-0">
-                    {userRole}
+                    {userRole === "ACADEMIC_SUPPORT" ? "APOIO ACADÊMICO" : userRole}
                   </Badge>
                 </div>
                 <p className="text-[11px] leading-none text-muted-foreground truncate">
