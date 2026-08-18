@@ -31,9 +31,25 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Informe o e-mail e a senha");
         }
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase().trim() },
+        const inputEmail = credentials.email.toLowerCase().trim();
+        const username = inputEmail.split("@")[0];
+
+        // 1. Tentar busca exata por e-mail
+        let user = await prisma.user.findUnique({
+          where: { email: inputEmail },
         });
+
+        // 2. Se não encontrar, tentar busca por prefixo (ex: rivaldo ou rivaldo.mascarenhas)
+        if (!user) {
+          user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { email: { startsWith: username + "@" } },
+                { email: { startsWith: username + "." } },
+              ],
+            },
+          });
+        }
 
         if (!user || !user.active) {
           throw new Error("Credenciais inválidas ou usuário inativo");
