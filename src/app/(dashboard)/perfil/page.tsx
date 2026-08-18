@@ -32,8 +32,8 @@ export default function PerfilPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [profileData, setProfileData] = useState<any | null>(null);
-  const [name, setName] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [name, setName] = useState(session?.user?.name || "");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(session?.user?.avatarUrl || null);
   
   // Cropper modal states
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -45,21 +45,28 @@ export default function PerfilPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
+  useEffect(() => {
+    if (session?.user) {
+      setName((prev) => prev || session.user.name || "");
+      setAvatarUrl((prev) => prev || session.user.avatarUrl || null);
+    }
+  }, [session?.user]);
+
   const fetchProfile = async () => {
     try {
       setIsLoading(true);
       const res = await fetch("/api/v1/auth/profile");
       const json = await res.json();
 
-      if (json.success) {
+      if (json.success && json.data) {
         setProfileData(json.data);
         setName(json.data.name || "");
         setAvatarUrl(json.data.avatarUrl || null);
-      } else {
-        toast.error("Erro ao carregar perfil.");
+      } else if (!res.ok) {
+        console.warn("Erro ao buscar dados do perfil:", json.error);
       }
     } catch (e) {
-      toast.error("Erro de conexão ao carregar perfil.");
+      console.warn("Erro de conexão ao carregar perfil:", e);
     } finally {
       setIsLoading(false);
     }
@@ -182,6 +189,7 @@ export default function PerfilPage() {
       case "ADMIN": return "admin";
       case "GESTOR": return "gestor";
       case "OPERADOR": return "operador";
+      case "ACADEMIC_SUPPORT": return "academic";
       default: return "consulta";
     }
   };
