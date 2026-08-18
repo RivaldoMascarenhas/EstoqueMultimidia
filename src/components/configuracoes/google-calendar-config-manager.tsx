@@ -24,6 +24,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
 export function GoogleCalendarConfigManager() {
@@ -35,6 +36,7 @@ export function GoogleCalendarConfigManager() {
   const [isTesting, setIsTesting] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isDisconnectModalOpen, setIsDisconnectModalOpen] = useState(false);
   const [copiedRedirectUri, setCopiedRedirectUri] = useState(false);
 
   const redirectUri = typeof window !== "undefined" 
@@ -130,8 +132,11 @@ export function GoogleCalendarConfigManager() {
     window.location.href = "/api/v1/integrations/google-calendar/auth";
   };
 
-  const handleDisconnect = async () => {
-    if (!confirm("Deseja realmente desconectar a conta Google deste sistema?")) return;
+  const handleDisconnect = () => {
+    setIsDisconnectModalOpen(true);
+  };
+
+  const executeDisconnect = async () => {
     try {
       setIsDisconnecting(true);
       const res = await fetch("/api/v1/integrations/google-calendar/disconnect", { method: "POST" });
@@ -472,6 +477,17 @@ export function GoogleCalendarConfigManager() {
 
         </CardContent>
       </Card>
+
+      <ConfirmModal
+        isOpen={isDisconnectModalOpen}
+        onClose={() => setIsDisconnectModalOpen(false)}
+        onConfirm={executeDisconnect}
+        title="Desconectar Google Calendar"
+        description="Tem certeza que deseja desconectar a conta Google deste sistema? A sincronização bidirecional em tempo real será pausada."
+        confirmText="Sim, Desconectar"
+        cancelText="Cancelar"
+        variant="warning"
+      />
 
     </div>
   );

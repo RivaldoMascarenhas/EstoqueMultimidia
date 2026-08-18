@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
 interface ApiKeyItem {
@@ -48,12 +49,16 @@ export function ApiKeysManager() {
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Modal de Criação
+  // Modais de Criação e Revelação de Chave
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
   const [keyRole, setKeyRole] = useState("OPERADOR");
   const [keyExpiresAt, setKeyExpiresAt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Modal de Exclusão de Chave
+  const [keyToDelete, setKeyToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleteKeyModalOpen, setIsDeleteKeyModalOpen] = useState(false);
 
   // Modal de Exibição de Token Gerado (Uma única vez)
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
@@ -122,13 +127,16 @@ export function ApiKeysManager() {
     }
   };
 
-  const handleDeleteKey = async (id: string, name: string) => {
-    if (!confirm(`Deseja realmente excluir permanentemente a chave "${name}"? Todas as integrações vinculadas perderão o acesso.`)) {
-      return;
-    }
+  const handleDeleteKey = (id: string, name: string) => {
+    setKeyToDelete({ id, name });
+    setIsDeleteKeyModalOpen(true);
+  };
+
+  const executeDeleteKey = async () => {
+    if (!keyToDelete) return;
 
     try {
-      const res = await fetch(`/api/v1/api-keys/${id}`, {
+      const res = await fetch(`/api/v1/api-keys/${keyToDelete.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
@@ -427,13 +435,25 @@ export function ApiKeysManager() {
           <DialogFooter>
             <Button
               onClick={() => setIsTokenModalOpen(false)}
-              className="rounded-xl text-xs font-semibold w-full"
+              className="rounded-xl text-xs font-semibold w-full cursor-pointer"
             >
               Entendi e já copiei minha chave
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmModal
+        isOpen={isDeleteKeyModalOpen}
+        onClose={() => setIsDeleteKeyModalOpen(false)}
+        onConfirm={executeDeleteKey}
+        title="Revogar Chave de API"
+        description="Tem certeza que deseja excluir permanentemente esta credencial? Qualquer script, integração ou webhook vinculado perderá o acesso imediatamente."
+        itemName={keyToDelete?.name}
+        confirmText="Sim, Revogar"
+        cancelText="Cancelar"
+        variant="danger"
+      />
     </div>
   );
 }
