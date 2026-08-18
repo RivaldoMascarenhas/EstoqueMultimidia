@@ -110,16 +110,25 @@ export default function AssetDetailsPage() {
     switch (status) {
       case "AVAILABLE":
         return <Badge variant="available" dot className="text-xs font-semibold">Disponível no Armário</Badge>;
+      case "IN_USE":
+        return <Badge variant="in_use" dot className="text-xs font-semibold">Em Uso (Fixo na Sala)</Badge>;
       case "LOANED":
         return <Badge variant="loaned" dot className="text-xs font-semibold">Emprestado</Badge>;
-      case "MAINTENANCE":
+      case "IN_MAINTENANCE":
         return <Badge variant="maintenance" dot className="text-xs font-semibold">Em Manutenção</Badge>;
       case "DAMAGED":
         return <Badge variant="damaged" dot className="text-xs font-semibold">Danificado</Badge>;
+      case "WRITTEN_OFF":
+        return <Badge variant="secondary" className="text-xs font-semibold">Baixado</Badge>;
+      case "LOST":
+        return <Badge variant="destructive" className="text-xs font-semibold">Perdido</Badge>;
       default:
-        return <Badge variant="outline" className="text-xs">Baixado</Badge>;
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
+
+  const historyList = asset.history || [];
+  const loansList = asset.loans || [];
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">
@@ -136,7 +145,7 @@ export default function AssetDetailsPage() {
             </Link>
             <span>/</span>
             <Badge variant="outline" className="font-mono text-xs">
-              {asset.item.category?.name || "Equipamento"}
+              {asset.item?.category?.name || "Equipamento"}
             </Badge>
           </div>
 
@@ -145,7 +154,7 @@ export default function AssetDetailsPage() {
               #{asset.assetTag}
             </h1>
             <span className="text-xl sm:text-2xl font-bold text-muted-foreground">
-              {asset.item.name}
+              {asset.item?.name}
             </span>
             {getStatusBadge(asset.status)}
           </div>
@@ -162,7 +171,7 @@ export default function AssetDetailsPage() {
             <Link href={`/emprestimos?assetId=${asset.id}`}>
               <Button
                 size="sm"
-                className="gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white"
+                className="gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white cursor-pointer"
               >
                 <Handshake className="w-4 h-4" />
                 <span>Novo Empréstimo</span>
@@ -174,7 +183,7 @@ export default function AssetDetailsPage() {
             onClick={() => setIsStatusModalOpen(true)}
             size="sm"
             variant="outline"
-            className="gap-1.5 rounded-xl"
+            className="gap-1.5 rounded-xl cursor-pointer"
           >
             <Wrench className="w-4 h-4 text-amber-500" />
             <span>Alterar Status</span>
@@ -184,7 +193,7 @@ export default function AssetDetailsPage() {
             onClick={() => setIsPrinterOpen(true)}
             size="sm"
             variant="outline"
-            className="gap-1.5 rounded-xl"
+            className="gap-1.5 rounded-xl cursor-pointer"
           >
             <Printer className="w-4 h-4 text-primary" />
             <span>Etiqueta</span>
@@ -208,14 +217,14 @@ export default function AssetDetailsPage() {
             #{asset.assetTag}
           </h3>
           <p className="text-xs text-muted-foreground">
-            {asset.item.name}
+            {asset.item?.name}
           </p>
 
           <Button
             onClick={() => setIsPrinterOpen(true)}
             size="sm"
             variant="outline"
-            className="mt-4 text-xs rounded-xl gap-1.5 w-full"
+            className="mt-4 text-xs rounded-xl gap-1.5 w-full cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5 text-primary" />
             <span>Imprimir Etiqueta Adesiva</span>
@@ -229,9 +238,22 @@ export default function AssetDetailsPage() {
             <Card className="p-4 bg-muted/20 space-y-2">
               <div className="flex items-center gap-2 text-primary font-semibold text-xs">
                 <Archive className="w-4 h-4" />
-                <span>Localização no Armário</span>
+                <span>Localização Física Atual</span>
               </div>
-              {asset.currentBox ? (
+              {asset.currentRoom ? (
+                <div>
+                  <Link
+                    href={`/salas`}
+                    className="text-base font-bold text-foreground hover:text-primary transition-colors flex items-center gap-1.5"
+                  >
+                    <span>Sala {asset.currentRoom.name}</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Link>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Instalado como equipamento fixo {asset.currentRoom.floor ? `(${asset.currentRoom.floor})` : ""}
+                  </p>
+                </div>
+              ) : asset.currentBox ? (
                 <div>
                   <Link
                     href={`/caixas/${asset.currentBox.code}`}
@@ -241,28 +263,28 @@ export default function AssetDetailsPage() {
                     <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
                   </Link>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Alocado na <strong>{asset.currentBox.door.name}</strong>
+                    Alocado na <strong>{asset.currentBox.door?.name || "Porta"}</strong>
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground italic">
-                  Equipamento não atribuído a nenhuma caixa específica.
+                  Equipamento sem caixa ou sala atribuída.
                 </p>
               )}
             </Card>
 
-            {/* Número de Série & Garantia */}
+            {/* Número de Série & Tombamento */}
             <Card className="p-4 bg-muted/20 space-y-2">
               <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold text-xs">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Identificação & Garantia</span>
+                <span>Identificação & Tombamento</span>
               </div>
               <div className="space-y-0.5">
                 <span className="text-xs text-muted-foreground block">
-                  Serial: <strong className="text-foreground font-mono">{asset.serialNumber || "N/A"}</strong>
+                  Patrimônio: <strong className="text-foreground font-mono">#{asset.assetTag}</strong>
                 </span>
                 <span className="text-xs text-muted-foreground block">
-                  Garantia: <strong className="text-foreground">{asset.warrantyExpiry ? formatDate(asset.warrantyExpiry) : "Não informada"}</strong>
+                  Serial: <strong className="text-foreground font-mono">{asset.serialNumber || "N/A"}</strong>
                 </span>
               </div>
             </Card>
@@ -270,12 +292,12 @@ export default function AssetDetailsPage() {
 
           {/* Dados de Aquisição & Observações */}
           <Card className="p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs border-b border-border/60 pb-2">
+            <div className="flex items-center justify-between text-xs border-b border-border/60 pb-2 flex-wrap gap-2">
               <span className="text-muted-foreground">
-                Data de Compra: <strong className="text-foreground">{asset.purchaseDate ? formatDate(asset.purchaseDate) : "Não informada"}</strong>
+                Data de Aquisição: <strong className="text-foreground">{asset.acquisitionDate ? formatDate(asset.acquisitionDate) : "Não informada"}</strong>
               </span>
               <span className="text-muted-foreground">
-                Valor de Aquisição: <strong className="text-foreground font-mono">{asset.purchaseValue ? `R$ ${asset.purchaseValue.toFixed(2)}` : "-"}</strong>
+                Valor de Aquisição: <strong className="text-foreground font-mono">{asset.acquisitionValue ? `R$ ${Number(asset.acquisitionValue).toFixed(2)}` : "-"}</strong>
               </span>
             </div>
 
@@ -305,19 +327,19 @@ export default function AssetDetailsPage() {
               </CardDescription>
             </div>
             <Badge variant="outline" className="font-mono text-xs">
-              {asset.histories.length} evento(s)
+              {historyList.length} evento(s)
             </Badge>
           </div>
         </CardHeader>
 
         <CardContent>
-          {asset.histories.length === 0 ? (
+          {historyList.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
               Nenhum evento registrado no histórico até o momento.
             </div>
           ) : (
             <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-              {asset.histories.map((hist: any) => (
+              {historyList.map((hist: any) => (
                 <div key={hist.id} className="relative group">
                   {/* Ponto da Linha do Tempo */}
                   <div className="absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-primary ring-4 ring-primary/10 group-hover:scale-125 transition-transform" />
@@ -325,7 +347,7 @@ export default function AssetDetailsPage() {
                   <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/70 space-y-1.5 hover:bg-muted/50 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <span className="font-bold text-xs text-foreground uppercase tracking-wide">
-                        {hist.event}
+                        {hist.action || "EVENTO"}
                       </span>
                       <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" />
@@ -334,8 +356,13 @@ export default function AssetDetailsPage() {
                     </div>
 
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      {hist.description}
+                      {hist.observation || (hist.toStatus ? `Status alterado para ${hist.toStatus}` : "Ação registrada")}
                     </p>
+                    {hist.userName && (
+                      <span className="text-[10px] text-muted-foreground/70 block">
+                        Por: {hist.userName}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -345,7 +372,7 @@ export default function AssetDetailsPage() {
       </Card>
 
       {/* Histórico Recente de Empréstimos */}
-      {asset.loans.length > 0 && (
+      {loansList.length > 0 && (
         <Card className="shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -365,10 +392,10 @@ export default function AssetDetailsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {asset.loans.map((loan: any) => (
+                {loansList.map((loan: any) => (
                   <TableRow key={loan.id}>
                     <TableCell className="font-mono font-bold text-xs text-primary">
-                      {loan.protocol}
+                      #EMP-{loan.id.slice(0, 8).toUpperCase()}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
@@ -376,7 +403,7 @@ export default function AssetDetailsPage() {
                           {loan.borrowerName}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
-                          {loan.borrowerDepartment}
+                          {loan.borrowerDepartment || loan.destination}
                         </span>
                       </div>
                     </TableCell>
