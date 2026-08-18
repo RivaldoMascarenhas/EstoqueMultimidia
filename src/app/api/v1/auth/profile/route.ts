@@ -9,15 +9,28 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user?.id) {
+    if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: "Não autenticado." },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const searchConditions: any[] = [];
+    if (session.user.id) searchConditions.push({ id: session.user.id });
+    if (session.user.email) searchConditions.push({ email: session.user.email.toLowerCase().trim() });
+
+    if (searchConditions.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Sessão inválida." },
+        { status: 401 }
+      );
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: searchConditions,
+      },
       select: {
         id: true,
         name: true,
@@ -40,15 +53,16 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { success: false, error: "Usuário não encontrado." },
+        { success: false, error: "Usuário não encontrado no banco de dados." },
         { status: 404 }
       );
     }
 
     // Se tiver avatar, retornar a URL pública correspondente
+    const timestamp = user.updatedAt ? new Date(user.updatedAt).getTime() : Date.now();
     const publicAvatarUrl = user.avatarUrl
       ? user.avatarUrl.startsWith("data:")
-        ? `/api/v1/users/${user.id}/avatar?v=${user.updatedAt.getTime()}`
+        ? `/api/v1/users/${user.id}/avatar?v=${timestamp}`
         : user.avatarUrl
       : null;
 
@@ -72,18 +86,21 @@ export async function PUT(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user?.id) {
+    if (!session || !session.user) {
       return NextResponse.json(
         { success: false, error: "Não autenticado." },
         { status: 401 }
       );
     }
 
-    const body = await req.json();
-    const { name, avatarUrl, currentPassword, newPassword } = body;
+    const searchConditions: any[] = [];
+    if (session.user.id) searchConditions.push({ id: session.user.id });
+    if (session.user.email) searchConditions.push({ email: session.user.email.toLowerCase().trim() });
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: searchConditions,
+      },
     });
 
     if (!user) {
@@ -93,13 +110,16 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    const body = await req.json();
+    const { name, avatarUrl, currentPassword, newPassword } = body;
+
     const updateData: any = {};
 
     if (name && name.trim()) {
       updateData.name = name.trim();
     }
 
-    // Processar foto de perfil (Armazenamento direto no banco de dados sem dependência de disco/EROFS)
+    // Processar foto de perfil (Armazenamento direto no banco de dados)
     if (avatarUrl !== undefined) {
       if (avatarUrl && avatarUrl.startsWith("data:image")) {
         updateData.avatarUrl = avatarUrl;
@@ -139,7 +159,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: updateData,
       select: {
         id: true,
@@ -152,9 +172,10 @@ export async function PUT(req: NextRequest) {
       },
     });
 
+    const timestamp = updatedUser.updatedAt ? new Date(updatedUser.updatedAt).getTime() : Date.now();
     const publicAvatarUrl = updatedUser.avatarUrl
       ? updatedUser.avatarUrl.startsWith("data:")
-        ? `/api/v1/users/${updatedUser.id}/avatar?v=${Date.now()}`
+        ? `/api/v1/users/${updatedUser.id}/avatar?v=${timestamp}`
         : updatedUser.avatarUrl
       : null;
 
