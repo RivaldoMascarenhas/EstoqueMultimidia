@@ -15,24 +15,34 @@ export function formatCurrency(value: number | null | undefined): string {
 
 export function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "-";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
+  try {
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "-";
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(d);
+  } catch (e) {
+    return "-";
+  }
 }
 
 export function formatDateTime(date: Date | string | null | undefined): string {
   if (!date) return "-";
-  const d = typeof date === "string" ? new Date(date) : date;
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
+  try {
+    const d = typeof date === "string" ? new Date(date) : date;
+    if (isNaN(d.getTime())) return "-";
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+  } catch (e) {
+    return "-";
+  }
 }
 
 export type StockStatusLevel = "NORMAL" | "LOW" | "CRITICAL";

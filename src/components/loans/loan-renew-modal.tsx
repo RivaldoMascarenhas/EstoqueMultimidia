@@ -54,7 +54,8 @@ export function LoanRenewModal({
   useEffect(() => {
     if (isOpen && loan) {
       // Começar com +24 horas a partir da data atual de devolução ou de agora
-      const baseDate = new Date(loan.expectedReturnDate);
+      let baseDate = loan.expectedReturnDate ? new Date(loan.expectedReturnDate) : new Date();
+      if (isNaN(baseDate.getTime())) baseDate = new Date();
       const now = new Date();
       const refDate = baseDate > now ? baseDate : now;
       refDate.setDate(refDate.getDate() + 1);
@@ -66,28 +67,29 @@ export function LoanRenewModal({
   if (!loan) return null;
 
   const applyPreset = (type: "2h" | "4h" | "24h" | "3d" | "7d") => {
-    const baseDate = new Date(loan.expectedReturnDate);
+    let baseDate = loan.expectedReturnDate ? new Date(loan.expectedReturnDate) : new Date();
+    if (isNaN(baseDate.getTime())) baseDate = new Date();
     const now = new Date();
-    const d = baseDate > now ? new Date(baseDate) : new Date(now);
+    const refDate = baseDate > now ? new Date(baseDate) : new Date(now);
 
     switch (type) {
       case "2h":
-        d.setHours(d.getHours() + 2);
+        refDate.setHours(refDate.getHours() + 2);
         break;
       case "4h":
-        d.setHours(d.getHours() + 4);
+        refDate.setHours(refDate.getHours() + 4);
         break;
       case "24h":
-        d.setDate(d.getDate() + 1);
+        refDate.setDate(refDate.getDate() + 1);
         break;
       case "3d":
-        d.setDate(d.getDate() + 3);
+        refDate.setDate(refDate.getDate() + 3);
         break;
       case "7d":
-        d.setDate(d.getDate() + 7);
+        refDate.setDate(refDate.getDate() + 7);
         break;
     }
-    setNewExpectedReturnDate(formatDateTimeForInput(d));
+    setNewExpectedReturnDate(formatDateTimeForInput(refDate));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
