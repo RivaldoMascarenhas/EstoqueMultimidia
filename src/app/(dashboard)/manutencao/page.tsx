@@ -145,13 +145,13 @@ export default function ManutencaoPage() {
   const getTypeBadge = (t?: string) => {
     switch (t) {
       case "EXTERNAL":
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 font-medium">Ext. / Fornecedor</span>;
+        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold">🏢 Externa / Fornecedor</span>;
       case "PREVENTIVE":
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-medium">Preventiva</span>;
+        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-bold">🛡️ Preventiva</span>;
       case "INTERNAL":
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium">Ajuste Interno</span>;
+      case "CORRECTIVE":
       default:
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium">Corretiva</span>;
+        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold">🛠️ Manutenção Interna</span>;
     }
   };
 
@@ -184,7 +184,7 @@ export default function ManutencaoPage() {
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            Controle de chamados técnicos, laudos, orçamentos, troca de lâmpadas e reintegração física ao armário.
+            Controle de chamados de bancada interna, assistências externas, laudos e reintegração física ao armário.
           </p>
         </div>
 
@@ -192,7 +192,7 @@ export default function ManutencaoPage() {
           <Button
             size="sm"
             onClick={() => setIsFormOpen(true)}
-            className="flex-1 sm:flex-none gap-1.5 rounded-xl text-xs h-10 sm:h-9 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold shadow-md shadow-amber-500/20 justify-center"
+            className="flex-1 sm:flex-none gap-1.5 rounded-xl text-xs h-10 sm:h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md shadow-blue-500/20 justify-center cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Abrir Chamado / OS</span>
@@ -202,7 +202,7 @@ export default function ManutencaoPage() {
             variant="outline"
             size="sm"
             onClick={fetchData}
-            className="rounded-xl text-xs h-10 sm:h-9 px-3"
+            className="rounded-xl text-xs h-10 sm:h-9 px-3 cursor-pointer"
             title="Atualizar lista"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -215,20 +215,20 @@ export default function ManutencaoPage() {
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         
         {/* Card 1: Total em Aberto */}
-        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-amber-500/10 via-card to-card hover:shadow-md transition-all">
+        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-blue-500/10 via-card to-card hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                Em Reparo / Oficina
+              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                Bancada TI & Oficina
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {metrics.activeCount} <span className="text-xs font-normal text-muted-foreground">chamados</span>
               </p>
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                <span className="text-amber-500 font-bold">{metrics.inProgressCount}</span> na bancada • <span className="text-rose-500 font-bold">{metrics.criticalCount}</span> prioridade alta
+                <span className="text-blue-500 font-bold">{metrics.inProgressCount}</span> na bancada • <span className="text-rose-500 font-bold">{metrics.criticalCount}</span> alta prioridade
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm">
               <Wrench className="w-5 h-5" />
             </div>
           </CardContent>
@@ -275,20 +275,20 @@ export default function ManutencaoPage() {
         </Card>
 
         {/* Card 4: Custo Total */}
-        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-blue-500/10 via-card to-card hover:shadow-md transition-all">
+        <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-amber-500/10 via-card to-card hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                Custo Total de Reparos
+              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                Custo de Reparos & Peças
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 R$ {metrics.totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
               <p className="text-[10px] text-muted-foreground">
-                Peças, lâmpadas e serviços
+                Lâmpadas, peças e serviços externos
               </p>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shadow-sm">
               <DollarSign className="w-5 h-5" />
             </div>
           </CardContent>
@@ -299,21 +299,33 @@ export default function ManutencaoPage() {
       <Card className="rounded-2xl border-border/80">
         <CardContent className="p-4 space-y-3">
           
-          {/* Status Tabs */}
+          {/* Status & Type Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-border/60">
             {[
               { id: "ALL", label: "Todas as OS" },
-              { id: "ACTIVE", label: "Em Aberto / Oficina", badge: metrics.activeCount },
-              { id: "EXTERNAL", label: "Assistência Externa", badge: metrics.externalCount },
-              { id: "COMPLETED", label: "Concluídas", badge: metrics.completedThisMonth },
+              { id: "ACTIVE", label: "🛠️ Em Aberto (Bancada/Oficina)", badge: metrics.activeCount },
+              { id: "INTERNAL_TAB", label: "🔧 Manutenção Interna" },
+              { id: "EXTERNAL", label: "🏢 Assistência Externa", badge: metrics.externalCount },
+              { id: "COMPLETED", label: "✅ Concluídas", badge: metrics.completedThisMonth },
               { id: "CANCELLED", label: "Canceladas" },
             ].map((tab) => {
-              const isSelected = statusFilter === tab.id;
+              const isSelected = tab.id === "INTERNAL_TAB"
+                ? typeFilter === "INTERNAL" && statusFilter === "ALL"
+                : statusFilter === tab.id;
+
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setStatusFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  onClick={() => {
+                    if (tab.id === "INTERNAL_TAB") {
+                      setTypeFilter("INTERNAL");
+                      setStatusFilter("ALL");
+                    } else {
+                      if (typeFilter === "INTERNAL") setTypeFilter("ALL");
+                      setStatusFilter(tab.id);
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                     isSelected
                       ? "bg-primary text-primary-foreground shadow-sm font-bold"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -349,7 +361,7 @@ export default function ManutencaoPage() {
               <select
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
-                className="h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs"
+                className="h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs cursor-pointer"
               >
                 <option value="ALL">Todas as Prioridades</option>
                 <option value="CRITICAL">🔴 Prioridade Crítica</option>
@@ -362,13 +374,12 @@ export default function ManutencaoPage() {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs"
+                className="h-10 px-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs cursor-pointer"
               >
-                <option value="ALL">Todos os Tipos</option>
-                <option value="CORRECTIVE">Corretiva Interna</option>
-                <option value="EXTERNAL">Assistência Externa</option>
-                <option value="PREVENTIVE">Preventiva</option>
-                <option value="INTERNAL">Ajuste Interno</option>
+                <option value="ALL">Todos os Locais / Tipos</option>
+                <option value="INTERNAL">🛠️ Manutenção Interna (TI)</option>
+                <option value="EXTERNAL">🏢 Assistência Externa</option>
+                <option value="PREVENTIVE">🛡️ Preventiva</option>
               </select>
             </div>
           </div>
@@ -376,7 +387,7 @@ export default function ManutencaoPage() {
       </Card>
 
       {/* Tabela de Ordens de Serviço */}
-      <div className="rounded-2xl border-border/80 shadow-sm">
+      <div className="rounded-2xl border border-border/80 shadow-sm overflow-hidden bg-card">
         <Table className="min-w-[1100px] w-full">
             <TableHeader className="bg-muted/50 border-b border-border/80">
               <TableRow className="hover:bg-transparent">
@@ -384,10 +395,10 @@ export default function ManutencaoPage() {
                   OS & Equipamento
                 </TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground min-w-[300px]">
-                  Defeito Relatado & Laudo
+                  Defeito Relatado & Diagnóstico
                 </TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[210px]">
-                  Prestador / Oficina
+                  Responsável / Oficina
                 </TableHead>
                 <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[150px]">
                   Prazo & Prioridade
@@ -428,7 +439,7 @@ export default function ManutencaoPage() {
                       <Button
                         size="sm"
                         onClick={() => setIsFormOpen(true)}
-                        className="mt-2 rounded-xl text-xs gap-1.5"
+                        className="mt-2 rounded-xl text-xs gap-1.5 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Abrir Primeira OS</span>
@@ -439,6 +450,7 @@ export default function ManutencaoPage() {
               ) : (
                 maintenances.map((m) => {
                   const orderNum = m.orderNumber || `#OS-${m.id.slice(0, 8)}`;
+                  const isInternalOS = m.maintenanceType === "INTERNAL" || m.maintenanceType === "PREVENTIVE" || (!m.serviceProvider && m.maintenanceType !== "EXTERNAL");
 
                   return (
                     <TableRow key={m.id} className="hover:bg-muted/30 transition-colors border-b border-border/60">
@@ -452,7 +464,7 @@ export default function ManutencaoPage() {
                                 setSelectedMaintenance(m);
                                 setIsOsOpen(true);
                               }}
-                              className="font-mono text-xs font-bold text-primary hover:underline bg-primary/10 px-2 py-0.5 rounded-md transition-colors"
+                              className="font-mono text-xs font-bold text-primary hover:underline bg-primary/10 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                               title="Visualizar OS Oficial"
                             >
                               {orderNum}
@@ -498,21 +510,34 @@ export default function ManutencaoPage() {
                         </div>
                       </TableCell>
 
-                      {/* Coluna 3: Prestador & Contato */}
+                      {/* Coluna 3: Responsável / Oficina */}
                       <TableCell className="py-4 px-4 align-top">
                         <div className="space-y-1 min-w-[180px]">
-                          <p className="text-xs font-semibold text-foreground" title={m.serviceProvider || "Laboratório UniFAP"}>
-                            {m.serviceProvider || "Laboratório UniFAP"}
-                          </p>
-                          {m.contactName && (
-                            <p className="text-[11px] text-muted-foreground">
-                              Contato: <strong className="text-foreground font-medium">{m.contactName}</strong>
-                            </p>
-                          )}
-                          {m.contactPhone && (
-                            <p className="text-[10px] font-mono text-muted-foreground/80">
-                              {m.contactPhone}
-                            </p>
+                          {isInternalOS ? (
+                            <div>
+                              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                <span>🛠️ Bancada TI UniFAP</span>
+                              </p>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Técnico: <strong className="text-foreground font-medium">{m.createdByUser?.name || "Equipe TI"}</strong>
+                              </p>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-xs font-semibold text-purple-600 dark:text-purple-400" title={m.serviceProvider || "Assistência Externa"}>
+                                🏢 {m.serviceProvider || "Assistência Externa"}
+                              </p>
+                              {m.contactName && (
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  Contato: <strong className="text-foreground font-medium">{m.contactName}</strong>
+                                </p>
+                              )}
+                              {m.contactPhone && (
+                                <p className="text-[10px] font-mono text-muted-foreground/80">
+                                  {m.contactPhone}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
                       </TableCell>
