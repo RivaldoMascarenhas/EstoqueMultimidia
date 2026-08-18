@@ -235,9 +235,27 @@ export default function UsuariosPage() {
 
                   {/* Role */}
                   <TableCell className="text-xs">
-                    <Badge variant={user.role.toLowerCase() as any} className="text-[10px] font-bold">
-                      {user.role}
-                    </Badge>
+                    {user.role === "ACADEMIC_SUPPORT" ? (
+                      <Badge variant="academic" className="text-[10px] font-bold">
+                        APOIO ACADÊMICO
+                      </Badge>
+                    ) : user.role === "ADMIN" ? (
+                      <Badge variant="admin" className="text-[10px] font-bold">
+                        ADMIN
+                      </Badge>
+                    ) : user.role === "GESTOR" ? (
+                      <Badge variant="gestor" className="text-[10px] font-bold">
+                        GESTOR
+                      </Badge>
+                    ) : user.role === "OPERADOR" ? (
+                      <Badge variant="operador" className="text-[10px] font-bold">
+                        OPERADOR
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] font-bold">
+                        CONSULTA
+                      </Badge>
+                    )}
                   </TableCell>
 
                   {/* Status */}
@@ -277,7 +295,7 @@ export default function UsuariosPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenPassword(user)}
-                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-amber-500"
+                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-amber-500 cursor-pointer"
                         title="Redefinir Senha"
                       >
                         <Key className="w-3.5 h-3.5" />
@@ -287,7 +305,7 @@ export default function UsuariosPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenEdit(user)}
-                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-primary"
+                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-primary cursor-pointer"
                         title="Editar Usuário"
                       >
                         <Edit className="w-3.5 h-3.5" />
@@ -297,7 +315,7 @@ export default function UsuariosPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteUser(user)}
-                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-rose-500"
+                        className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-rose-500 cursor-pointer"
                         title="Desativar / Excluir"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -329,7 +347,7 @@ export default function UsuariosPage() {
         </CardHeader>
 
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             
             {/* ADMIN */}
             <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/5 space-y-2">
@@ -373,6 +391,21 @@ export default function UsuariosPage() {
                 <li>✓ Leitura via Scanner QR Code</li>
                 <li>✓ Movimentação de estoque (entradas/baixas)</li>
                 <li>✓ Abertura e conclusão de OS técnica</li>
+              </ul>
+            </div>
+
+            {/* ACADEMIC_SUPPORT */}
+            <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="academic" className="font-bold text-[10px]">APOIO ACADÊMICO</Badge>
+                <span className="text-[10px] text-muted-foreground font-mono">Nível 1.5</span>
+              </div>
+              <h4 className="text-xs font-bold text-foreground">Apoio Acadêmico / Secretaria</h4>
+              <ul className="text-[11px] text-muted-foreground space-y-1">
+                <li>✓ Criação de solicitações na agenda</li>
+                <li>✓ Edição das suas próprias solicitações</li>
+                <li>✓ Consulta de salas e equipamentos</li>
+                <li>✗ Bloqueado para estoque e manutenção</li>
               </ul>
             </div>
 

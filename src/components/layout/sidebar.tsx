@@ -322,7 +322,7 @@ export function Sidebar({
                   </span>
                   <div className="flex items-center gap-1 mt-0.5">
                     <Badge variant={getRoleVariant(userRole)} className="text-[9px] px-1.5 py-0 h-4">
-                      {userRole}
+                      {userRole === "ACADEMIC_SUPPORT" ? "APOIO ACADÊMICO" : userRole}
                     </Badge>
                   </div>
                 </div>
