@@ -94,12 +94,63 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     results.loans.length +
     results.maintenances.length;
 
+  const getAssetBadge = (status: string) => {
+    switch (status) {
+      case "AVAILABLE":
+        return <Badge variant="available" className="text-[9px]">Disponível</Badge>;
+      case "IN_USE":
+        return <Badge variant="in_use" className="text-[9px]">Em Uso (Sala)</Badge>;
+      case "LOANED":
+        return <Badge variant="loaned" className="text-[9px]">Emprestado</Badge>;
+      case "IN_MAINTENANCE":
+        return <Badge variant="maintenance" className="text-[9px]">Em Manutenção</Badge>;
+      case "DAMAGED":
+        return <Badge variant="damaged" className="text-[9px]">Danificado</Badge>;
+      case "WRITTEN_OFF":
+        return <Badge variant="secondary" className="text-[9px]">Baixado</Badge>;
+      case "LOST":
+        return <Badge variant="destructive" className="text-[9px]">Perdido</Badge>;
+      default:
+        return <Badge variant="outline" className="text-[9px]">{status}</Badge>;
+    }
+  };
+
+  const getLoanBadge = (status: string) => {
+    switch (status) {
+      case "ACTIVE":
+        return <Badge variant="loaned" className="text-[9px]">Em Andamento</Badge>;
+      case "RETURNED":
+        return <Badge variant="available" className="text-[9px]">Devolvido</Badge>;
+      case "OVERDUE":
+        return <Badge variant="overdue" className="text-[9px]">Atrasado</Badge>;
+      case "RETURNED_DAMAGED":
+        return <Badge variant="damaged" className="text-[9px]">Devolvido c/ Avaria</Badge>;
+      default:
+        return <Badge variant="outline" className="text-[9px]">{status}</Badge>;
+    }
+  };
+
+  const getMaintenanceBadge = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return <Badge variant="low" className="text-[9px]">Pendente</Badge>;
+      case "IN_PROGRESS":
+        return <Badge variant="maintenance" className="text-[9px]">Em Andamento</Badge>;
+      case "COMPLETED":
+        return <Badge variant="available" className="text-[9px]">Concluída</Badge>;
+      case "CANCELLED":
+        return <Badge variant="secondary" className="text-[9px]">Cancelada</Badge>;
+      default:
+        return <Badge variant="outline" className="text-[9px]">{status}</Badge>;
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden rounded-3xl border-border/80 bg-card/95 backdrop-blur-xl shadow-2xl">
+      <DialogContent hideClose className="max-w-2xl p-0 gap-0 overflow-hidden rounded-3xl border-border/80 bg-card/95 backdrop-blur-xl shadow-2xl">
         
         {/* Input Bar */}
-        <div className="flex items-center px-4 border-b border-border/80 bg-accent/20">
+        <div className="flex items-center px-4 border-b border-border/80 bg-accent/20 gap-2">
           <Search className="w-5 h-5 text-primary shrink-0" />
           <input
             ref={inputRef}
@@ -107,16 +158,29 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por item, patrimônio (#123458), caixa (C001), OS ou solicitante..."
-            className="w-full bg-transparent px-3 py-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            className="w-full bg-transparent px-2 py-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {query && (
             <button
-              onClick={() => setQuery("")}
-              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+              type="button"
+              onClick={() => {
+                setQuery("");
+                inputRef.current?.focus();
+              }}
+              title="Limpar busca"
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
           )}
+          <button
+            type="button"
+            onClick={onClose}
+            title="Fechar busca (Esc)"
+            className="text-xs font-semibold px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors cursor-pointer shrink-0 ml-1"
+          >
+            Esc
+          </button>
         </div>
 
         {/* Results Container */}
@@ -146,26 +210,30 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               </p>
               <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
                 <button
+                  type="button"
                   onClick={() => setQuery("Projetor")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors"
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
                 >
                   Projetor
                 </button>
                 <button
+                  type="button"
                   onClick={() => setQuery("Cabo")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors"
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
                 >
                   Cabo HDMI
                 </button>
                 <button
+                  type="button"
                   onClick={() => setQuery("C001")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors"
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
                 >
                   Caixa C001
                 </button>
                 <button
+                  type="button"
                   onClick={() => setQuery("Epson")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors"
+                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
                 >
                   Epson
                 </button>
@@ -185,8 +253,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                     {results.assets.map((asset) => (
                       <button
                         key={asset.id}
+                        type="button"
                         onClick={() => handleSelect(`/patrimonio?search=${asset.assetTag}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -203,13 +272,11 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                             )}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            {asset.currentBox ? `Armário: ${asset.currentBox.door?.name} / ${asset.currentBox.name}` : "Sem caixa alocada"}
+                            {asset.currentRoom ? `Sala: ${asset.currentRoom.name}` : asset.currentBox ? `Armário: ${asset.currentBox.door?.name} / ${asset.currentBox.name}` : "Sem caixa alocada"}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={asset.status.toLowerCase() as any} className="text-[9px]">
-                            {asset.status}
-                          </Badge>
+                          {getAssetBadge(asset.status)}
                           <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </button>
@@ -231,8 +298,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                       return (
                         <button
                           key={item.id}
+                          type="button"
                           onClick={() => handleSelect(`/estoque?search=${item.sku || item.name}`)}
-                          className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors"
+                          className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
@@ -271,8 +339,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                     {results.boxes.map((box) => (
                       <button
                         key={box.id}
+                        type="button"
                         onClick={() => handleSelect(`/caixas/${box.code}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -310,8 +379,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                     {results.loans.map((loan) => (
                       <button
                         key={loan.id}
+                        type="button"
                         onClick={() => handleSelect(`/emprestimos?search=${loan.borrowerName}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -327,9 +397,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={loan.status === "ACTIVE" ? "loaned" : "available"} className="text-[9px]">
-                            {loan.status}
-                          </Badge>
+                          {getLoanBadge(loan.status)}
                           <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </button>
@@ -349,8 +417,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                     {results.maintenances.map((m) => (
                       <button
                         key={m.id}
+                        type="button"
                         onClick={() => handleSelect(`/manutencao?search=${m.orderNumber || m.asset?.assetTag}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">
@@ -366,9 +435,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="maintenance" className="text-[9px]">
-                            {m.status}
-                          </Badge>
+                          {getMaintenanceBadge(m.status)}
                           <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
                         </div>
                       </button>
@@ -391,7 +458,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">↵</kbd> Navegar
             </span>
           </div>
-          <span className="text-[10px]">UniFAP TI Multi-Search</span>
+          <span className="text-[10px]">Busca Global Multimídia UniFAP</span>
         </div>
 
       </DialogContent>
