@@ -71,7 +71,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
 
   const userRole = session?.user?.role || "OPERADOR";
   const userName = session?.user?.name || "Usuário";
-  const userEmail = session?.user?.email || "usuario@unifap.br";
+  const userEmail = session?.user?.email || "usuario@fapce.edu.br";
   const userAvatar = session?.user?.avatarUrl || null;
 
   const getRoleVariant = (role: string) => {

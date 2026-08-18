@@ -23,7 +23,7 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Credenciais",
       credentials: {
-        email: { label: "E-mail", type: "email", placeholder: "usuario@unifap.br" },
+        email: { label: "E-mail", type: "email", placeholder: "nome.sobrenome@fapce.edu.br" },
         password: { label: "Senha", type: "password" },
       },
       async authorize(credentials) {

@@ -195,7 +195,7 @@ export default function PerfilPage() {
   };
 
   const userRole = profileData?.role || session?.user?.role || "OPERADOR";
-  const userEmail = profileData?.email || session?.user?.email || "usuario@unifap.br";
+  const userEmail = profileData?.email || session?.user?.email || "usuario@fapce.edu.br";
 
   return (
     <div className="space-y-8 animate-in fade-in-50 duration-300 max-w-4xl mx-auto pb-12">
