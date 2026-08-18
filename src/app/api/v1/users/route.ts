@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
 import { requireSession } from "@/lib/api-guard";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 
 // GET /api/v1/users - Listar todos os usuários com contagens (apenas ADMIN)
 export async function GET(req: NextRequest) {
@@ -68,9 +69,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    const validation = validatePasswordPolicy(password);
+    if (!validation.isValid) {
       return NextResponse.json(
-        { success: false, error: "A senha deve possuir pelo menos 6 caracteres." },
+        { success: false, error: validation.error },
         { status: 400 }
       );
     }

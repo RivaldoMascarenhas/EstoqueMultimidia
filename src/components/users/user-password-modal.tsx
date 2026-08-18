@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { KeyRound, Lock, AlertCircle, Save, X } from "lucide-react";
+import { KeyRound, Lock, AlertCircle, Save, X, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 import { toast } from "sonner";
 
 interface UserPasswordModalProps {
@@ -28,11 +29,15 @@ export function UserPasswordModal({
 
   if (!user) return null;
 
+  const policy = validatePasswordPolicy(newPassword);
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+  const isFormValid = policy.isValid && passwordsMatch;
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (newPassword.length < 6) {
-      toast.error("A nova senha deve ter no mínimo 6 caracteres.");
+    if (!policy.isValid) {
+      toast.error(policy.error || "A nova senha não atende aos requisitos de segurança.");
       return;
     }
 
@@ -71,7 +76,7 @@ export function UserPasswordModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-sm p-6 rounded-3xl bg-card border-border/80">
+      <DialogContent className="max-w-md p-6 rounded-3xl bg-card border-border/80">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
@@ -103,10 +108,35 @@ export function UserPasswordModal({
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 6 dígitos"
+                placeholder="Mínimo 6 dígitos (letras e números)"
                 required
                 className="pl-9 h-10 rounded-xl text-xs bg-background"
               />
+            </div>
+          </div>
+
+          {/* Requisitos da Senha */}
+          <div className="p-3 rounded-xl bg-muted/40 border border-border/60 space-y-1.5 text-[11px]">
+            <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">
+              Requisitos de Segurança:
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <div className={`flex items-center gap-1.5 ${policy.hasMinLength ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
+                {policy.hasMinLength ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                <span>Mínimo 6 caracteres</span>
+              </div>
+              <div className={`flex items-center gap-1.5 ${policy.hasLetter ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
+                {policy.hasLetter ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                <span>Pelo menos 1 letra</span>
+              </div>
+              <div className={`flex items-center gap-1.5 ${policy.hasNumber ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
+                {policy.hasNumber ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                <span>Pelo menos 1 número</span>
+              </div>
+              <div className={`flex items-center gap-1.5 ${passwordsMatch ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
+                {passwordsMatch ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                <span>Senhas conferem</span>
+              </div>
             </div>
           </div>
 
@@ -148,15 +178,15 @@ export function UserPasswordModal({
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="rounded-xl text-xs h-9"
+              className="rounded-xl text-xs h-9 cursor-pointer"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               size="sm"
-              disabled={isSubmitting}
-              className="rounded-xl text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5 shadow-md shadow-amber-600/20"
+              disabled={isSubmitting || !isFormValid}
+              className="rounded-xl text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5 shadow-md shadow-amber-600/20 cursor-pointer"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSubmitting ? "Salvando..." : "Redefinir Senha"}</span>

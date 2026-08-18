@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,9 +19,33 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { newPassword } = body;
 
-    if (!newPassword || newPassword.length < 6) {
+    const validation = validatePasswordPolicy(newPassword);
+    if (!validation.isValid) {
       return NextResponse.json(
-        { success: false, error: "A nova senha deve possuir pelo menos 6 caracteres." },
+        { success: false, error: validation.error },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Usuário não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    // Verificar se a nova senha é igual à senha anterior
+    const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSamePassword) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "A nova senha não pode ser igual à senha anterior. Por favor, escolha uma senha diferente." 
+        },
         { status: 400 }
       );
     }
