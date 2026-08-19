@@ -949,6 +949,7 @@ export default function NovaSolicitacaoPage() {
                 <div className="space-y-2.5">
                   {selectedItems.map((item, index) => {
                     const isFixed = item.logisticsType === "FIXED_IN_ROOM";
+                    const availItem = item.itemId ? availabilityData.find((a) => a.itemId === item.itemId) : null;
                     return (
                       <div
                         key={index}
@@ -989,10 +990,11 @@ export default function NovaSolicitacaoPage() {
                                 <input
                                   type="number"
                                   min={1}
-                                  max={10}
+                                  max={availItem?.availableQuantity || 999}
                                   value={item.quantity}
                                   onChange={(e) => handleUpdateQuantity(index, parseInt(e.target.value, 10) || 1)}
-                                  className="w-12 h-7 text-xs font-bold text-center rounded-lg border border-border bg-background"
+                                  className="w-16 h-8 text-xs font-bold text-center rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary"
+                                  title={`Disponível no estoque: ${availItem?.availableQuantity || "Livre"}`}
                                 />
                               </div>
                             )}
@@ -1195,7 +1197,7 @@ export default function NovaSolicitacaoPage() {
                 <Input
                   type="number"
                   min={1}
-                  max={20}
+                  max={999}
                   value={customItemQty}
                   onChange={(e) => setCustomItemQty(parseInt(e.target.value, 10) || 1)}
                   className="h-10 text-xs rounded-xl bg-background"
