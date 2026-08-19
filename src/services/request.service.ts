@@ -1445,7 +1445,7 @@ export class RequestService {
 
       await tx.auditLog.create({
         data: {
-          userId,
+          userId: user.id,
           action: "CONFIRM_IMPORTED_REQUEST",
           entity: "Request",
           entityId: id,
