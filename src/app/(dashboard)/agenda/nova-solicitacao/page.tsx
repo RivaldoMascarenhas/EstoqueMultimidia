@@ -85,6 +85,19 @@ interface SelectedEquipment {
   itemNotes?: string;
 }
 
+// Helper para verificar com precisão se uma sala possui projetor fixo configurado
+function isRoomWithProjector(r: any): boolean {
+  if (!r) return false;
+  if (r.hasFixedProjector === true) return true;
+  if (typeof r.fixedProjectorModel === "string" && r.fixedProjectorModel.trim() !== "") return true;
+  if (Array.isArray(r.fixedEquipment) && r.fixedEquipment.some((eq: any) => 
+    eq.label?.toLowerCase().includes("projetor") || 
+    eq.label?.toLowerCase().includes("datashow") ||
+    eq.item?.name?.toLowerCase().includes("projetor")
+  )) return true;
+  return false;
+}
+
 const QUICK_TIME_SLOTS = [
   { label: "08:00 - 10:00", start: "08:00", end: "10:00" },
   { label: "10:00 - 12:00", start: "10:00", end: "12:00" },
@@ -230,8 +243,9 @@ export default function NovaSolicitacaoPage() {
 
       if (!matchText) return false;
 
-      if (roomTypeFilter === "WITH_PROJECTOR" && !r.hasFixedProjector) return false;
-      if (roomTypeFilter === "WITHOUT_PROJECTOR" && r.hasFixedProjector) return false;
+      const hasProjector = isRoomWithProjector(r);
+      if (roomTypeFilter === "WITH_PROJECTOR" && !hasProjector) return false;
+      if (roomTypeFilter === "WITHOUT_PROJECTOR" && hasProjector) return false;
 
       if (roomFloorFilter !== "ALL" && r.floor !== roomFloorFilter) return false;
 
@@ -416,12 +430,12 @@ export default function NovaSolicitacaoPage() {
       }));
 
       // Se a sala tem projetor fixo e nenhum item móvel foi adicionado, incluímos a tag da sala
-      if (itemsPayload.length === 0 && currentRoom?.hasFixedProjector) {
+      if (itemsPayload.length === 0 && isRoomWithProjector(currentRoom)) {
         itemsPayload.push({
           itemId: undefined,
-          label: `Apoio de Projeção Fixa (${currentRoom.name})`,
+          label: `Apoio de Projeção Fixa (${currentRoom?.name})`,
           quantity: 1,
-          notes: "Utilização do projetor instalado na sala.",
+          notes: `Utilização do projetor fixo (${currentRoom?.fixedProjectorModel || "Instalado no teto"}).`,
         });
       }
 
@@ -707,9 +721,9 @@ export default function NovaSolicitacaoPage() {
                         )}
                       </div>
                       <p className="text-xs mt-1 flex items-center gap-1.5">
-                        {currentRoom.hasFixedProjector ? (
+                        {isRoomWithProjector(currentRoom) ? (
                           <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Projetor Fixo Instalado no Teto
+                            <Check className="w-3.5 h-3.5" /> Projetor Fixo no Teto ({currentRoom.fixedProjectorModel || "Incluso"})
                           </span>
                         ) : (
                           <span className="text-muted-foreground flex items-center gap-1">
@@ -748,7 +762,7 @@ export default function NovaSolicitacaoPage() {
                         onClick={() => setIsRoomSelectorOpen(false)}
                         className="text-[11px] text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 cursor-pointer"
                       >
-                        <X className="w-3.5 h-3.5" /> Cancelar / Manter {currentRoom.name}
+                        <X className="w-3 h-3" /> Cancelar / Manter {currentRoom.name}
                       </button>
                     )}
                   </div>
@@ -836,6 +850,7 @@ export default function NovaSolicitacaoPage() {
                     ) : (
                       filteredRooms.map((r) => {
                         const isSelected = r.id === roomId;
+                        const hasProj = isRoomWithProjector(r);
                         return (
                           <button
                             key={r.id}
@@ -859,9 +874,9 @@ export default function NovaSolicitacaoPage() {
                                 )}
                               </div>
                               <p className="text-[11px] mt-0.5 truncate">
-                                {r.hasFixedProjector ? (
+                                {hasProj ? (
                                   <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                    📽️ Projetor Fixo Incluso
+                                    📽️ Projetor Fixo ({r.fixedProjectorModel || "Incluso"})
                                   </span>
                                 ) : (
                                   <span className="text-muted-foreground">
@@ -969,11 +984,11 @@ export default function NovaSolicitacaoPage() {
           <CardContent className="p-6 space-y-5">
 
             {/* Banner Inteligente da Sala */}
-            {currentRoom?.hasFixedProjector && (
+            {isRoomWithProjector(currentRoom) && (
               <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-800 dark:text-emerald-300 text-xs">
                 <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <div>
-                  <p className="font-bold">Projetor da {currentRoom.name} já incluso!</p>
+                  <p className="font-bold">Projetor da {currentRoom?.name} já incluso! ({currentRoom?.fixedProjectorModel || "No teto"})</p>
                   <p className="text-[11px] opacity-90">
                     O suporte de projeção já está garantido na sala. Selecione abaixo apenas notebooks, microfones ou caixas de som extras.
                   </p>
@@ -1225,7 +1240,7 @@ export default function NovaSolicitacaoPage() {
 
                 <div className="flex items-center gap-2.5 text-muted-foreground">
                   <Tv className="w-4 h-4 text-primary shrink-0" />
-                  <span>Projetor da Sala: <strong className="text-foreground">{currentRoom?.hasFixedProjector ? "Incluso ✅" : "Móvel"}</strong></span>
+                  <span>Projetor da Sala: <strong className="text-foreground">{isRoomWithProjector(currentRoom) ? `Incluso ✅ (${currentRoom?.fixedProjectorModel || "No teto"})` : "Móvel"}</strong></span>
                 </div>
               </div>
 

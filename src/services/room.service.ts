@@ -30,7 +30,7 @@ export class RoomService {
       ];
     }
 
-    return await prisma.room.findMany({
+    const rooms = await prisma.room.findMany({
       where,
       include: {
         fixedEquipment: {
@@ -52,6 +52,18 @@ export class RoomService {
       },
       orderBy: [{ floor: "asc" }, { name: "asc" }],
     });
+
+    return rooms.map((room) => ({
+      ...room,
+      hasFixedProjector: Boolean(
+        (room.fixedProjectorModel && room.fixedProjectorModel.trim() !== "") ||
+        room.fixedEquipment?.some((eq: any) => 
+          eq.label?.toLowerCase().includes("projetor") || 
+          eq.label?.toLowerCase().includes("datashow") ||
+          eq.item?.name?.toLowerCase().includes("projetor")
+        )
+      ),
+    }));
   }
 
   /**
@@ -82,7 +94,17 @@ export class RoomService {
       throw new Error("Sala não encontrada.");
     }
 
-    return room;
+    return {
+      ...room,
+      hasFixedProjector: Boolean(
+        (room.fixedProjectorModel && room.fixedProjectorModel.trim() !== "") ||
+        room.fixedEquipment?.some((eq: any) => 
+          eq.label?.toLowerCase().includes("projetor") || 
+          eq.label?.toLowerCase().includes("datashow") ||
+          eq.item?.name?.toLowerCase().includes("projetor")
+        )
+      ),
+    };
   }
 
   /**
