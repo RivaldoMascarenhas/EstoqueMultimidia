@@ -31,6 +31,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { MaintenanceFormModal } from "@/components/maintenance/maintenance-form-modal";
 import { MaintenanceCompleteModal } from "@/components/maintenance/maintenance-complete-modal";
 import { MaintenanceUpdateModal } from "@/components/maintenance/maintenance-update-modal";
@@ -103,18 +111,30 @@ export default function ManutencaoPage() {
     fetchData();
   };
 
-  const handleCancelOrder = async (maintenance: any) => {
-    const reason = window.prompt(
-      `Deseja cancelar a OS ${maintenance.orderNumber || ""}?\nInforme o motivo do cancelamento:`
-    );
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelOrderTarget, setCancelOrderTarget] = useState<any | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
 
-    if (!reason || !reason.trim()) return;
+  const handleOpenCancelModal = (maintenance: any) => {
+    setCancelOrderTarget(maintenance);
+    setCancelReason("");
+    setIsCancelModalOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelOrderTarget) return;
+    if (!cancelReason.trim()) {
+      toast.error("Por favor, informe a justificativa do cancelamento.");
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/v1/maintenances/${maintenance.id}/cancel`, {
+      setIsCancelling(true);
+      const res = await fetch(`/api/v1/maintenances/${cancelOrderTarget.id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: reason.trim() }),
+        body: JSON.stringify({ reason: cancelReason.trim() }),
       });
 
       const json = await res.json();
@@ -122,10 +142,14 @@ export default function ManutencaoPage() {
         throw new Error(json.error || "Erro ao cancelar OS.");
       }
 
-      toast.success("Ordem de Serviço cancelada e equipamento restaurado.");
+      toast.success(`Ordem de Serviço ${cancelOrderTarget.orderNumber || ""} cancelada e equipamento restaurado.`);
+      setIsCancelModalOpen(false);
+      setCancelOrderTarget(null);
       fetchData();
     } catch (err: any) {
       toast.error(err.message || "Erro na requisição.");
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -638,7 +662,7 @@ export default function ManutencaoPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleCancelOrder(m)}
+                              onClick={() => handleOpenCancelModal(m)}
                               className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
                               title="Cancelar OS"
                             >
@@ -699,6 +723,62 @@ export default function ManutencaoPage() {
         }}
         maintenance={selectedMaintenance}
       />
+
+      {/* 🚫 Modal de Cancelamento de Ordem de Serviço */}
+      <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-3xl bg-card border-border/80 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
+              <Ban className="w-4 h-4 text-rose-600" />
+              <span>Cancelar Ordem de Serviço {cancelOrderTarget?.orderNumber}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              O chamado será cancelado e o equipamento voltará a ficar disponível para empréstimos.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border space-y-1">
+              <p className="font-semibold text-foreground">Equipamento: {cancelOrderTarget?.asset?.item?.name}</p>
+              <p className="text-muted-foreground">Patrimônio: #{cancelOrderTarget?.asset?.assetTag}</p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold text-foreground">Motivo do Cancelamento: *</label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Ex: Diagnóstico descartado, defeito não confirmado, duplicidade de chamado..."
+                rows={3}
+                className="w-full p-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCancelModalOpen(false)}
+              className="rounded-xl text-xs h-9"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={isCancelling}
+              onClick={handleConfirmCancel}
+              className="rounded-xl text-xs font-bold h-9 bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              <span>{isCancelling ? "Cancelando..." : "Confirmar Cancelamento"}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

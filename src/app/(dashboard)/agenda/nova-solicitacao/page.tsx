@@ -115,6 +115,12 @@ export default function NovaSolicitacaoPage() {
   const [pendingMicItem, setPendingMicItem] = useState<AvailableItem | null>(null);
   const [matchingSpeakerItem, setMatchingSpeakerItem] = useState<AvailableItem | null>(null);
 
+  // Modal para adição de acessório complementar personalizado
+  const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+  const [customItemLabel, setCustomItemLabel] = useState("");
+  const [customItemQty, setCustomItemQty] = useState(1);
+  const [customItemNotes, setCustomItemNotes] = useState("");
+
   // 1. Carregar salas ativas
   useEffect(() => {
     const loadRooms = async () => {
@@ -315,18 +321,29 @@ export default function NovaSolicitacaoPage() {
   };
 
   const handleAddCustomItem = () => {
-    const customLabel = prompt("Digite o nome ou descrição do acessório / insumo complementar:");
-    if (!customLabel?.trim()) return;
+    setCustomItemLabel("");
+    setCustomItemQty(1);
+    setCustomItemNotes("");
+    setIsCustomItemModalOpen(true);
+  };
+
+  const handleConfirmCustomItem = () => {
+    if (!customItemLabel.trim()) {
+      toast.error("Informe o nome ou descrição do item.");
+      return;
+    }
 
     setSelectedItems((prev) => [
       ...prev,
       {
-        label: customLabel.trim(),
-        quantity: 1,
+        label: customItemLabel.trim(),
+        quantity: Math.max(1, customItemQty),
         logisticsType: "MOBILE_STOCK",
-        itemNotes: "",
+        itemNotes: customItemNotes.trim() || undefined,
       },
     ]);
+    setIsCustomItemModalOpen(false);
+    toast.success(`"${customItemLabel.trim()}" adicionado à solicitação.`);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -1142,6 +1159,81 @@ export default function NovaSolicitacaoPage() {
                 </Button>
               </>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ➕ Modal para Inclusão de Acessório / Insumo Complementar */}
+      <Dialog open={isCustomItemModalOpen} onOpenChange={setIsCustomItemModalOpen}>
+        <DialogContent className="max-w-md p-6 rounded-3xl bg-card border-border/80 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
+              <Plus className="w-4 h-4 text-primary" />
+              <span>Adicionar Recurso ou Acessório Complementar</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Descreva um item extra que não esteja no catálogo padrão para a equipe do Multimídia providenciar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="space-y-1">
+              <label className="font-semibold text-foreground">Descrição do Item / Acessório: *</label>
+              <Input
+                type="text"
+                placeholder="Ex: Passador de slides sem fio, Cabo P2-P10, Pilhas extras..."
+                value={customItemLabel}
+                onChange={(e) => setCustomItemLabel(e.target.value)}
+                className="h-10 text-xs rounded-xl bg-background"
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="font-semibold text-foreground">Quantidade:</label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={customItemQty}
+                  onChange={(e) => setCustomItemQty(parseInt(e.target.value, 10) || 1)}
+                  className="h-10 text-xs rounded-xl bg-background"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-foreground">Observação rápida:</label>
+                <Input
+                  type="text"
+                  placeholder="Opcional"
+                  value={customItemNotes}
+                  onChange={(e) => setCustomItemNotes(e.target.value)}
+                  className="h-10 text-xs rounded-xl bg-background"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomItemModalOpen(false)}
+              className="rounded-xl text-xs h-9"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmCustomItem}
+              className="rounded-xl text-xs font-bold h-9 bg-primary text-primary-foreground gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Adicionar à Lista</span>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

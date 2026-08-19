@@ -23,7 +23,7 @@ export async function PATCH(
     const confirmed = await RequestService.confirmReview(
       params.id,
       validated,
-      session.user.id
+      { id: session.user.id, role: session.user.role as Role }
     );
 
     return NextResponse.json({
