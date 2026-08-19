@@ -61,7 +61,12 @@ export async function POST(req: NextRequest) {
       const matchedRoom = rooms.find((r) =>
         locationText.includes(r.name.toLowerCase()) ||
         locationText.includes(`sala ${r.name.toLowerCase()}`)
-      ) || rooms[0]; // fallback na primeira sala se não achar
+      );
+
+      const isRoomIdentified = Boolean(matchedRoom);
+      const effectiveRoom = matchedRoom || rooms[0]; // sala de rascunho enquanto pendente de revisão
+
+      if (!effectiveRoom) continue; // Sem salas no banco
 
       // Heurística de descrição para extrair professor e equipamento
       const desc = evt.description || evt.summary || "";
@@ -73,17 +78,21 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      const warningNotice = !isRoomIdentified 
+        ? `⚠️ [LOCAL NÃO IDENTIFICADO]: Texto original do evento: "${evt.location || 'Vazio'}". Favor selecionar a sala correta antes de aprovar. ` 
+        : "";
+
       const created = await prisma.request.create({
         data: {
           date: dateOnly,
           startTime: start,
           endTime: end,
           shift,
-          roomId: matchedRoom.id,
+          roomId: effectiveRoom.id,
           professorName: professorName || (evt.summary || "Professor a confirmar"),
           discipline: "Reserva Histórica (Google Calendar)",
           attendanceType: "Atendimento Presencial",
-          notes: `[Importado de legado] Título: "${evt.summary || ""}" | Local: "${evt.location || ""}" | Descrição: "${desc}"`,
+          notes: `${warningNotice}[Importado de legado] Título: "${evt.summary || ""}" | Local original: "${evt.location || "N/A"}" | Detalhes: "${desc}"`,
           status: RequestStatus.AGENDADO,
           origin: RequestOrigin.IMPORTADO_LEGADO,
           needsReview: true,

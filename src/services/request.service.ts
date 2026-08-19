@@ -342,6 +342,14 @@ export class RequestService {
     excludeRequestId?: string,
     tx: any = prisma
   ) {
+    // 1. ATOMIC LOCK: Bloqueia a linha do Item no Postgres para transações concorrentes
+    if (tx !== prisma && typeof tx.item?.update === "function") {
+      await tx.item.update({
+        where: { id: itemId },
+        data: { updatedAt: new Date() },
+      });
+    }
+
     const item = await tx.item.findUnique({
       where: { id: itemId },
       include: {
@@ -377,13 +385,14 @@ export class RequestService {
     const alreadyReserved = overlappingReservations.reduce((acc: number, r: any) => acc + r.quantity, 0);
 
     let netAvailable = 0;
-    if (item.itemType === "ASSET_EQUIPMENT" || (item.assets && item.assets.length > 0)) {
-      // Total de assets disponíveis livres menos reservas sobrepostas
-      const totalAvailableAssets = item.assets.length;
+    // Separação estrita: ASSET_EQUIPMENT vs MATERIAL
+    if (item.itemType === "ASSET_EQUIPMENT") {
+      // Total de assets patrimoniais disponíveis livres menos reservas sobrepostas
+      const totalAvailableAssets = item.assets ? item.assets.length : 0;
       netAvailable = Math.max(0, totalAvailableAssets - alreadyReserved);
     } else {
       // Itens quantitativos (Inventory)
-      const totalInventory = item.inventories.reduce((acc: number, inv: any) => acc + inv.quantity, 0);
+      const totalInventory = item.inventories ? item.inventories.reduce((acc: number, inv: any) => acc + inv.quantity, 0) : 0;
       netAvailable = Math.max(0, totalInventory - alreadyReserved);
     }
 
@@ -608,7 +617,7 @@ export class RequestService {
         }
       }
 
-      // 7. Se for recorrente, materializar as instâncias futuras
+      // 7. Se for recorrente, validar e materializar as instâncias futuras
       if (data.repeatWeekly && seriesId) {
         let currentDate = new Date(startDateTime.getTime() + 7 * 24 * 60 * 60 * 1000);
         let currentEndDate = new Date(endDateTime.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -619,6 +628,43 @@ export class RequestService {
           : new Date(startDateTime.getTime() + (data.repeatOccurrences || 18) * 7 * 24 * 60 * 60 * 1000);
 
         while (currentDate <= seriesEndDate && currentDate <= maxDate) {
+          const dateStr = currentDate.toLocaleDateString("pt-BR");
+
+          // 7.1 Validar se a sala já tem conflito de horário nesta data futura
+          const roomConflict = await tx.request.findFirst({
+            where: {
+              roomId: data.roomId,
+              status: { notIn: [RequestStatus.CANCELADO, RequestStatus.FINALIZADO] },
+              AND: [
+                { startTime: { lt: currentEndDate } },
+                { endTime: { gt: currentDate } },
+              ],
+            },
+          });
+
+          if (roomConflict) {
+            const confProf = roomConflict.professorName || "Atendimento agendado";
+            const sTime = roomConflict.startTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            const eTime = roomConflict.endTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            throw new Error(
+              `Conflito de agenda em ${dateStr}: a Sala ${room.name} já possui a aula/reserva "${confProf}" das ${sTime} às ${eTime}. Não foi possível criar a série completa.`
+            );
+          }
+
+          // 7.2 Validar disponibilidade de estoque para os itens nesta data futura
+          for (const itemInput of data.items) {
+            if (itemInput.itemId && itemInput.resourceType !== ResourceType.FIXED_IN_ROOM) {
+              await this.validateItemAvailability(
+                itemInput.itemId,
+                itemInput.quantity,
+                currentDate,
+                currentEndDate,
+                undefined,
+                tx
+              );
+            }
+          }
+
           const instDateOnly = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
 
           const nextInstance = await tx.request.create({
@@ -1120,6 +1166,55 @@ export class RequestService {
         isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
       }
 
+      // Validação de alteração de sala ou conflito de horário
+      const targetRoomId = data.roomId || existing.roomId;
+      const targetRoom = await tx.room.findUnique({
+        where: { id: targetRoomId },
+        include: { fixedEquipment: true },
+      });
+
+      if (!targetRoom || !targetRoom.active) {
+        throw new Error("Sala não encontrada ou inativa.");
+      }
+
+      // Se mudou a sala ou o horário, checar se a sala está livre
+      if (data.roomId || data.startTime || data.endTime || data.date) {
+        const roomConflict = await tx.request.findFirst({
+          where: {
+            roomId: targetRoomId,
+            id: { not: id },
+            status: { notIn: [RequestStatus.CANCELADO, RequestStatus.FINALIZADO] },
+            AND: [
+              { startTime: { lt: endDateTime } },
+              { endTime: { gt: startDateTime } },
+            ],
+          },
+        });
+
+        if (roomConflict) {
+          const confProf = roomConflict.professorName || "Outro atendimento";
+          throw new Error(
+            `A Sala ${targetRoom.name} já possui a aula/reserva "${confProf}" agendada das ${roomConflict.startTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} às ${roomConflict.endTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`
+          );
+        }
+
+        // Revalidar infraestrutura fixa na nova sala
+        const effectiveItems = data.items !== undefined ? data.items : existing.items;
+        const hasFixedProjector = effectiveItems.some((i: any) => i.resourceType === ResourceType.FIXED_IN_ROOM);
+        if (hasFixedProjector) {
+          if (!targetRoom.fixedProjectorModel) {
+            throw new Error(
+              `A sala ${targetRoom.name} não possui Datashow fixo instalado. Ajuste os recursos da solicitação para Datashow Móvel.`
+            );
+          }
+          if (targetRoom.lampStatus === "TROCAR LAMPADA") {
+            throw new Error(
+              `O Datashow fixo da sala ${targetRoom.name} está indisponível para uso (requer troca de lâmpada).`
+            );
+          }
+        }
+      }
+
       // Se atualizou itens
       if (data.items !== undefined) {
         // Remover itens e reservas antigas
@@ -1262,7 +1357,7 @@ export class RequestService {
   static async confirmReview(
     id: string,
     data: RequestLegacyConfirmInput,
-    userId: string
+    user: { id: string; role: Role }
   ) {
     return await prisma.$transaction(async (tx) => {
       const request = await tx.request.findUnique({
@@ -1272,6 +1367,10 @@ export class RequestService {
 
       if (!request) {
         throw new Error("Solicitação não encontrada.");
+      }
+
+      if (user.role === Role.ACADEMIC_SUPPORT && request.createdById !== user.id) {
+        throw new Error("Permissão negada: você só pode revisar e confirmar solicitações criadas pelo seu próprio usuário.");
       }
 
       let startDateTime = request.startTime;
