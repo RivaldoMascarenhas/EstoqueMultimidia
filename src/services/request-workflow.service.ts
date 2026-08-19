@@ -10,21 +10,30 @@ export class RequestWorkflowService {
     [RequestStatus.AGENDADO]: [
       RequestStatus.EM_PREPARACAO,
       RequestStatus.CANCELADO,
+      RequestStatus.PROBLEMA,
     ],
     [RequestStatus.EM_PREPARACAO]: [
       RequestStatus.AGENDADO, // Desfazer início
       RequestStatus.PREPARADO, // Concluir checklist
       RequestStatus.CANCELADO,
+      RequestStatus.PROBLEMA,
     ],
     [RequestStatus.PREPARADO]: [
       RequestStatus.EM_PREPARACAO, // Voltar para ajuste
       RequestStatus.EM_ATENDIMENTO, // Entregue na sala
       RequestStatus.CANCELADO,
+      RequestStatus.PROBLEMA,
     ],
     [RequestStatus.EM_ATENDIMENTO]: [
       RequestStatus.PREPARADO, // Reverter entrega
       RequestStatus.FINALIZADO, // Recolhido e finalizado
       RequestStatus.CANCELADO,
+      RequestStatus.PROBLEMA,
+    ],
+    [RequestStatus.PROBLEMA]: [
+      RequestStatus.EM_PREPARACAO, // Reabrir preparo ou troca de patrimônio
+      RequestStatus.PREPARADO,     // Problema sanado
+      RequestStatus.CANCELADO,     // Impossibilidade de atendimento
     ],
     [RequestStatus.FINALIZADO]: [],
     [RequestStatus.CANCELADO]: [],
