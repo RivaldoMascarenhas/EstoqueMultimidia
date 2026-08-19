@@ -19,7 +19,9 @@ import {
   Search,
   CheckCircle2,
   RefreshCw,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  Sparkles
 } from "lucide-react";
 import {
   Dialog,
@@ -79,6 +81,13 @@ const INTERNAL_LOCATIONS = [
   "No próprio local / Sala de Aula",
 ];
 
+const DEADLINE_OPTIONS = [
+  { id: "24h", label: "⚡ 24h (Urgente)" },
+  { id: "48h", label: "⏱️ 48h (Padrão)" },
+  { id: "5d", label: "📅 5 dias úteis" },
+  { id: "15d", label: "🏢 15 dias (Externa)" },
+];
+
 export function MaintenanceFormModal({
   isOpen,
   onClose,
@@ -90,12 +99,14 @@ export function MaintenanceFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [assetSearchQuery, setAssetSearchQuery] = useState("");
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const issueInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Form State
   const [assetId, setAssetId] = useState(preSelectedAssetId || "");
   const [issueDescription, setIssueDescription] = useState("");
   const [maintenanceType, setMaintenanceType] = useState<"INTERNAL" | "EXTERNAL" | "PREVENTIVE">("INTERNAL");
   const [priority, setPriority] = useState<"LOW" | "MEDIUM" | "HIGH" | "CRITICAL">("MEDIUM");
+  const [estimatedDeadline, setEstimatedDeadline] = useState("48h");
   const [internalLocation, setInternalLocation] = useState("Bancada TI - Sala Multimídia");
   const [serviceProvider, setServiceProvider] = useState("");
   const [cost, setCost] = useState("");
@@ -110,6 +121,7 @@ export function MaintenanceFormModal({
       fetchEligibleAssets();
       if (preSelectedAssetId) {
         setAssetId(preSelectedAssetId);
+        setTimeout(() => issueInputRef.current?.focus(), 150);
       }
       setAssetSearchQuery("");
       if (scrollContainerRef.current) {
@@ -172,9 +184,15 @@ export function MaintenanceFormModal({
     try {
       setIsSubmitting(true);
 
-      const notesCombined = maintenanceType === "INTERNAL" || maintenanceType === "PREVENTIVE"
-        ? `[Local: ${internalLocation}] ${technicalNotes.trim()}`.trim()
-        : technicalNotes.trim() || undefined;
+      const deadlineNote = `[Prazo Estimado: ${DEADLINE_OPTIONS.find((d) => d.id === estimatedDeadline)?.label || estimatedDeadline}]`;
+      const locationNote = maintenanceType === "INTERNAL" || maintenanceType === "PREVENTIVE"
+        ? `[Local: ${internalLocation}]`
+        : "";
+
+      const notesCombined = [locationNote, deadlineNote, technicalNotes.trim()]
+        .filter(Boolean)
+        .join(" ")
+        .trim();
 
       const payload = {
         assetId,
@@ -228,6 +246,7 @@ export function MaintenanceFormModal({
     setIssueDescription("");
     setMaintenanceType("INTERNAL");
     setPriority("MEDIUM");
+    setEstimatedDeadline("48h");
     setInternalLocation("Bancada TI - Sala Multimídia");
     setServiceProvider("");
     setCost("");
@@ -250,7 +269,7 @@ export function MaintenanceFormModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent hideClose className="max-w-4xl max-h-[94vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-card border-border shadow-2xl gap-0">
         
-        {/* 1. HEADER FIXO */}
+        {/* 1. HEADER FIXO ELEGANTE */}
         <div className="px-6 py-4 border-b border-border/80 flex items-center justify-between bg-accent/20 shrink-0">
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -264,15 +283,20 @@ export function MaintenanceFormModal({
               <Wrench className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
-                Abertura de Ordem de Serviço (OS)
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
+                  Abertura de Ordem de Serviço (OS)
+                </DialogTitle>
+                <Badge variant="outline" className="font-mono text-[10px] font-bold bg-background/80 border-border text-muted-foreground px-2 py-0.5 shadow-2xs">
+                  Protocolo: OS-{new Date().getFullYear()}-NOVA
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {maintenanceType === "INTERNAL"
                   ? "Reparo e testes executados no laboratório do Suporte TI"
                   : maintenanceType === "EXTERNAL"
                   ? "Envio de equipamento para fornecedor ou assistência autorizada"
-                  : "Rotina periódica de limpeza, troca de filtros e revisão"}
+                  : "Rotina periódica de limpeza, troca de filtros e revisão preventiva"}
               </p>
             </div>
           </div>
@@ -298,7 +322,7 @@ export function MaintenanceFormModal({
               className={cn(
                 "flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
                 maintenanceType === "INTERNAL"
-                  ? "bg-card text-blue-600 dark:text-blue-400 shadow-sm border border-border/80"
+                  ? "bg-card text-blue-600 dark:text-blue-400 shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               )}
             >
@@ -312,7 +336,7 @@ export function MaintenanceFormModal({
               className={cn(
                 "flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
                 maintenanceType === "EXTERNAL"
-                  ? "bg-card text-purple-600 dark:text-purple-400 shadow-sm border border-border/80"
+                  ? "bg-card text-purple-600 dark:text-purple-400 shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               )}
             >
@@ -329,7 +353,7 @@ export function MaintenanceFormModal({
               className={cn(
                 "flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
                 maintenanceType === "PREVENTIVE"
-                  ? "bg-card text-cyan-600 dark:text-cyan-400 shadow-sm border border-border/80"
+                  ? "bg-card text-cyan-600 dark:text-cyan-400 shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               )}
             >
@@ -410,7 +434,7 @@ export function MaintenanceFormModal({
                         onChange={(e) => setAssetSearchQuery(e.target.value)}
                         placeholder="Buscar por patrimônio, modelo ou nome (ex: 042, Epson, microfone)..."
                         className="pl-10 pr-9 h-11 rounded-xl text-sm bg-background border-input focus:ring-2 focus:ring-primary"
-                        autoFocus
+                        autoFocus={!preSelectedAssetId}
                       />
                       {assetSearchQuery && (
                         <button
@@ -424,7 +448,7 @@ export function MaintenanceFormModal({
                     </div>
 
                     {/* Lista com scroll confortável */}
-                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 rounded-2xl border border-border/80 p-2 bg-muted/20">
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 rounded-2xl border border-border/80 p-2 bg-muted/20">
                       {isLoadingAssets ? (
                         <div className="py-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -442,6 +466,7 @@ export function MaintenanceFormModal({
                             onClick={() => {
                               setAssetId(asset.id);
                               setAssetSearchQuery("");
+                              setTimeout(() => issueInputRef.current?.focus(), 100);
                             }}
                             className="w-full flex items-center justify-between p-2.5 rounded-xl border border-transparent hover:border-primary/40 bg-card hover:bg-accent/70 transition-all text-left group cursor-pointer"
                           >
@@ -478,10 +503,14 @@ export function MaintenanceFormModal({
                     <span>Defeito / Motivo do Chamado</span>
                     <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] text-muted-foreground">Clique nas tags abaixo</span>
+                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    Sugestões rápidas
+                  </span>
                 </div>
 
                 <textarea
+                  ref={issueInputRef}
                   rows={2}
                   value={issueDescription}
                   onChange={(e) => setIssueDescription(e.target.value)}
@@ -497,16 +526,24 @@ export function MaintenanceFormModal({
 
                 {/* Tags de Sintomas Dinâmicas */}
                 <div className="flex flex-wrap gap-1.5 pt-0.5 max-h-20 overflow-y-auto">
-                  {getQuickIssues().map((issue, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setIssueDescription(issue)}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-accent/60 hover:bg-accent text-muted-foreground hover:text-foreground border border-border/50 transition-colors text-left cursor-pointer"
-                    >
-                      + {issue}
-                    </button>
-                  ))}
+                  {getQuickIssues().map((issue, idx) => {
+                    const isSelected = issueDescription === issue;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setIssueDescription(issue)}
+                        className={cn(
+                          "text-[11px] px-2.5 py-1 rounded-lg border transition-all text-left cursor-pointer",
+                          isSelected
+                            ? "bg-primary text-primary-foreground font-bold border-primary shadow-2xs"
+                            : "bg-accent/60 hover:bg-accent text-muted-foreground hover:text-foreground border-border/50"
+                        )}
+                      >
+                        {isSelected ? "✓ " : "+ "}{issue}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -530,7 +567,7 @@ export function MaintenanceFormModal({
                         onClick={() => setPriority(p.id as any)}
                         className={`py-2 text-xs font-semibold rounded-xl border transition-all text-center cursor-pointer ${
                           isSelected 
-                            ? `${p.color} border-current ring-1 ring-current shadow-sm font-bold` 
+                            ? `${p.color} border-current ring-1 ring-current shadow-xs font-bold` 
                             : "bg-background border-input text-muted-foreground hover:bg-accent"
                         }`}
                       >
@@ -548,29 +585,55 @@ export function MaintenanceFormModal({
               
               {/* SEÇÃO 1: MANUTENÇÃO INTERNA / PREVENTIVA */}
               {(maintenanceType === "INTERNAL" || maintenanceType === "PREVENTIVE") && (
-                <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-4 animate-in fade-in-50">
-                  <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-semibold text-xs border-b border-blue-500/20 pb-2">
-                    <Home className="w-4 h-4" />
-                    <span>Detalhes da Bancada Interna de TI</span>
+                <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3.5 animate-in fade-in-50">
+                  <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 font-semibold text-xs border-b border-blue-500/20 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Home className="w-4 h-4" />
+                      <span>Detalhes da Bancada Interna de TI</span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30">
+                      Sem custo externo
+                    </Badge>
                   </div>
 
-                  {/* Local do Reparo (Dropdown amplo e confortável) */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-5">
-                      <MapPin className="h-3.5 w-3.5 text-blue-500" />
-                      <span>Local / Posto de Atendimento</span>
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={internalLocation}
-                        onChange={(e) => setInternalLocation(e.target.value)}
-                        className="w-full h-11 pl-3.5 pr-10 rounded-xl border border-input bg-background text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
-                      >
-                        {INTERNAL_LOCATIONS.map((loc, i) => (
-                          <option key={i} value={loc}>{loc}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  {/* Local do Reparo & Prazo Estimado */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-5">
+                        <MapPin className="h-3.5 w-3.5 text-blue-500" />
+                        <span>Posto / Local</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={internalLocation}
+                          onChange={(e) => setInternalLocation(e.target.value)}
+                          className="w-full h-10 pl-3.5 pr-8 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
+                        >
+                          {INTERNAL_LOCATIONS.map((loc, i) => (
+                            <option key={i} value={loc}>{loc}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-5">
+                        <Clock className="h-3.5 w-3.5 text-blue-500" />
+                        <span>Previsão de Retorno</span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={estimatedDeadline}
+                          onChange={(e) => setEstimatedDeadline(e.target.value)}
+                          className="w-full h-10 pl-3.5 pr-8 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
+                        >
+                          {DEADLINE_OPTIONS.map((d) => (
+                            <option key={d.id} value={d.id}>{d.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      </div>
                     </div>
                   </div>
 
@@ -585,25 +648,30 @@ export function MaintenanceFormModal({
                       value={technicalNotes}
                       onChange={(e) => setTechnicalNotes(e.target.value)}
                       placeholder="Testes preliminares, cabos verificados, insumos necessários..."
-                      className="w-full p-3 rounded-xl border border-input bg-background text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
+                      className="w-full p-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
                     />
                   </div>
 
                   <p className="text-[11px] text-muted-foreground">
-                    ℹ️ Manutenção executada pela própria equipe interna do Suporte de TI. Sem custos de terceiros.
+                    ℹ️ Manutenção executada pela equipe interna do Suporte Multimídia. O equipamento fica indisponível para empréstimo.
                   </p>
                 </div>
               )}
 
               {/* SEÇÃO 2: MANUTENÇÃO EXTERNA / FORNECEDOR */}
               {maintenanceType === "EXTERNAL" && (
-                <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-4 animate-in fade-in-50">
-                  <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-semibold text-xs border-b border-purple-500/20 pb-2">
-                    <Building2 className="w-4 h-4" />
-                    <span>Assistência Técnica / Fornecedor</span>
+                <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-3.5 animate-in fade-in-50">
+                  <div className="flex items-center justify-between text-purple-600 dark:text-purple-400 font-semibold text-xs border-b border-purple-500/20 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      <span>Assistência Técnica / Fornecedor</span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30">
+                      Terceirizado
+                    </Badge>
                   </div>
 
-                  {/* Prestador e Orçamento Previsto com Alinhamento Perfeito */}
+                  {/* Prestador e Orçamento Previsto */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-5">
@@ -615,7 +683,7 @@ export function MaintenanceFormModal({
                         value={serviceProvider}
                         onChange={(e) => setServiceProvider(e.target.value)}
                         placeholder="Ex: Epson Autorizada"
-                        className="h-11 rounded-xl text-sm"
+                        className="h-10 rounded-xl text-xs"
                         required
                       />
                     </div>
@@ -632,7 +700,7 @@ export function MaintenanceFormModal({
                         value={cost}
                         onChange={(e) => setCost(e.target.value)}
                         placeholder="0,00"
-                        className="h-11 rounded-xl text-sm"
+                        className="h-10 rounded-xl text-xs"
                       />
                     </div>
                   </div>
@@ -654,7 +722,7 @@ export function MaintenanceFormModal({
                     </div>
                   </div>
 
-                  {/* Contato e WhatsApp com Alinhamento Perfeito */}
+                  {/* Contato e WhatsApp */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-5">
@@ -665,7 +733,7 @@ export function MaintenanceFormModal({
                         value={contactName}
                         onChange={(e) => setContactName(e.target.value)}
                         placeholder="Ex: Carlos (Técnico)"
-                        className="h-11 rounded-xl text-sm"
+                        className="h-10 rounded-xl text-xs"
                       />
                     </div>
 
@@ -678,7 +746,7 @@ export function MaintenanceFormModal({
                         value={contactPhone}
                         onChange={(e) => setContactPhone(e.target.value)}
                         placeholder="(88) 99999-9999"
-                        className="h-11 rounded-xl text-sm"
+                        className="h-10 rounded-xl text-xs"
                       />
                     </div>
                   </div>
@@ -694,7 +762,7 @@ export function MaintenanceFormModal({
                       value={technicalNotes}
                       onChange={(e) => setTechnicalNotes(e.target.value)}
                       placeholder="Instruções de envio, prazos combinados..."
-                      className="w-full p-3 rounded-xl border border-input bg-background text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
+                      className="w-full p-3 rounded-xl border border-input bg-background text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-all resize-none"
                     />
                   </div>
                 </div>
