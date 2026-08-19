@@ -149,14 +149,17 @@ export default function NovaSolicitacaoPage() {
         setIsLoadingCatalogs(true);
         const res = await fetch("/api/v1/rooms?activeOnly=true");
         const json = await res.json();
-        if (json.success) {
+        if (json.success && Array.isArray(json.data)) {
           setRooms(json.data);
           if (json.data.length > 0 && !roomId) {
             setRoomId(json.data[0].id);
           }
+        } else {
+          setRooms([]);
         }
       } catch (err) {
         toast.error("Erro ao carregar lista de salas.");
+        setRooms([]);
       } finally {
         setIsLoadingCatalogs(false);
       }
@@ -172,11 +175,19 @@ export default function NovaSolicitacaoPage() {
       const url = `/api/v1/inventory/availability?date=${date}&startTime=${startTime}&endTime=${endTime}${roomId ? `&roomId=${roomId}` : ""}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (json.success) {
-        setAvailabilityData(json.data);
+      if (res.ok && json.success && json.data) {
+        const items = Array.isArray(json.data.items) 
+          ? json.data.items 
+          : Array.isArray(json.data) 
+          ? json.data 
+          : [];
+        setAvailabilityData(items);
+      } else {
+        setAvailabilityData([]);
       }
     } catch (err) {
       console.error("Erro ao verificar disponibilidade:", err);
+      setAvailabilityData([]);
     } finally {
       setIsLoadingAvailability(false);
     }
@@ -188,6 +199,7 @@ export default function NovaSolicitacaoPage() {
 
   // Sala selecionada atual
   const currentRoom = useMemo(() => {
+    if (!Array.isArray(rooms)) return undefined;
     return rooms.find((r) => r.id === roomId);
   }, [rooms, roomId]);
 
@@ -423,6 +435,7 @@ export default function NovaSolicitacaoPage() {
 
   // Itens filtrados para o catálogo simplificado da Etapa 2
   const filteredCatalog = useMemo(() => {
+    if (!Array.isArray(availabilityData)) return [];
     return availabilityData.filter((item) => {
       // Ocultar projetores fixos da lista móvel se a sala já tem fixo
       if (item.logisticsType === "FIXED_IN_ROOM") return false;
