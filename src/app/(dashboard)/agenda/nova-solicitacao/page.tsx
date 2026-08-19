@@ -15,11 +15,13 @@ import {
   Monitor, 
   Repeat, 
   ArrowLeft, 
+  ArrowRight,
   CheckCircle2, 
   AlertCircle, 
   Sparkles,
   Layers,
   Plus,
+  Minus,
   Trash2,
   ShieldCheck,
   AlertTriangle,
@@ -29,7 +31,12 @@ import {
   GraduationCap,
   FileText,
   Volume2,
-  Mic
+  Mic,
+  Laptop,
+  Presentation,
+  Cable,
+  Check,
+  Info
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +51,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface AvailableItem {
   itemId: string;
@@ -74,10 +82,21 @@ interface SelectedEquipment {
   itemNotes?: string;
 }
 
+const QUICK_TIME_SLOTS = [
+  { label: "08:00 - 10:00", start: "08:00", end: "10:00" },
+  { label: "10:00 - 12:00", start: "10:00", end: "12:00" },
+  { label: "14:00 - 16:00", start: "14:00", end: "16:00" },
+  { label: "16:00 - 18:00", start: "16:00", end: "18:00" },
+  { label: "19:00 - 21:00", start: "19:00", end: "21:00" },
+  { label: "21:00 - 22:40", start: "21:00", end: "22:40" },
+];
+
 export default function NovaSolicitacaoPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const userName = session?.user?.name || "";
+
+  // Wizard Step State (1: Quando & Onde, 2: Recursos, 3: Revisão & Recorrência, 4: Sucesso)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
   const [rooms, setRooms] = useState<any[]>([]);
   const [availabilityData, setAvailabilityData] = useState<AvailableItem[]>([]);
@@ -85,10 +104,7 @@ export default function NovaSolicitacaoPage() {
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filtro de busca de equipamentos
-  const [equipmentSearch, setEquipmentSearch] = useState("");
-
-  // Form State
+  // Etapa 1: Quando, Onde e Quem?
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("10:00");
@@ -96,151 +112,135 @@ export default function NovaSolicitacaoPage() {
   const [professorName, setProfessorName] = useState("");
   const [discipline, setDiscipline] = useState("");
   const [attendanceType, setAttendanceType] = useState("Aula Teórica");
-  const [notes, setNotes] = useState("");
 
-  // Recurrence State
-  const [repeatWeekly, setRepeatWeekly] = useState(false);
-  const [recurrenceMode, setRecurrenceMode] = useState<"SEMESTER" | "MONTH" | "CUSTOM">("SEMESTER");
-  const [repeatUntilDate, setRepeatUntilDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 4); // 4 meses à frente (semestre) por padrão
-    return d.toISOString().split("T")[0];
-  });
-
-  // Selected Equipment Items
+  // Etapa 2: Recursos
   const [selectedItems, setSelectedItems] = useState<SelectedEquipment[]>([]);
+  const [resourceCategory, setResourceCategory] = useState<"ALL" | "COMPUTING" | "AUDIO" | "CABLES">("ALL");
+  const [resourceSearch, setResourceSearch] = useState("");
 
   // Modal Inteligente de Microfone & Caixa de Som
   const [isMicModalOpen, setIsMicModalOpen] = useState(false);
   const [pendingMicItem, setPendingMicItem] = useState<AvailableItem | null>(null);
   const [matchingSpeakerItem, setMatchingSpeakerItem] = useState<AvailableItem | null>(null);
 
-  // Modal para adição de acessório complementar personalizado
+  // Modal de Item Customizado
   const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
   const [customItemLabel, setCustomItemLabel] = useState("");
   const [customItemQty, setCustomItemQty] = useState(1);
   const [customItemNotes, setCustomItemNotes] = useState("");
 
-  // 1. Carregar salas ativas
+  // Etapa 3: Recorrência & Revisão
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  const [recurrenceMode, setRecurrenceMode] = useState<"SEMESTER" | "MONTH" | "CUSTOM">("SEMESTER");
+  const [repeatUntilDate, setRepeatUntilDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 4);
+    return d.toISOString().split("T")[0];
+  });
+  const [generalNotes, setGeneralNotes] = useState("");
+
+  // Dados da aula recém criada para exibição na tela de sucesso
+  const [createdSummary, setCreatedSummary] = useState<any>(null);
+
+  // 1. Carregar salas
   useEffect(() => {
     const loadRooms = async () => {
       try {
         setIsLoadingCatalogs(true);
-        const roomsRes = await fetch("/api/v1/rooms?activeOnly=true");
-        const roomsData = await roomsRes.json();
-        if (roomsData.success) {
-          setRooms(roomsData.data);
-          if (roomsData.data.length > 0 && !roomId) {
-            setRoomId(roomsData.data[0].id);
+        const res = await fetch("/api/v1/rooms?activeOnly=true");
+        const json = await res.json();
+        if (json.success) {
+          setRooms(json.data);
+          if (json.data.length > 0 && !roomId) {
+            setRoomId(json.data[0].id);
           }
         }
       } catch (err) {
-        console.error("Erro ao carregar salas:", err);
         toast.error("Erro ao carregar lista de salas.");
       } finally {
         setIsLoadingCatalogs(false);
       }
     };
-
     loadRooms();
   }, []);
 
-  // 2. Atualizar data limite conforme o modo de recorrência selecionado
+  // 2. Consulta de disponibilidade em tempo real
+  const fetchAvailability = async () => {
+    if (!date || !startTime || !endTime) return;
+    try {
+      setIsLoadingAvailability(true);
+      const url = `/api/v1/inventory/availability?date=${date}&startTime=${startTime}&endTime=${endTime}${roomId ? `&roomId=${roomId}` : ""}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.success) {
+        setAvailabilityData(json.data);
+      }
+    } catch (err) {
+      console.error("Erro ao verificar disponibilidade:", err);
+    } finally {
+      setIsLoadingAvailability(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAvailability();
+  }, [date, startTime, endTime, roomId]);
+
+  // Sala selecionada atual
+  const currentRoom = useMemo(() => {
+    return rooms.find((r) => r.id === roomId);
+  }, [rooms, roomId]);
+
+  // Modo de recorrência
   const handleSetRecurrenceMode = (mode: "SEMESTER" | "MONTH" | "CUSTOM") => {
     setRecurrenceMode(mode);
     const baseDate = new Date(date + "T12:00:00");
     if (isNaN(baseDate.getTime())) return;
 
     if (mode === "SEMESTER") {
-      // 18 semanas (~4.5 meses) para cobrir o semestre letivo completo
       const endSem = new Date(baseDate.getTime() + 18 * 7 * 24 * 60 * 60 * 1000);
       setRepeatUntilDate(endSem.toISOString().split("T")[0]);
     } else if (mode === "MONTH") {
-      // 4 semanas (1 mês)
       const endMonth = new Date(baseDate.getTime() + 4 * 7 * 24 * 60 * 60 * 1000);
       setRepeatUntilDate(endMonth.toISOString().split("T")[0]);
     }
   };
 
-  // 3. Consultar disponibilidade de estoque em tempo real para data/horário/sala selecionados
-  useEffect(() => {
-    if (!date || !startTime || !endTime) return;
+  // Quantidade estimada de semanas
+  const estimatedWeeks = useMemo(() => {
+    if (!repeatWeekly || !date || !repeatUntilDate) return 1;
+    const start = new Date(date + "T00:00:00").getTime();
+    const end = new Date(repeatUntilDate + "T00:00:00").getTime();
+    if (end <= start) return 1;
+    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return Math.max(1, Math.floor(diffDays / 7) + 1);
+  }, [repeatWeekly, date, repeatUntilDate]);
 
-    const checkAvailability = async () => {
-      try {
-        setIsLoadingAvailability(true);
-        const url = new URL("/api/v1/inventory/availability", window.location.origin);
-        url.searchParams.set("date", date);
-        url.searchParams.set("startTime", startTime);
-        url.searchParams.set("endTime", endTime);
-        if (roomId) url.searchParams.set("roomId", roomId);
-
-        const res = await fetch(url.toString());
-        const json = await res.json();
-        if (json.success) {
-          setAvailabilityData(json.data.items || []);
-        }
-      } catch (err) {
-        console.error("Erro ao verificar disponibilidade:", err);
-      } finally {
-        setIsLoadingAvailability(false);
-      }
-    };
-
-    const timer = setTimeout(checkAvailability, 250);
-    return () => clearTimeout(timer);
-  }, [date, startTime, endTime, roomId]);
-
-  const selectedRoom = rooms.find((r) => r.id === roomId);
-
-  // 4. Auto-inclusão / confirmação automática dos equipamentos fixos da sala selecionada
-  useEffect(() => {
-    if (!selectedRoom || availabilityData.length === 0) return;
-
-    const fixedItem = availabilityData.find((a) => a.logisticsType === "FIXED_IN_ROOM");
-
-    if (
-      selectedRoom.fixedProjectorModel &&
-      selectedRoom.lampStatus !== "TROCAR LAMPADA" &&
-      fixedItem &&
-      fixedItem.isAvailable
-    ) {
-      setSelectedItems((prev) => {
-        const otherItems = prev.filter((i) => i.logisticsType !== "FIXED_IN_ROOM");
-        return [
-          {
-            itemId: fixedItem.itemId,
-            label: `Datashow (Projetor fixo: ${selectedRoom.fixedProjectorModel})`,
-            quantity: 1,
-            logisticsType: "FIXED_IN_ROOM",
-            itemNotes: `Projetor de teto da sala ${selectedRoom.name} (${selectedRoom.floor || "Campus"})`,
-          },
-          ...otherItems,
-        ];
-      });
-    } else {
-      // Se a nova sala não possui projetor fixo, remove o item fixo da sala anterior
-      setSelectedItems((prev) => prev.filter((i) => i.logisticsType !== "FIXED_IN_ROOM"));
-    }
-  }, [roomId, selectedRoom, availabilityData]);
-
-  // Filtragem de equipamentos por busca
-  const filteredAvailabilityData = useMemo(() => {
-    if (!equipmentSearch.trim()) return availabilityData;
-    const term = equipmentSearch.toLowerCase().trim();
-    return availabilityData.filter(
-      (item) =>
-        item.name.toLowerCase().includes(term) ||
-        item.category.toLowerCase().includes(term) ||
-        item.sku.toLowerCase().includes(term)
-    );
-  }, [availabilityData, equipmentSearch]);
-
-  // Adição direta de item
-  const addEquipmentDirectly = (item: AvailableItem, customNotes: string = "") => {
-    if (selectedItems.some((si) => si.itemId === item.itemId)) {
-      toast.info(`"${item.name}" já está na lista de equipamentos.`);
+  // Adicionar item do catálogo
+  const handleToggleItem = (item: AvailableItem) => {
+    const isSelected = selectedItems.some((s) => s.itemId === item.itemId);
+    if (isSelected) {
+      setSelectedItems((prev) => prev.filter((s) => s.itemId !== item.itemId));
       return;
+    }
+
+    if (!item.isAvailable || item.availableQuantity < 1) {
+      toast.error(`"${item.name}" não está disponível neste horário.`);
+      return;
+    }
+
+    // Se for microfone, verificar se precisa de caixa de som
+    const isMic = item.name.toLowerCase().includes("microfone") || item.category.toLowerCase().includes("microfone") || item.category.toLowerCase().includes("audio");
+    if (isMic) {
+      const speaker = availabilityData.find(
+        (a) => a.name.toLowerCase().includes("caixa") && a.name.toLowerCase().includes("som") && a.isAvailable
+      );
+      if (speaker) {
+        setPendingMicItem(item);
+        setMatchingSpeakerItem(speaker);
+        setIsMicModalOpen(true);
+        return;
+      }
     }
 
     setSelectedItems((prev) => [
@@ -250,89 +250,63 @@ export default function NovaSolicitacaoPage() {
         label: item.name,
         quantity: 1,
         logisticsType: item.logisticsType || "MOBILE_STOCK",
-        itemNotes: customNotes,
       },
     ]);
-    toast.success(`"${item.name}" incluído na solicitação!`);
   };
 
-  // Clique no botão "+ Incluir" com Regra Inteligente de Microfone & Caixa de Som
-  const handleAddItemFromCatalog = (item: AvailableItem) => {
-    if (!item.isAvailable) {
-      toast.error(`Equipamento indisponível: ${item.unavailabilityReason || "Sem estoque para este horário"}`);
-      return;
+  const handleConfirmMicWithSpeaker = (includeSpeaker: boolean) => {
+    if (!pendingMicItem) return;
+    const newItems: SelectedEquipment[] = [
+      {
+        itemId: pendingMicItem.itemId,
+        label: pendingMicItem.name,
+        quantity: 1,
+        logisticsType: pendingMicItem.logisticsType || "MOBILE_STOCK",
+      },
+    ];
+
+    if (includeSpeaker && matchingSpeakerItem) {
+      newItems.push({
+        itemId: matchingSpeakerItem.itemId,
+        label: matchingSpeakerItem.name,
+        quantity: 1,
+        logisticsType: matchingSpeakerItem.logisticsType || "MOBILE_STOCK",
+      });
+      toast.success("Microfone e Caixa de Som adicionados!");
+    } else {
+      toast.success("Microfone adicionado.");
     }
 
-    // Identificar se o item selecionado é um microfone
-    const isMicrophone =
-      item.name.toLowerCase().includes("microfone") ||
-      item.category.toLowerCase().includes("microfone");
+    setSelectedItems((prev) => [...prev, ...newItems]);
+    setIsMicModalOpen(false);
+    setPendingMicItem(null);
+    setMatchingSpeakerItem(null);
+  };
 
-    const hasSpeakerAlready = selectedItems.some(
-      (si) =>
-        si.label.toLowerCase().includes("caixa de som") ||
-        si.label.toLowerCase().includes("som")
+  const handleUpdateQuantity = (index: number, qty: number) => {
+    if (qty < 1) return;
+    const current = selectedItems[index];
+    if (current.itemId) {
+      const avail = availabilityData.find((a) => a.itemId === current.itemId);
+      if (avail && qty > avail.availableQuantity) {
+        toast.error(`Quantidade máxima disponível: ${avail.availableQuantity}`);
+        return;
+      }
+    }
+    setSelectedItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, quantity: qty } : item))
     );
-
-    if (isMicrophone && !hasSpeakerAlready) {
-      // Buscar caixa de som no catálogo de disponibilidade
-      const speakerItem = availabilityData.find(
-        (a) =>
-          a.name.toLowerCase().includes("caixa de som") ||
-          a.name.toLowerCase().includes("som amplificada")
-      );
-
-      setPendingMicItem(item);
-      setMatchingSpeakerItem(speakerItem || null);
-      setIsMicModalOpen(true);
-      return;
-    }
-
-    // Se não for microfone ou já tiver caixa de som, adiciona diretamente
-    addEquipmentDirectly(item);
   };
 
-  // Confirmar Microfone + Caixa de Som
-  const handleConfirmMicWithSpeaker = () => {
-    if (pendingMicItem) {
-      addEquipmentDirectly(pendingMicItem);
-    }
-    if (matchingSpeakerItem && matchingSpeakerItem.isAvailable) {
-      addEquipmentDirectly(matchingSpeakerItem);
-    }
-    setIsMicModalOpen(false);
-    setPendingMicItem(null);
-    setMatchingSpeakerItem(null);
-  };
-
-  // Confirmar apenas o Microfone
-  const handleConfirmMicOnly = () => {
-    if (pendingMicItem) {
-      addEquipmentDirectly(
-        pendingMicItem,
-        matchingSpeakerItem && !matchingSpeakerItem.isAvailable
-          ? "Professor ciente da ausência de caixa de som móvel"
-          : ""
-      );
-    }
-    setIsMicModalOpen(false);
-    setPendingMicItem(null);
-    setMatchingSpeakerItem(null);
+  const handleRemoveItem = (index: number) => {
+    setSelectedItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAddCustomItem = () => {
-    setCustomItemLabel("");
-    setCustomItemQty(1);
-    setCustomItemNotes("");
-    setIsCustomItemModalOpen(true);
-  };
-
-  const handleConfirmCustomItem = () => {
     if (!customItemLabel.trim()) {
-      toast.error("Informe o nome ou descrição do item.");
+      toast.error("Informe a descrição do item.");
       return;
     }
-
     setSelectedItems((prev) => [
       ...prev,
       {
@@ -343,72 +317,59 @@ export default function NovaSolicitacaoPage() {
       },
     ]);
     setIsCustomItemModalOpen(false);
-    toast.success(`"${customItemLabel.trim()}" adicionado à solicitação.`);
+    setCustomItemLabel("");
+    setCustomItemQty(1);
+    setCustomItemNotes("");
+    toast.success("Item complementar adicionado.");
   };
 
-  const handleRemoveItem = (index: number) => {
-    setSelectedItems((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUpdateQuantity = (index: number, quantity: number) => {
-    if (quantity < 1) return;
-    const current = selectedItems[index];
-    if (current.itemId) {
-      const avail = availabilityData.find((a) => a.itemId === current.itemId);
-      if (avail && quantity > avail.availableQuantity) {
-        toast.error(`Quantidade máxima disponível para este horário: ${avail.availableQuantity}`);
-        return;
-      }
-    }
-    setSelectedItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity } : item))
-    );
-  };
-
-  const handleUpdateItemNotes = (index: number, noteText: string) => {
-    setSelectedItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, itemNotes: noteText } : item))
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!date || !startTime || !endTime) {
-      toast.error("Preencha a data e os horários de início e término.");
+  // Validação da Etapa 1
+  const handleProceedToStep2 = () => {
+    if (!date) {
+      toast.error("Selecione a data da aula.");
       return;
     }
-
+    if (!startTime || !endTime) {
+      toast.error("Defina os horários de início e término.");
+      return;
+    }
     if (!roomId) {
-      toast.error("Selecione a sala de aula ou laboratório.");
+      toast.error("Selecione a sala de aula.");
       return;
     }
-
     if (!professorName.trim()) {
-      toast.error("Informe o nome do(a) professor(a) responsável.");
+      toast.error("Informe o nome do professor responsável.");
       return;
     }
+    setCurrentStep(2);
+  };
 
-    if (selectedItems.length === 0) {
-      toast.error("Adicione ao menos um equipamento ou serviço multimídia.");
-      return;
-    }
+  // Validação da Etapa 2
+  const handleProceedToStep3 = () => {
+    setCurrentStep(3);
+  };
 
-    // Validação preventiva de estoque no frontend
-    for (const item of selectedItems) {
-      if (item.itemId) {
-        const avail = availabilityData.find((a) => a.itemId === item.itemId);
-        if (avail && (!avail.isAvailable || item.quantity > avail.availableQuantity)) {
-          toast.error(
-            `Estoque insuficiente para "${item.label}". Disponível para o horário: ${avail?.availableQuantity || 0}`
-          );
-          return;
-        }
-      }
-    }
-
+  // Submissão Final do Agendamento
+  const handleSubmitFinal = async () => {
     try {
       setIsSubmitting(true);
+
+      const itemsPayload = selectedItems.map((item) => ({
+        itemId: item.itemId || undefined,
+        label: item.label,
+        quantity: item.quantity,
+        notes: item.itemNotes || undefined,
+      }));
+
+      // Se a sala tem projetor fixo e nenhum item móvel foi adicionado, incluímos a tag da sala
+      if (itemsPayload.length === 0 && currentRoom?.hasFixedProjector) {
+        itemsPayload.push({
+          itemId: undefined,
+          label: `Apoio de Projeção Fixa (${currentRoom.name})`,
+          quantity: 1,
+          notes: "Utilização do projetor instalado na sala.",
+        });
+      }
 
       const payload = {
         date,
@@ -418,34 +379,8 @@ export default function NovaSolicitacaoPage() {
         professorName: professorName.trim(),
         discipline: discipline.trim() || undefined,
         attendanceType: attendanceType.trim() || undefined,
-        notes: notes.trim() || undefined,
-        items: selectedItems.map((i) => {
-          const finalLabel = i.itemNotes?.trim()
-            ? `${i.label} (Obs: ${i.itemNotes.trim()})`
-            : i.label;
-
-          let resourceType = "QUANTITATIVE";
-          if (i.logisticsType === "FIXED_IN_ROOM") {
-            resourceType = "FIXED_IN_ROOM";
-          } else if (
-            i.label.toLowerCase().includes("notebook") ||
-            i.label.toLowerCase().includes("datashow móvel") ||
-            i.label.toLowerCase().includes("caixa de som") ||
-            i.label.toLowerCase().includes("microfone") ||
-            i.label.toLowerCase().includes("projetor móvel")
-          ) {
-            resourceType = "MOBILE_ASSET";
-          }
-
-          return {
-            itemId: i.itemId,
-            resourceType,
-            label: finalLabel,
-            quantity: i.quantity,
-            separated: false,
-            notes: i.itemNotes?.trim() || null,
-          };
-        }),
+        notes: generalNotes.trim() || undefined,
+        items: itemsPayload,
         repeatWeekly,
         repeatUntilDate: repeatWeekly ? repeatUntilDate : undefined,
       };
@@ -459,28 +394,63 @@ export default function NovaSolicitacaoPage() {
       const data = await res.json();
 
       if (data.success) {
+        setCreatedSummary({
+          date,
+          startTime,
+          endTime,
+          roomName: currentRoom?.name || "Sala Selecionada",
+          professorName,
+          discipline,
+          itemCount: selectedItems.length,
+          repeatWeekly,
+          totalWeeks: estimatedWeeks,
+        });
+        setCurrentStep(4); // Tela de Sucesso
         toast.success(
           repeatWeekly
-            ? "Série semestral de atendimentos agendada com sucesso e sincronizada ao estoque!"
-            : "Atendimento agendado com sucesso e sincronizado ao estoque!"
+            ? `Série de ${estimatedWeeks} aulas agendada com sucesso!`
+            : "Aula agendada com sucesso e enviada ao Multimídia!"
         );
-        router.push("/agenda");
       } else {
-        toast.error(data.error || "Erro ao criar solicitação.");
+        toast.error(data.error || "Erro ao agendar aula.");
       }
     } catch (err: any) {
-      console.error("Erro ao submeter solicitação:", err);
-      toast.error("Falha ao comunicar com o servidor.");
+      toast.error("Falha ao conectar ao servidor.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Itens filtrados para o catálogo simplificado da Etapa 2
+  const filteredCatalog = useMemo(() => {
+    return availabilityData.filter((item) => {
+      // Ocultar projetores fixos da lista móvel se a sala já tem fixo
+      if (item.logisticsType === "FIXED_IN_ROOM") return false;
+
+      const q = resourceSearch.toLowerCase().trim();
+      const matchSearch = !q || item.name.toLowerCase().includes(q) || item.category.toLowerCase().includes(q);
+
+      if (!matchSearch) return false;
+
+      if (resourceCategory === "COMPUTING") {
+        return item.name.toLowerCase().includes("notebook") || item.category.toLowerCase().includes("comput") || item.name.toLowerCase().includes("laser") || item.name.toLowerCase().includes("passador");
+      }
+      if (resourceCategory === "AUDIO") {
+        return item.name.toLowerCase().includes("microfone") || item.name.toLowerCase().includes("som") || item.name.toLowerCase().includes("caixa") || item.category.toLowerCase().includes("audio");
+      }
+      if (resourceCategory === "CABLES") {
+        return item.name.toLowerCase().includes("cabo") || item.name.toLowerCase().includes("hdmi") || item.name.toLowerCase().includes("adaptador") || item.name.toLowerCase().includes("extens");
+      }
+
+      return true;
+    });
+  }, [availabilityData, resourceCategory, resourceSearch]);
+
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-4xl mx-auto pb-16">
       
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+      {/* Header com Navegação */}
+      <div className="flex items-center justify-between gap-4 border-b border-border/80 pb-4">
         <div className="flex items-center gap-3">
           <Link href="/agenda">
             <Button variant="outline" size="sm" className="h-9 w-9 p-0 rounded-xl">
@@ -490,75 +460,570 @@ export default function NovaSolicitacaoPage() {
           <div>
             <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-primary" />
-              <span>Novo Agendamento Multimídia</span>
+              <span>Agendar Aula com Multimídia</span>
             </h1>
             <p className="text-xs text-muted-foreground">
-              Cadastro oficial por Semestre, Mês ou Semana com verificação de estoque e salas em tempo real.
+              Assistente rápido para Apoio Acadêmico solicitar suporte para aulas e eventos.
             </p>
           </div>
         </div>
+
+        {currentStep < 4 && (
+          <Badge variant="outline" className="font-mono text-xs px-3 py-1 bg-primary/10 text-primary border-primary/20">
+            Etapa {currentStep} de 3
+          </Badge>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Stepper Visual (Etapas 1, 2 e 3) */}
+      {currentStep < 4 && (
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 p-1.5 rounded-2xl bg-muted/40 border border-border/60">
+          <button
+            type="button"
+            onClick={() => setCurrentStep(1)}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all",
+              currentStep === 1
+                ? "bg-card text-primary shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span className={cn(
+              "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+              currentStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>1</span>
+            <span className="hidden sm:inline">Quando e Onde?</span>
+          </button>
 
-        {/* Bloco 1: Data, Horários e Recorrência (Semestre / Mês / Semana) */}
-        <Card className="rounded-3xl border-border/80 shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
+          <button
+            type="button"
+            onClick={() => currentStep > 1 && setCurrentStep(2)}
+            disabled={currentStep < 2}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all",
+              currentStep === 2
+                ? "bg-card text-primary shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground disabled:opacity-40"
+            )}
+          >
+            <span className={cn(
+              "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+              currentStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>2</span>
+            <span className="hidden sm:inline">Recursos da Aula</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => currentStep > 2 && setCurrentStep(3)}
+            disabled={currentStep < 3}
+            className={cn(
+              "flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-bold transition-all",
+              currentStep === 3
+                ? "bg-card text-primary shadow-xs border border-border/80"
+                : "text-muted-foreground hover:text-foreground disabled:opacity-40"
+            )}
+          >
+            <span className={cn(
+              "flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold",
+              currentStep === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            )}>3</span>
+            <span className="hidden sm:inline">Revisão & Agendamento</span>
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ETAPA 1: QUANDO, ONDE E QUEM? */}
+      {/* ========================================================================= */}
+      {currentStep === 1 && (
+        <Card className="rounded-3xl border-border/80 shadow-xs animate-in fade-in-50">
+          <CardHeader className="pb-4 border-b border-border/60 bg-muted/20">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary" />
-              <span>1. Data, Horários e Período de Repetição</span>
+              <span>1. Informações Básicas da Aula</span>
             </CardTitle>
             <CardDescription className="text-xs">
-              Escolha a data inicial e configure a repetição para o Semestre Letivo, Mês ou Semana.
+              Informe a data, horários, local e o professor responsável pela aula.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-6 space-y-5">
             
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Data Inicial */}
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Data Inicial / 1ª Aula *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full h-10 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
-                />
+            {/* Linha 1: Data e Horários Rápidos */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1.5">
+                    Data da Aula *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full h-11 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1.5">
+                    Horário de Início *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full h-11 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-foreground block mb-1.5">
+                    Horário de Término *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full h-11 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
+                  />
+                </div>
               </div>
 
-              {/* Início */}
+              {/* Atalhos Rápidos de Horário */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[11px] text-muted-foreground mr-1">Atalhos:</span>
+                {QUICK_TIME_SLOTS.map((slot, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setStartTime(slot.start);
+                      setEndTime(slot.end);
+                    }}
+                    className={cn(
+                      "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                      startTime === slot.start && endTime === slot.end
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-accent/50 hover:bg-accent text-muted-foreground hover:text-foreground border-border/50"
+                    )}
+                  >
+                    {slot.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Linha 2: Sala de Aula */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  Sala de Aula / Laboratório *
+                </span>
+                {currentRoom?.hasFixedProjector && (
+                  <span className="text-[11px] font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <Check className="w-3 h-3" />
+                    Projetor instalado na sala
+                  </span>
+                )}
+              </label>
+
+              <select
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="w-full h-11 px-3 text-xs font-semibold rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-primary cursor-pointer"
+              >
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} {r.floor ? `(${r.floor})` : ""} {r.hasFixedProjector ? "• 📽️ Projetor Fixo Incluso" : "• Sem Projetor Fixo"}
+                  </option>
+                ))}
+              </select>
+
+              {/* Card explicativo da sala selecionada */}
+              {currentRoom && (
+                <div className="p-3 rounded-2xl bg-accent/40 border border-border/60 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Tv className="w-4 h-4 text-primary" />
+                    <span>
+                      {currentRoom.hasFixedProjector 
+                        ? `A ${currentRoom.name} já possui Datashow fixo no teto. Não será necessário levar projetor móvel.`
+                        : `A ${currentRoom.name} não tem projetor fixo. Você poderá solicitar um móvel na próxima etapa.`}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">
+                    Capacidade: {currentRoom.capacity || 40} alunos
+                  </Badge>
+                </div>
+              )}
+            </div>
+
+            {/* Linha 3: Professor e Disciplina */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/60">
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Horário de Início *
+                <label className="text-xs font-bold text-foreground block mb-1.5">
+                  Professor(a) Responsável *
                 </label>
-                <input
-                  type="time"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full h-10 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
-                />
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={professorName}
+                    onChange={(e) => setProfessorName(e.target.value)}
+                    placeholder="Ex: Prof. Carlos Silva"
+                    className="pl-9 h-11 text-xs rounded-xl"
+                    required
+                  />
+                </div>
               </div>
 
-              {/* Fim */}
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Horário de Término *
+                <label className="text-xs font-bold text-foreground block mb-1.5">
+                  Disciplina / Evento (Opcional)
                 </label>
-                <input
-                  type="time"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full h-10 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
+                <div className="relative">
+                  <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={discipline}
+                    onChange={(e) => setDiscipline(e.target.value)}
+                    placeholder="Ex: Cálculo I, Defesa de TCC..."
+                    className="pl-9 h-11 text-xs rounded-xl"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botão de Avanço */}
+            <div className="pt-4 flex items-center justify-end">
+              <Button
+                type="button"
+                onClick={handleProceedToStep2}
+                className="rounded-xl h-11 px-6 text-xs font-bold bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:scale-102 transition-all gap-2"
+              >
+                <span>Continuar para Recursos</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ETAPA 2: RECURSOS DA AULA */}
+      {/* ========================================================================= */}
+      {currentStep === 2 && (
+        <Card className="rounded-3xl border-border/80 shadow-xs animate-in fade-in-50">
+          <CardHeader className="pb-4 border-b border-border/60 bg-muted/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Package className="w-4 h-4 text-primary" />
+                  <span>2. O que esta aula precisa?</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Selecione os equipamentos móveis adicionais que o Multimídia deverá levar até a sala.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCustomItemModalOpen(true)}
+                className="rounded-xl text-xs h-8 gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 text-primary" />
+                <span>Outro Acessório</span>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 space-y-5">
+
+            {/* Banner Inteligente da Sala */}
+            {currentRoom?.hasFixedProjector && (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-800 dark:text-emerald-300 text-xs">
+                <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <div>
+                  <p className="font-bold">Projetor da {currentRoom.name} já incluso!</p>
+                  <p className="text-[11px] opacity-90">
+                    O suporte de projeção já está garantido na sala. Selecione abaixo apenas notebooks, microfones ou caixas de som extras.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Categorias de Recursos */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/50">
+                {[
+                  { id: "ALL", label: "Todos os Recursos" },
+                  { id: "COMPUTING", label: "💻 Notebooks" },
+                  { id: "AUDIO", label: "🎤 Microfones & Som" },
+                  { id: "CABLES", label: "🔌 Cabos & HDMI" },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setResourceCategory(cat.id as any)}
+                    className={cn(
+                      "px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                      resourceCategory === cat.id
+                        ? "bg-card text-foreground shadow-2xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative w-full sm:w-60">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  value={resourceSearch}
+                  onChange={(e) => setResourceSearch(e.target.value)}
+                  placeholder="Filtrar recursos..."
+                  className="pl-8 h-9 text-xs rounded-xl"
                 />
               </div>
             </div>
 
-            {/* Configuração de Repetição Semestral / Mensal */}
+            {/* Grade de Recursos Disponíveis */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+              {isLoadingAvailability ? (
+                <div className="col-span-2 py-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span>Checando disponibilidade do estoque...</span>
+                </div>
+              ) : filteredCatalog.length === 0 ? (
+                <div className="col-span-2 py-8 text-center text-xs text-muted-foreground border border-dashed rounded-2xl">
+                  Nenhum recurso encontrado nesta categoria.
+                </div>
+              ) : (
+                filteredCatalog.map((item) => {
+                  const isSelected = selectedItems.some((s) => s.itemId === item.itemId);
+                  const selectedQty = selectedItems.find((s) => s.itemId === item.itemId)?.quantity || 1;
+
+                  return (
+                    <div
+                      key={item.itemId}
+                      className={cn(
+                        "p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3",
+                        isSelected
+                          ? "bg-primary/10 border-primary shadow-2xs"
+                          : item.isAvailable
+                          ? "bg-card border-border/80 hover:border-primary/40"
+                          : "bg-muted/40 border-border/40 opacity-60"
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">{item.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {item.isAvailable ? (
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              🟢 {item.availableQuantity} {item.availableQuantity === 1 ? "disponível" : "disponíveis"}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-rose-500 font-medium">
+                              🔴 Indisponível no horário
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isSelected ? (
+                          <div className="flex items-center gap-1.5 bg-background border border-border rounded-xl p-1 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const idx = selectedItems.findIndex((s) => s.itemId === item.itemId);
+                                if (idx !== -1) {
+                                  if (selectedQty > 1) {
+                                    handleUpdateQuantity(idx, selectedQty - 1);
+                                  } else {
+                                    handleRemoveItem(idx);
+                                  }
+                                }
+                              }}
+                              className="p-1 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+
+                            <span className="w-6 text-center text-xs font-bold text-foreground">
+                              {selectedQty}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const idx = selectedItems.findIndex((s) => s.itemId === item.itemId);
+                                if (idx !== -1) {
+                                  handleUpdateQuantity(idx, selectedQty + 1);
+                                }
+                              }}
+                              disabled={selectedQty >= item.availableQuantity}
+                              className="p-1 text-muted-foreground hover:text-foreground rounded-lg hover:bg-accent disabled:opacity-30"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!item.isAvailable}
+                            onClick={() => handleToggleItem(item)}
+                            className="rounded-xl h-8 px-3 text-xs font-bold bg-card text-foreground hover:bg-primary hover:text-primary-foreground border border-border"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            Adicionar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Resumo dos Itens Selecionados */}
+            <div className="p-4 rounded-2xl bg-muted/20 border border-border/60 space-y-2">
+              <span className="text-xs font-bold text-foreground block">
+                Itens selecionados para levar ({selectedItems.length}):
+              </span>
+              {selectedItems.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground italic">
+                  Nenhum equipamento móvel selecionado. (Apenas o projetor fixo da sala será utilizado).
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {selectedItems.map((item, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="secondary"
+                      className="text-xs py-1 px-2.5 rounded-xl flex items-center gap-1.5 bg-card border border-border/80"
+                    >
+                      <span className="font-bold">{item.quantity}x</span>
+                      <span>{item.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(idx)}
+                        className="text-muted-foreground hover:text-rose-500 ml-1"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Botões de Navegação */}
+            <div className="pt-4 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep(1)}
+                className="rounded-xl h-11 px-5 text-xs font-semibold gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Voltar</span>
+              </Button>
+
+              <Button
+                type="button"
+                onClick={handleProceedToStep3}
+                className="rounded-xl h-11 px-6 text-xs font-bold bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:scale-102 transition-all gap-2"
+              >
+                <span>Revisar Agendamento</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ETAPA 3: REVISÃO & AGENDAMENTO */}
+      {/* ========================================================================= */}
+      {currentStep === 3 && (
+        <Card className="rounded-3xl border-border/80 shadow-xs animate-in fade-in-50">
+          <CardHeader className="pb-4 border-b border-border/60 bg-muted/20">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>3. Revisão da Aula e Recorrência</span>
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Verifique os detalhes antes de confirmar o agendamento no sistema.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 space-y-5">
+
+            {/* Card de Resumo Visual */}
+            <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-border/50 pb-3 flex-wrap gap-2">
+                <div>
+                  <h3 className="font-bold text-sm text-foreground">
+                    {discipline ? `${discipline} • ` : ""}Prof. {professorName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {attendanceType || "Aula Teórica"}
+                  </p>
+                </div>
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-xs font-bold">
+                  🟢 Recursos Disponíveis
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Calendar className="w-4 h-4 text-primary shrink-0" />
+                  <span>Data: <strong className="text-foreground">{new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Clock className="w-4 h-4 text-primary shrink-0" />
+                  <span>Horário: <strong className="text-foreground">{startTime} às {endTime}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <MapPin className="w-4 h-4 text-primary shrink-0" />
+                  <span>Local: <strong className="text-foreground">{currentRoom?.name || "Sala Selecionada"}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-2.5 text-muted-foreground">
+                  <Tv className="w-4 h-4 text-primary shrink-0" />
+                  <span>Projetor da Sala: <strong className="text-foreground">{currentRoom?.hasFixedProjector ? "Incluso ✅" : "Móvel"}</strong></span>
+                </div>
+              </div>
+
+              {/* Lista de Recursos Solicitados */}
+              <div className="pt-3 border-t border-border/50">
+                <span className="text-xs font-bold text-foreground block mb-2">
+                  Recursos a serem entregues pelo Multimídia:
+                </span>
+                {selectedItems.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    ✓ Apenas acionamento do projetor instalado na sala.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedItems.map((item, i) => (
+                      <span key={i} className="text-xs bg-muted/60 px-2.5 py-1 rounded-lg border border-border/60 font-semibold text-foreground">
+                        {item.quantity}x {item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bloco de Recorrência Simples */}
             <div className="p-4 rounded-2xl bg-accent/40 border border-border/60 space-y-3">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <input
@@ -573,513 +1038,186 @@ export default function NovaSolicitacaoPage() {
                 <div>
                   <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                     <Repeat className="w-3.5 h-3.5 text-primary" />
-                    Repetir agendamento durante o período (Semestre / Mês / Semanas)
+                    Repetir esta aula toda semana durante o período
                   </span>
                   <p className="text-[11px] text-muted-foreground">
-                    Gera automaticamente as aulas semanais para o semestre todo, com controle de checklist individual para cada semana.
+                    Gera automaticamente as aulas semanais para o semestre todo.
                   </p>
                 </div>
               </label>
 
               {repeatWeekly && (
-                <div className="pt-3 border-t border-border/60 space-y-3 animate-in fade-in-50">
-                  
-                  {/* Botões de Escolha Rápida do Período */}
-                  <div>
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-2">
-                      Escolha o Alcance da Repetição:
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      
-                      {/* Opção 1: Semestre Todo */}
+                <div className="pt-2 border-t border-border/60 space-y-3 animate-in fade-in-50">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {[
+                      { id: "SEMESTER", label: "Semestre Letivo (~18 aulas)" },
+                      { id: "MONTH", label: "1 Mês (4 aulas)" },
+                      { id: "CUSTOM", label: "Data Específica" },
+                    ].map((mode) => (
                       <button
+                        key={mode.id}
                         type="button"
-                        onClick={() => handleSetRecurrenceMode("SEMESTER")}
-                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                          recurrenceMode === "SEMESTER"
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                            : "bg-card text-foreground border-border hover:border-primary/60"
-                        }`}
+                        onClick={() => handleSetRecurrenceMode(mode.id as any)}
+                        className={cn(
+                          "px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer",
+                          recurrenceMode === mode.id
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background border-border text-muted-foreground hover:text-foreground"
+                        )}
                       >
-                        <GraduationCap className="w-4 h-4 shrink-0" />
-                        <div>
-                          <p className="text-xs font-bold">Todo o Semestre</p>
-                          <span className="text-[10px] opacity-80 block">~ 18 Semanas de Aulas</span>
-                        </div>
+                        {mode.label}
                       </button>
+                    ))}
+                  </div>
 
-                      {/* Opção 2: 1 Mês */}
-                      <button
-                        type="button"
-                        onClick={() => handleSetRecurrenceMode("MONTH")}
-                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                          recurrenceMode === "MONTH"
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                            : "bg-card text-foreground border-border hover:border-primary/60"
-                        }`}
-                      >
-                        <Calendar className="w-4 h-4 shrink-0" />
-                        <div>
-                          <p className="text-xs font-bold">Durante 1 Mês</p>
-                          <span className="text-[10px] opacity-80 block">4 Semanas consecutivas</span>
-                        </div>
-                      </button>
-
-                      {/* Opção 3: Personalizado */}
-                      <button
-                        type="button"
-                        onClick={() => handleSetRecurrenceMode("CUSTOM")}
-                        className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                          recurrenceMode === "CUSTOM"
-                            ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                            : "bg-card text-foreground border-border hover:border-primary/60"
-                        }`}
-                      >
-                        <Repeat className="w-4 h-4 shrink-0" />
-                        <div>
-                          <p className="text-xs font-bold">Personalizado</p>
-                          <span className="text-[10px] opacity-80 block">Definir data final exata</span>
-                        </div>
-                      </button>
+                  {recurrenceMode === "CUSTOM" && (
+                    <div>
+                      <label className="text-[11px] font-bold text-muted-foreground block mb-1">
+                        Repetir até a data:
+                      </label>
+                      <input
+                        type="date"
+                        value={repeatUntilDate}
+                        onChange={(e) => setRepeatUntilDate(e.target.value)}
+                        className="h-9 px-3 text-xs rounded-xl border border-border bg-background"
+                      />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Campo de Data Limite */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
-                    <label className="text-xs font-bold text-foreground shrink-0">
-                      Repetir todas as semanas até:
-                    </label>
-                    <input
-                      type="date"
-                      value={repeatUntilDate}
-                      onChange={(e) => {
-                        setRepeatUntilDate(e.target.value);
-                        setRecurrenceMode("CUSTOM");
-                      }}
-                      className="h-9 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-1 focus:ring-primary max-w-xs"
-                    />
-                    <span className="text-[11px] text-muted-foreground">
-                      (Aulas geradas automaticamente a cada 7 dias)
-                    </span>
-                  </div>
-
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <Check className="w-4 h-4" />
+                    <span>Total de <strong>{estimatedWeeks} aulas</strong> serão agendadas com esta configuração.</span>
+                  </p>
                 </div>
               )}
             </div>
 
-          </CardContent>
-        </Card>
-
-        {/* Bloco 2: Sala & Infraestrutura */}
-        <Card className="rounded-3xl border-border/80 shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary" />
-              <span>2. Local / Sala de Aula</span>
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Selecione uma das 74 salas para inspecionar os equipamentos fixos já instalados.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            
+            {/* Observações Gerais */}
             <div>
               <label className="text-xs font-bold text-foreground block mb-1">
-                Sala de Aula / Laboratório *
+                Observações para a equipe do Multimídia (Opcional)
               </label>
-              <select
-                required
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full h-11 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary cursor-pointer"
-              >
-                <option value="">Selecione a sala de aula...</option>
-                {rooms.map((room) => (
-                  <option key={room.id} value={room.id}>
-                    Sala {room.name} {room.floor ? `(${room.floor})` : ""} {room.fixedProjectorModel ? `• Projetor Fixo: ${room.fixedProjectorModel}` : "• Sem Projetor Fixo"}
-                  </option>
-                ))}
-              </select>
+              <textarea
+                rows={2}
+                value={generalNotes}
+                onChange={(e) => setGeneralNotes(e.target.value)}
+                placeholder="Ex: Aula de laboratório prático, professor precisa de extensão elétrica..."
+                className="w-full p-3 rounded-xl border border-border bg-background text-xs text-foreground focus:ring-2 focus:ring-primary resize-none"
+              />
             </div>
 
-            {/* Diagnóstico da Sala Selecionada */}
-            {selectedRoom && (
-              <div className={`p-4 rounded-2xl border space-y-1.5 animate-in fade-in-50 ${
-                selectedRoom.fixedProjectorModel
-                  ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-800 dark:text-emerald-300"
-                  : "bg-amber-500/10 border-amber-500/25 text-amber-800 dark:text-amber-300"
-              }`}>
-                <div className="flex items-center gap-2 font-bold text-xs">
-                  {selectedRoom.fixedProjectorModel ? <Tv className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-amber-600" />}
-                  <span>Status da Sala {selectedRoom.name} ({selectedRoom.floor || "Campus"}):</span>
-                </div>
-                <p className="text-xs">
-                  {selectedRoom.fixedProjectorModel ? (
-                    <>
-                      • Projetor fixo: <strong>{selectedRoom.fixedProjectorModel}</strong> | Cabo HDMI: {selectedRoom.hdmiCableOk ? "✅ OK" : "❌ Ausente"} | Lâmpada: <strong>{selectedRoom.lampStatus || "Operacional"}</strong>
-                    </>
-                  ) : (
-                    "• Esta sala NÃO possui projetor fixo no teto. É obrigatório solicitar um Datashow Móvel abaixo."
-                  )}
-                </p>
-              </div>
-            )}
-
-          </CardContent>
-        </Card>
-
-        {/* Bloco 3: Professor e Disciplina */}
-        <Card className="rounded-3xl border-border/80 shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-            <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <User className="w-4 h-4 text-primary" />
-              <span>3. Professor e Dados da Atividade</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Nome do(a) Professor(a) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Profa. Paloma Morais"
-                  value={professorName}
-                  onChange={(e) => setProfessorName(e.target.value)}
-                  className="w-full h-10 text-xs rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Disciplina / Matéria
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Engenharia de Software I"
-                  value={discipline}
-                  onChange={(e) => setDiscipline(e.target.value)}
-                  className="w-full h-10 text-xs rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Tipo de Atendimento
-                </label>
-                <select
-                  value={attendanceType}
-                  onChange={(e) => setAttendanceType(e.target.value)}
-                  className="w-full h-10 text-xs rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary cursor-pointer"
-                >
-                  <option value="Aula Teórica">Aula Teórica</option>
-                  <option value="Aula Prática / Laboratório">Aula Prática / Laboratório</option>
-                  <option value="Seminário / Apresentação de TCC">Seminário / Apresentação de TCC</option>
-                  <option value="Palestra / Evento Institucional">Palestra / Evento Institucional</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Observações Gerais do Atendimento
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Ligar equipamento 15 min antes, testar áudio da sala..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full h-10 text-xs rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-
-          </CardContent>
-        </Card>
-
-        {/* Bloco 4: Equipamentos Disponíveis com Barra de Pesquisa e Observações */}
-        <Card className="rounded-3xl border-border/80 shadow-xs">
-          <CardHeader className="pb-3 border-b border-border/60 bg-muted/20">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <Package className="w-4 h-4 text-primary" />
-                  <span>4. Equipamentos Disponíveis (Estoque em Tempo Real)</span>
-                  {isLoadingAvailability && <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Validação instantânea: apenas equipamentos com estoque livre para o horário podem ser adicionados.
-                </CardDescription>
-              </div>
-
+            {/* Botões Finais de Confirmação */}
+            <div className="pt-4 flex items-center justify-between">
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                onClick={handleAddCustomItem}
-                className="h-8 text-xs rounded-xl gap-1.5 cursor-pointer"
+                onClick={() => setCurrentStep(2)}
+                disabled={isSubmitting}
+                className="rounded-xl h-11 px-5 text-xs font-semibold gap-2"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Adicionar Outro Acessório</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span>Voltar</span>
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            
-            {/* 🔍 Barra de Pesquisa de Equipamentos */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Input
-                type="text"
-                placeholder="🔍 Pesquisar equipamento por nome ou categoria (ex: HDMI, Projetor, Dell, Microfone, Pilha, Passador, Som)..."
-                value={equipmentSearch}
-                onChange={(e) => setEquipmentSearch(e.target.value)}
-                className="h-11 pl-10 pr-4 text-xs rounded-2xl border-border bg-background shadow-2xs focus:ring-2 focus:ring-primary"
-              />
-              {equipmentSearch && (
-                <button
-                  type="button"
-                  onClick={() => setEquipmentSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-bold p-1"
-                >
-                  Limpar
-                </button>
-              )}
-            </div>
 
-            {/* Grid de Itens do Catálogo Filtrados */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-                  Itens do Catálogo ({filteredAvailabilityData.length} encontrados):
-                </label>
-              </div>
-              
-              {filteredAvailabilityData.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-border rounded-2xl space-y-1">
-                  <Package className="w-6 h-6 text-muted-foreground mx-auto opacity-50" />
-                  <p className="text-xs font-semibold text-foreground">Nenhum equipamento encontrado para &quot;{equipmentSearch}&quot;</p>
-                  <p className="text-[11px] text-muted-foreground">Tente buscar por HDMI, Projetor, Dell, Microfone, Som ou limpe a busca.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {filteredAvailabilityData.map((item) => {
-                    const isFixed = item.logisticsType === "FIXED_IN_ROOM";
-                    const alreadySelected = selectedItems.some((si) => si.itemId === item.itemId);
-
-                    return (
-                      <div
-                        key={item.itemId}
-                        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 ${
-                          alreadySelected
-                            ? "bg-primary/5 border-primary ring-1 ring-primary/30"
-                            : !item.isAvailable
-                            ? "bg-muted/40 border-border/50 opacity-60 cursor-not-allowed"
-                            : isFixed
-                            ? "bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500 cursor-pointer"
-                            : "bg-card border-border/80 hover:border-primary/60 cursor-pointer"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className={`p-2 rounded-xl shrink-0 ${
-                              isFixed ? "bg-emerald-500/10 text-emerald-600" : "bg-accent text-primary"
-                            }`}>
-                              {isFixed ? <Tv className="w-4 h-4" /> : <Package className="w-4 h-4" />}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-foreground leading-snug">{item.name}</p>
-                              <span className="text-[10px] text-muted-foreground block">{item.category}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Status de Disponibilidade em Tempo Real */}
-                        <div className="pt-1.5 border-t border-border/40 flex items-center justify-between gap-2">
-                          {item.isAvailable ? (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold px-2 py-0.5">
-                              🟢 {isFixed ? "Projetor Disponível" : `${item.availableQuantity} em estoque livre`}
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30 text-[10px] font-bold px-2 py-0.5" title={item.unavailabilityReason || ""}>
-                              🔴 {isFixed ? "Sem Projetor Fixo" : "Esgotado neste horário"}
-                            </Badge>
-                          )}
-
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={!item.isAvailable || alreadySelected}
-                            onClick={() => handleAddItemFromCatalog(item)}
-                            className={`h-7 px-3 text-[11px] font-bold rounded-lg cursor-pointer ${
-                              alreadySelected
-                                ? isFixed
-                                  ? "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/40 cursor-default"
-                                  : "bg-muted text-muted-foreground"
-                                : item.isAvailable
-                                ? "bg-primary text-primary-foreground hover:scale-105"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {alreadySelected ? (isFixed ? "🏢 Incluso na Sala" : "Adicionado") : "+ Incluir"}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Lista dos Itens Selecionados no Pedido com Campo de Observação */}
-            <div className="space-y-3 pt-4 border-t border-border/60">
-              <label className="text-xs font-bold text-foreground flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span>Equipamentos confirmados para este agendamento ({selectedItems.length}):</span>
-              </label>
-
-              {selectedItems.length === 0 ? (
-                <div className="p-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-2xl">
-                  Nenhum equipamento adicionado ainda. Pesquise e inclua os equipamentos necessários acima.
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {selectedItems.map((item, index) => {
-                    const isFixed = item.logisticsType === "FIXED_IN_ROOM";
-                    const availItem = item.itemId ? availabilityData.find((a) => a.itemId === item.itemId) : null;
-                    return (
-                      <div
-                        key={index}
-                        className={`p-3.5 rounded-2xl border space-y-2.5 animate-in fade-in-50 ${
-                          isFixed
-                            ? "bg-emerald-500/5 border-emerald-500/30"
-                            : "bg-card border-border/80"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-xl shrink-0 ${
-                              isFixed ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-accent text-primary"
-                            }`}>
-                              {isFixed ? <Tv className="w-4 h-4" /> : <Package className="w-4 h-4" />}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="text-xs font-bold text-foreground truncate">{item.label}</p>
-                                {isFixed && (
-                                  <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 text-[9px] font-bold px-1.5 py-0">
-                                    🏢 Confirmado da Sala
-                                  </Badge>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-muted-foreground">
-                                {isFixed
-                                  ? "✅ Projetor já instalado na sala (requer apenas acionamento)"
-                                  : "📦 Item de estoque móvel (separação física e empréstimo)"}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 shrink-0">
-                            {!isFixed && (
-                              <div className="flex items-center gap-1.5 text-xs">
-                                <span className="text-muted-foreground text-[11px] font-bold">Qtd:</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={availItem?.availableQuantity || 999}
-                                  value={item.quantity}
-                                  onChange={(e) => handleUpdateQuantity(index, parseInt(e.target.value, 10) || 1)}
-                                  className="w-16 h-8 text-xs font-bold text-center rounded-xl border border-border bg-background focus:ring-2 focus:ring-primary"
-                                  title={`Disponível no estoque: ${availItem?.availableQuantity || "Livre"}`}
-                                />
-                              </div>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItem(index)}
-                              className="p-1.5 text-muted-foreground hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-colors cursor-pointer"
-                              title="Remover item"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Campo de Observação Específica do Item */}
-                        <div className="pt-1.5 border-t border-border/40 flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <input
-                            type="text"
-                            placeholder="Observação específica para este equipamento (ex: precisa de adaptador USB-C, testar cabo de força...)"
-                            value={item.itemNotes || ""}
-                            onChange={(e) => handleUpdateItemNotes(index, e.target.value)}
-                            className="w-full h-8 text-[11px] rounded-xl border border-border bg-background/50 px-2.5 text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-primary"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <Button
+                type="button"
+                onClick={handleSubmitFinal}
+                disabled={isSubmitting}
+                className="rounded-xl h-11 px-8 text-xs font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:scale-102 transition-all gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    <span>Agendando Aula...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Confirmar e Agendar Aula</span>
+                  </>
+                )}
+              </Button>
             </div>
 
           </CardContent>
         </Card>
+      )}
 
-        {/* Botão de Envio */}
-        <div className="flex items-center justify-end gap-3 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/agenda")}
-            className="rounded-xl text-xs h-10 px-4 cursor-pointer"
-          >
-            Cancelar
-          </Button>
+      {/* ========================================================================= */}
+      {/* ETAPA 4: TELA DE SUCESSO ACOLHEDORA */}
+      {/* ========================================================================= */}
+      {currentStep === 4 && createdSummary && (
+        <Card className="rounded-3xl border-border/80 shadow-lg text-center p-8 space-y-6 animate-in zoom-in-95">
+          <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 mx-auto shadow-md shadow-emerald-500/20">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
 
-          <Button
-            type="submit"
-            disabled={isSubmitting || selectedItems.length === 0}
-            className="rounded-xl text-xs font-bold h-10 px-6 bg-primary text-primary-foreground shadow-md shadow-primary/25 cursor-pointer hover:scale-105 transition-all"
-          >
-            {isSubmitting ? (
-              <span>Validando e Agendando...</span>
-            ) : repeatWeekly ? (
-              <span>Confirmar Série ({recurrenceMode === "SEMESTER" ? "Semestre Letivo" : recurrenceMode === "MONTH" ? "1 Mês" : "Recorrente"})</span>
-            ) : (
-              <span>Confirmar e Agendar Atendimento</span>
-            )}
-          </Button>
-        </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-bold text-foreground">
+              Aula Agendada com Sucesso!
+            </h2>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              A equipe do Multimídia já foi notificada para preparar e entregar os equipamentos na sala no horário correto.
+            </p>
+          </div>
 
-      </form>
+          {/* Resumo da Aula */}
+          <div className="p-4 rounded-2xl bg-muted/30 border border-border/60 max-w-lg mx-auto text-left space-y-2 text-xs">
+            <div className="flex justify-between border-b border-border/40 pb-2">
+              <span className="text-muted-foreground">Professor:</span>
+              <strong className="text-foreground">{createdSummary.professorName}</strong>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-2">
+              <span className="text-muted-foreground">Sala & Horário:</span>
+              <strong className="text-foreground">{createdSummary.roomName} • {createdSummary.startTime} às {createdSummary.endTime}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Recorrência:</span>
+              <strong className="text-foreground">
+                {createdSummary.repeatWeekly ? `Série Semanal (${createdSummary.totalWeeks} aulas)` : "Aula única"}
+              </strong>
+            </div>
+          </div>
 
-      {/* 🎙️ Modal Inteligente de Sugestão de Caixa de Som para Microfone */}
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSelectedItems([]);
+                setProfessorName("");
+                setDiscipline("");
+                setCurrentStep(1);
+              }}
+              className="rounded-xl h-11 px-5 text-xs font-semibold gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Agendar Outra Aula</span>
+            </Button>
+
+            <Button
+              type="button"
+              onClick={() => router.push("/agenda")}
+              className="rounded-xl h-11 px-6 text-xs font-bold bg-primary text-primary-foreground shadow-md shadow-primary/25 gap-2"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Ver na Agenda</span>
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* 🎙️ Modal Inteligente de Microfone e Caixa de Som */}
       <Dialog open={isMicModalOpen} onOpenChange={setIsMicModalOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-2xl ${
-                matchingSpeakerItem?.isAvailable
-                  ? "bg-primary/10 text-primary"
-                  : "bg-amber-500/10 text-amber-600"
-              }`}>
-                {matchingSpeakerItem?.isAvailable ? (
-                  <Volume2 className="w-6 h-6" />
-                ) : (
-                  <AlertTriangle className="w-6 h-6" />
-                )}
+              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                <Volume2 className="w-6 h-6" />
               </div>
               <div>
                 <DialogTitle className="text-base font-bold text-foreground">
-                  {matchingSpeakerItem?.isAvailable
-                    ? "Deseja incluir uma Caixa de Som?"
-                    : "Aviso: Sem Caixa de Som Disponível"}
+                  Deseja incluir uma Caixa de Som?
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                   Item selecionado: <strong>{pendingMicItem?.name}</strong>
@@ -1089,104 +1227,55 @@ export default function NovaSolicitacaoPage() {
           </DialogHeader>
 
           <div className="py-3 text-xs text-foreground space-y-2.5">
-            {matchingSpeakerItem?.isAvailable ? (
-              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-1 text-emerald-800 dark:text-emerald-300">
-                <p className="font-semibold">
-                  🎙️ Você selecionou um microfone!
-                </p>
-                <p className="text-[11px] opacity-90">
-                  O estoque possui <strong>{matchingSpeakerItem.availableQuantity} Caixa(s) de Som Amplificada(s)</strong> disponível(is) para este horário. Deseja adicionar uma caixa de som para amplificar a voz do professor?
-                </p>
-              </div>
-            ) : (
-              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-1.5 text-amber-800 dark:text-amber-300">
-                <p className="font-semibold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Não há Caixa de Som amplificada disponível para este horário!</span>
-                </p>
-                <p className="text-[11px] opacity-90">
-                  Todas as caixas de som móveis do estoque já estão em uso em outras salas ou eventos neste horário.
-                </p>
-                <p className="text-[11px] font-bold">
-                  Deseja reservar apenas o microfone mesmo assim (ex: se a sala já contar com sistema de áudio próprio no teto/mesa)?
-                </p>
-              </div>
-            )}
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300">
+              <p className="font-semibold">🎙️ Você selecionou um microfone!</p>
+              <p className="text-[11px] opacity-90 mt-1">
+                Temos <strong>{matchingSpeakerItem?.availableQuantity} Caixa(s) de Som</strong> disponíveis. Deseja que a equipe leve uma caixa amplificada para a sala?
+              </p>
+            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row pt-2">
-            {matchingSpeakerItem?.isAvailable ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleConfirmMicOnly}
-                  className="rounded-xl text-xs h-9 cursor-pointer"
-                >
-                  Não, apenas o Microfone
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleConfirmMicWithSpeaker}
-                  className="rounded-xl text-xs font-bold h-9 bg-primary text-primary-foreground gap-1.5 cursor-pointer hover:scale-105 transition-all"
-                >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Sim, incluir Caixa de Som</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setIsMicModalOpen(false);
-                    setPendingMicItem(null);
-                  }}
-                  className="rounded-xl text-xs h-9 cursor-pointer"
-                >
-                  Cancelar inclusão do microfone
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleConfirmMicOnly}
-                  className="rounded-xl text-xs font-bold h-9 bg-amber-600 hover:bg-amber-700 text-white gap-1.5 cursor-pointer hover:scale-105 transition-all"
-                >
-                  <Mic className="w-3.5 h-3.5" />
-                  <span>Sim, reservar apenas o microfone</span>
-                </Button>
-              </>
-            )}
+          <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleConfirmMicWithSpeaker(false)}
+              className="rounded-xl text-xs h-10 px-4"
+            >
+              Apenas o Microfone
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleConfirmMicWithSpeaker(true)}
+              className="rounded-xl text-xs font-bold h-10 px-5 bg-primary text-primary-foreground shadow-md"
+            >
+              <Check className="w-3.5 h-3.5 mr-1.5" />
+              Sim, Incluir Caixa de Som
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ➕ Modal para Inclusão de Acessório / Insumo Complementar */}
+      {/* Modal de Item Complementar / Customizado */}
       <Dialog open={isCustomItemModalOpen} onOpenChange={setIsCustomItemModalOpen}>
-        <DialogContent className="max-w-md p-6 rounded-3xl bg-card border-border/80 shadow-2xl">
+        <DialogContent className="sm:max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
-              <Plus className="w-4 h-4 text-primary" />
-              <span>Adicionar Recurso ou Acessório Complementar</span>
+            <DialogTitle className="text-base font-bold text-foreground">
+              Adicionar Outro Acessório
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Descreva um item extra que não esteja no catálogo padrão para a equipe do Multimídia providenciar.
+              Solicite itens que não constam na lista padrão de equipamentos.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             <div className="space-y-1">
-              <label className="font-semibold text-foreground">Descrição do Item / Acessório: *</label>
+              <label className="font-semibold text-foreground">Descrição do Item *</label>
               <Input
-                type="text"
-                placeholder="Ex: Passador de slides sem fio, Cabo P2-P10, Pilhas extras..."
+                placeholder="Ex: Adaptador USB-C para HDMI, Extensão de 10m..."
                 value={customItemLabel}
                 onChange={(e) => setCustomItemLabel(e.target.value)}
-                className="h-10 text-xs rounded-xl bg-background"
+                className="h-10 text-xs rounded-xl"
                 autoFocus
               />
             </div>
@@ -1200,41 +1289,37 @@ export default function NovaSolicitacaoPage() {
                   max={999}
                   value={customItemQty}
                   onChange={(e) => setCustomItemQty(parseInt(e.target.value, 10) || 1)}
-                  className="h-10 text-xs rounded-xl bg-background"
+                  className="h-10 text-xs rounded-xl"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-foreground">Observação rápida:</label>
+                <label className="font-semibold text-foreground">Observação:</label>
                 <Input
-                  type="text"
                   placeholder="Opcional"
                   value={customItemNotes}
                   onChange={(e) => setCustomItemNotes(e.target.value)}
-                  className="h-10 text-xs rounded-xl bg-background"
+                  className="h-10 text-xs rounded-xl"
                 />
               </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <DialogFooter className="flex items-center justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => setIsCustomItemModalOpen(false)}
-              className="rounded-xl text-xs h-9"
+              className="rounded-xl text-xs h-10 px-4"
             >
               Cancelar
             </Button>
             <Button
               type="button"
-              size="sm"
-              onClick={handleConfirmCustomItem}
-              className="rounded-xl text-xs font-bold h-9 bg-primary text-primary-foreground gap-1.5"
+              onClick={handleAddCustomItem}
+              className="rounded-xl text-xs font-bold h-10 px-5 bg-primary text-primary-foreground"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar à Lista</span>
+              Adicionar Item
             </Button>
           </DialogFooter>
         </DialogContent>
