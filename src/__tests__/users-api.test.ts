@@ -115,7 +115,7 @@ describe("Users API - Security & Role Authorization", () => {
 
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toMatch(/no mínimo 6 caracteres/);
+      expect(json.error).toMatch(/no mínimo 8 caracteres/);
     });
 
     it("deve exigir que a senha contenha letras e números", async () => {

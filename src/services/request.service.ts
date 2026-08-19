@@ -17,6 +17,7 @@ import {
   RequestTaskCreateInput
 } from "@/schemas/request.schema";
 import { ShiftService } from "@/services/shift.service";
+import { RequestWorkflowService } from "@/services/request-workflow.service";
 
 export class RequestService {
   /**
@@ -1010,6 +1011,9 @@ export class RequestService {
           where: { id: requestId },
           data: { status: newStatus },
         });
+
+        // Aplica efeitos colaterais da máquina de estados (ex: liberar reservas ativas ao finalizar)
+        await RequestWorkflowService.applyStatusSideEffects(requestId, newStatus, tx);
       }
 
       return await this.getRequestById(requestId);
@@ -1123,9 +1127,11 @@ export class RequestService {
       if (data.assignedUserId !== undefined && data.assignedUserId !== existing.assignedUserId) {
         throw new Error("Permissão negada: o perfil Apoio Acadêmico não pode alterar o responsável operacional.");
       }
-      if (data.status !== undefined && data.status !== existing.status && data.status !== RequestStatus.CANCELADO) {
-        throw new Error("Permissão negada: o perfil Apoio Acadêmico não pode alterar o status de preparo interno.");
-      }
+    }
+
+    // Validação formal da máquina de estados
+    if (data.status !== undefined && data.status !== existing.status) {
+      RequestWorkflowService.validateTransition(existing, data.status, user);
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -1293,6 +1299,10 @@ export class RequestService {
           assignedUser: { select: { id: true, name: true } },
         },
       });
+
+      if (data.status && data.status !== existing.status) {
+        await RequestWorkflowService.applyStatusSideEffects(id, data.status, tx);
+      }
 
       await tx.auditLog.create({
         data: {
