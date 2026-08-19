@@ -1,43 +1,37 @@
-import { RequestStatus, Role, ReservationStatus, TaskType } from "@prisma/client";
+import { RequestStatus, Role, ReservationStatus, TaskType, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export class RequestWorkflowService {
   /**
-   * Tabela de transições de status permitidas por papel
+   * Tabela rígida de transições padrão para OPERADOR
+   * AGENDADO -> EM_PREPARACAO -> PREPARADO -> EM_ATENDIMENTO -> FINALIZADO
    */
-  private static readonly ALLOWED_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
+  private static readonly STRICT_OPERATOR_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
     [RequestStatus.AGENDADO]: [
       RequestStatus.EM_PREPARACAO,
-      RequestStatus.PREPARADO,
       RequestStatus.CANCELADO,
     ],
     [RequestStatus.EM_PREPARACAO]: [
-      RequestStatus.AGENDADO,
-      RequestStatus.PREPARADO,
-      RequestStatus.EM_ATENDIMENTO,
+      RequestStatus.AGENDADO, // Desfazer início
+      RequestStatus.PREPARADO, // Concluir checklist
       RequestStatus.CANCELADO,
     ],
     [RequestStatus.PREPARADO]: [
-      RequestStatus.EM_PREPARACAO,
-      RequestStatus.EM_ATENDIMENTO,
+      RequestStatus.EM_PREPARACAO, // Voltar para ajuste
+      RequestStatus.EM_ATENDIMENTO, // Entregue na sala
       RequestStatus.CANCELADO,
     ],
     [RequestStatus.EM_ATENDIMENTO]: [
-      RequestStatus.PREPARADO,
-      RequestStatus.FINALIZADO,
+      RequestStatus.PREPARADO, // Reverter entrega
+      RequestStatus.FINALIZADO, // Recolhido e finalizado
       RequestStatus.CANCELADO,
     ],
-    [RequestStatus.FINALIZADO]: [
-      // Estados finais - reabertura apenas por ADMIN/GESTOR
-      RequestStatus.EM_ATENDIMENTO,
-    ],
-    [RequestStatus.CANCELADO]: [
-      // Cancelado é terminal
-    ],
+    [RequestStatus.FINALIZADO]: [],
+    [RequestStatus.CANCELADO]: [],
   };
 
   /**
-   * Verifica se uma transição direta é estruturalmente válida na máquina de estados
+   * Verifica se uma transição direta é estruturalmente permitida para o perfil
    */
   static canTransition(
     fromStatus: RequestStatus,
@@ -51,18 +45,23 @@ export class RequestWorkflowService {
       return toStatus === RequestStatus.CANCELADO;
     }
 
-    // ADMIN e GESTOR têm override com justificativa registrada em log
+    // Cancelado é terminal para todos os perfis
+    if (fromStatus === RequestStatus.CANCELADO) {
+      return false;
+    }
+
+    // ADMIN e GESTOR têm permissão de override estrutural
     if (userRole === Role.ADMIN || userRole === Role.GESTOR) {
-      if (fromStatus === RequestStatus.CANCELADO) return false; // Cancelado não reabre
       return true;
     }
 
-    const allowed = this.ALLOWED_TRANSITIONS[fromStatus] || [];
+    // OPERADOR segue a matriz rígida linear
+    const allowed = this.STRICT_OPERATOR_TRANSITIONS[fromStatus] || [];
     return allowed.includes(toStatus);
   }
 
   /**
-   * Validação estrita de transição com regras operacionais detalhadas
+   * Validação estrita de transição com regras operacionais e de autorização
    */
   static validateTransition(
     request: {
@@ -72,40 +71,58 @@ export class RequestWorkflowService {
       tasks?: Array<{ id: string; taskType: TaskType; completed: boolean }>;
     },
     targetStatus: RequestStatus,
-    user: { id: string; role: Role }
-  ): void {
-    if (request.status === targetStatus) return;
+    user: { id: string; role: Role },
+    justification?: string
+  ): { isOverride: boolean } {
+    if (request.status === targetStatus) {
+      return { isOverride: false };
+    }
 
-    // 1. Regra RBAC para Apoio Acadêmico
+    // 1. Regra de autorização para Apoio Acadêmico
     if (user.role === Role.ACADEMIC_SUPPORT) {
       if (targetStatus !== RequestStatus.CANCELADO) {
-        throw new Error("Permissão negada: o perfil Apoio Acadêmico não pode alterar o status de preparo ou atendimento interno.");
+        throw new Error(
+          "Permissão negada: o perfil Apoio Acadêmico não pode alterar o status operacional do atendimento."
+        );
       }
       if (request.createdById !== user.id) {
-        throw new Error("Permissão negada: você só pode cancelar as solicitações criadas pelo seu próprio usuário.");
+        throw new Error(
+          "Permissão negada: você só pode cancelar as solicitações criadas pelo seu próprio usuário."
+        );
       }
-      return;
+      return { isOverride: false };
     }
 
     // 2. Não permitir reabrir chamados cancelados
     if (request.status === RequestStatus.CANCELADO) {
-      throw new Error("Não é possível alterar o status de uma solicitação que já foi cancelada.");
+      throw new Error(
+        "Não é possível alterar o status de uma solicitação que já foi cancelada."
+      );
     }
 
-    // 3. Regra de Conclusão / Finalização direta
-    if (targetStatus === RequestStatus.FINALIZADO) {
-      // Se não for ADMIN/GESTOR forçando, verificar se passou por atendimento
-      if (user.role === Role.OPERADOR && request.status === RequestStatus.AGENDADO) {
-        throw new Error("Transição inválida: Não é permitido finalizar um atendimento direto do estado AGENDADO sem passar pela preparação e entrega.");
+    // 3. Verificação de transição padrão vs override para ADMIN / GESTOR
+    const isStandardTransition = (this.STRICT_OPERATOR_TRANSITIONS[request.status] || []).includes(targetStatus);
+
+    if (!isStandardTransition) {
+      if (user.role === Role.ADMIN || user.role === Role.GESTOR) {
+        // ADMIN / GESTOR fazendo salto não-linear (override)
+        if (targetStatus === RequestStatus.FINALIZADO && request.status === RequestStatus.AGENDADO) {
+          if (!justification || justification.trim().length < 5) {
+            throw new Error(
+              "Justificativa obrigatória: Para finalizar diretamente uma solicitação AGENDADA como Administrador/Gestor, informe uma justificativa técnica."
+            );
+          }
+        }
+        return { isOverride: true };
+      } else {
+        // OPERADOR tentando salto inválido
+        throw new Error(
+          `Transição de status inválida para operador: não é permitido mudar diretamente de "${request.status}" para "${targetStatus}". Siga o fluxo de preparação e entrega.`
+        );
       }
     }
 
-    // 4. Checagem na matriz de transições
-    if (!this.canTransition(request.status, targetStatus, user.role)) {
-      throw new Error(
-        `Transição de status inválida: não é permitido mudar de "${request.status}" para "${targetStatus}".`
-      );
-    }
+    return { isOverride: false };
   }
 
   /**
@@ -114,10 +131,10 @@ export class RequestWorkflowService {
   static async applyStatusSideEffects(
     requestId: string,
     newStatus: RequestStatus,
-    tx: any = prisma
+    tx: Prisma.TransactionClient = prisma
   ): Promise<void> {
     if (newStatus === RequestStatus.FINALIZADO) {
-      // Marcar reservas ativas como concluídas (libera lock de estoque)
+      // Concluir reservas ativas (libera o estoque e patrimônios)
       await tx.reservation.updateMany({
         where: {
           requestId,
@@ -138,6 +155,70 @@ export class RequestWorkflowService {
           status: ReservationStatus.CANCELLED,
         },
       });
+    }
+  }
+
+  /**
+   * Executa a transição completa de status de forma transacional e atômica
+   */
+  static async transition(
+    requestId: string,
+    targetStatus: RequestStatus,
+    user: { id: string; role: Role; name?: string },
+    options?: {
+      justification?: string;
+      tx?: Prisma.TransactionClient;
+    }
+  ) {
+    const runner = async (tx: Prisma.TransactionClient) => {
+      const request = await tx.request.findUniqueOrThrow({
+        where: { id: requestId },
+        include: { tasks: true, room: true },
+      });
+
+      const { isOverride } = this.validateTransition(
+        request,
+        targetStatus,
+        user,
+        options?.justification
+      );
+
+      const updated = await tx.request.update({
+        where: { id: requestId },
+        data: { status: targetStatus },
+        include: {
+          room: true,
+          items: { include: { item: true, asset: true } },
+          tasks: { orderBy: { orderIndex: "asc" } },
+          reservations: true,
+        },
+      });
+
+      await this.applyStatusSideEffects(requestId, targetStatus, tx);
+
+      // Trilha de auditoria da transição
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: isOverride ? "WORKFLOW_STATUS_OVERRIDE" : "WORKFLOW_STATUS_TRANSITION",
+          entity: "Request",
+          entityId: requestId,
+          details: {
+            fromStatus: request.status,
+            toStatus: targetStatus,
+            isOverride,
+            justification: options?.justification || null,
+          },
+        },
+      });
+
+      return updated;
+    };
+
+    if (options?.tx) {
+      return await runner(options.tx);
+    } else {
+      return await prisma.$transaction(runner);
     }
   }
 }

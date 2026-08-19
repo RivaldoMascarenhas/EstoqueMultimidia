@@ -8,7 +8,8 @@ import {
   ResourceType,
   RequestPriority,
   TaskType,
-  ReservationStatus
+  ReservationStatus,
+  Prisma
 } from "@prisma/client";
 import { 
   RequestCreateInput, 
@@ -66,7 +67,7 @@ export class RequestService {
       search,
     } = params || {};
 
-    const where: any = {};
+    const where: Prisma.RequestWhereInput = {};
 
     if (date) {
       const { startOfDay, endOfDay } = this.normalizeDate(date);
@@ -341,7 +342,7 @@ export class RequestService {
     startTime: Date,
     endTime: Date,
     excludeRequestId?: string,
-    tx: any = prisma
+    tx: Prisma.TransactionClient = prisma
   ) {
     // 1. ATOMIC LOCK: Bloqueia a linha do Item no Postgres para transações concorrentes
     if (tx !== prisma && typeof tx.item?.update === "function") {
