@@ -36,7 +36,10 @@ import {
   Presentation,
   Cable,
   Check,
-  Info
+  Info,
+  DoorOpen,
+  Building2,
+  X
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -112,6 +115,12 @@ export default function NovaSolicitacaoPage() {
   const [professorName, setProfessorName] = useState("");
   const [discipline, setDiscipline] = useState("");
   const [attendanceType, setAttendanceType] = useState("Aula Teórica");
+
+  // Busca Inteligente de Salas
+  const [roomSearch, setRoomSearch] = useState("");
+  const [isRoomSelectorOpen, setIsRoomSelectorOpen] = useState(false);
+  const [roomTypeFilter, setRoomTypeFilter] = useState<"ALL" | "WITH_PROJECTOR" | "WITHOUT_PROJECTOR">("ALL");
+  const [roomFloorFilter, setRoomFloorFilter] = useState<string>("ALL");
 
   // Etapa 2: Recursos
   const [selectedItems, setSelectedItems] = useState<SelectedEquipment[]>([]);
@@ -196,6 +205,39 @@ export default function NovaSolicitacaoPage() {
   useEffect(() => {
     fetchAvailability();
   }, [date, startTime, endTime, roomId]);
+
+  // Lista de andares únicos disponíveis para filtro
+  const availableFloors = useMemo(() => {
+    if (!Array.isArray(rooms)) return [];
+    const set = new Set<string>();
+    rooms.forEach((r) => {
+      if (r.floor && r.floor.trim()) set.add(r.floor.trim());
+    });
+    return Array.from(set);
+  }, [rooms]);
+
+  // Salas filtradas pela busca inteligente
+  const filteredRooms = useMemo(() => {
+    if (!Array.isArray(rooms)) return [];
+    return rooms.filter((r) => {
+      const q = roomSearch.toLowerCase().trim();
+      const matchText =
+        !q ||
+        r.name.toLowerCase().includes(q) ||
+        (r.floor && r.floor.toLowerCase().includes(q)) ||
+        (r.block && r.block.toLowerCase().includes(q)) ||
+        (r.fixedProjectorModel && r.fixedProjectorModel.toLowerCase().includes(q));
+
+      if (!matchText) return false;
+
+      if (roomTypeFilter === "WITH_PROJECTOR" && !r.hasFixedProjector) return false;
+      if (roomTypeFilter === "WITHOUT_PROJECTOR" && r.hasFixedProjector) return false;
+
+      if (roomFloorFilter !== "ALL" && r.floor !== roomFloorFilter) return false;
+
+      return true;
+    });
+  }, [rooms, roomSearch, roomTypeFilter, roomFloorFilter]);
 
   // Sala selecionada atual
   const currentRoom = useMemo(() => {
@@ -629,47 +671,219 @@ export default function NovaSolicitacaoPage() {
               </div>
             </div>
 
-            {/* Linha 2: Sala de Aula */}
-            <div className="space-y-2 pt-2 border-t border-border/60">
-              <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
+            {/* Linha 2: Sala de Aula - Busca Inteligente */}
+            <div className="space-y-3 pt-2 border-t border-border/60">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-primary" />
-                  Sala de Aula / Laboratório *
-                </span>
-                {currentRoom?.hasFixedProjector && (
-                  <span className="text-[11px] font-normal text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <Check className="w-3 h-3" />
-                    Projetor instalado na sala
+                  <span>Sala de Aula / Laboratório *</span>
+                </label>
+                {currentRoom && !isRoomSelectorOpen && (
+                  <span className="text-[11px] text-muted-foreground">
+                    Clique em <strong>Trocar Sala</strong> para pesquisar outra
                   </span>
                 )}
-              </label>
+              </div>
 
-              <select
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full h-11 px-3 text-xs font-semibold rounded-xl border border-border bg-background text-foreground focus:ring-2 focus:ring-primary cursor-pointer"
-              >
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} {r.floor ? `(${r.floor})` : ""} {r.hasFixedProjector ? "• 📽️ Projetor Fixo Incluso" : "• Sem Projetor Fixo"}
-                  </option>
-                ))}
-              </select>
-
-              {/* Card explicativo da sala selecionada */}
-              {currentRoom && (
-                <div className="p-3 rounded-2xl bg-accent/40 border border-border/60 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <Tv className="w-4 h-4 text-primary" />
-                    <span>
-                      {currentRoom.hasFixedProjector 
-                        ? `A ${currentRoom.name} já possui Datashow fixo no teto. Não será necessário levar projetor móvel.`
-                        : `A ${currentRoom.name} não tem projetor fixo. Você poderá solicitar um móvel na próxima etapa.`}
-                    </span>
+              {/* Modo 1: Sala já Selecionada (Card Rico) */}
+              {currentRoom && !isRoomSelectorOpen ? (
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in-50">
+                  <div className="flex items-center gap-3.5">
+                    <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <DoorOpen className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-bold text-sm text-foreground">{currentRoom.name}</h4>
+                        {currentRoom.floor && (
+                          <Badge variant="outline" className="text-[10px] font-medium bg-muted/40">
+                            {currentRoom.floor}
+                          </Badge>
+                        )}
+                        {currentRoom.block && (
+                          <Badge variant="outline" className="text-[10px] font-medium bg-muted/40">
+                            {currentRoom.block}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs mt-1 flex items-center gap-1.5">
+                        {currentRoom.hasFixedProjector ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" /> Projetor Fixo Instalado no Teto
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Tv className="w-3.5 h-3.5 text-muted-foreground" /> Sem projetor fixo (solicite um móvel na etapa 2)
+                          </span>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-[10px]">
-                    Capacidade: {currentRoom.capacity || 40} alunos
-                  </Badge>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsRoomSelectorOpen(true);
+                      setRoomSearch("");
+                    }}
+                    className="rounded-xl text-xs h-9 px-3.5 gap-1.5 hover:bg-accent cursor-pointer shrink-0 w-full sm:w-auto"
+                  >
+                    <Search className="w-3.5 h-3.5 text-primary" />
+                    <span>Trocar Sala</span>
+                  </Button>
+                </div>
+              ) : (
+                /* Modo 2: Busca Inteligente e Seletor Aberto */
+                <div className="space-y-3 p-4 rounded-2xl bg-muted/30 border border-border/80 animate-in fade-in-50">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Search className="w-3.5 h-3.5 text-primary" />
+                      Buscar por nome, número, andar ou bloco
+                    </span>
+                    {currentRoom && (
+                      <button
+                        type="button"
+                        onClick={() => setIsRoomSelectorOpen(false)}
+                        className="text-[11px] text-muted-foreground hover:text-foreground font-medium flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" /> Cancelar / Manter {currentRoom.name}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={roomSearch}
+                      onChange={(e) => setRoomSearch(e.target.value)}
+                      placeholder="Digite para buscar: 1A, 204, Lab, Bloco B..."
+                      className="pl-10 pr-9 h-11 text-xs rounded-xl bg-background border-border shadow-2xs"
+                      autoFocus
+                    />
+                    {roomSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setRoomSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filtros Rápidos de Salas */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] text-muted-foreground mr-1">Filtro:</span>
+                    <button
+                      type="button"
+                      onClick={() => setRoomTypeFilter("ALL")}
+                      className={cn(
+                        "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                        roomTypeFilter === "ALL"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border/60 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Todas ({rooms.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRoomTypeFilter("WITH_PROJECTOR")}
+                      className={cn(
+                        "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                        roomTypeFilter === "WITH_PROJECTOR"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border/60 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      📽️ Com Projetor Fixo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRoomTypeFilter("WITHOUT_PROJECTOR")}
+                      className={cn(
+                        "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
+                        roomTypeFilter === "WITHOUT_PROJECTOR"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-border/60 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Sem Projetor Fixo
+                    </button>
+
+                    {availableFloors.length > 1 && (
+                      <select
+                        value={roomFloorFilter}
+                        onChange={(e) => setRoomFloorFilter(e.target.value)}
+                        className="h-7 text-[10px] font-semibold px-2 rounded-lg border border-border/60 bg-background text-foreground cursor-pointer"
+                      >
+                        <option value="ALL">Todos os Andares</option>
+                        {availableFloors.map((floor) => (
+                          <option key={floor} value={floor}>{floor}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Grade com Scroll Elegante de Salas */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1 pt-1">
+                    {filteredRooms.length === 0 ? (
+                      <div className="col-span-2 py-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-background/50">
+                        Nenhuma sala encontrada com o termo "{roomSearch}".
+                      </div>
+                    ) : (
+                      filteredRooms.map((r) => {
+                        const isSelected = r.id === roomId;
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => {
+                              setRoomId(r.id);
+                              setIsRoomSelectorOpen(false);
+                            }}
+                            className={cn(
+                              "p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer",
+                              isSelected
+                                ? "bg-primary/10 border-primary shadow-2xs ring-1 ring-primary"
+                                : "bg-background border-border/70 hover:border-primary/40 hover:bg-accent/40"
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-xs font-bold text-foreground truncate">{r.name}</p>
+                                {r.floor && (
+                                  <span className="text-[10px] text-muted-foreground">({r.floor})</span>
+                                )}
+                              </div>
+                              <p className="text-[11px] mt-0.5 truncate">
+                                {r.hasFixedProjector ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                    📽️ Projetor Fixo Incluso
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    Sem Projetor Fixo
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            {isSelected ? (
+                              <Badge className="bg-primary text-primary-foreground text-[10px] shrink-0">
+                                Selecionada ✓
+                              </Badge>
+                            ) : (
+                              <span className="text-[11px] text-primary font-bold shrink-0">
+                                Selecionar
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               )}
             </div>
