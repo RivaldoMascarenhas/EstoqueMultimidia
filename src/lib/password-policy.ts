@@ -2,7 +2,7 @@
  * Política de Segurança Institucional de Senhas - UniFAP
  * 
  * Regras:
- * 1. Mínimo de 6 caracteres
+ * 1. Mínimo de 8 caracteres
  * 2. Conter pelo menos uma letra (a-z ou A-Z)
  * 3. Conter pelo menos um número (0-9)
  */
@@ -26,7 +26,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
     };
   }
 
-  const hasMinLength = password.length >= 6;
+  const hasMinLength = password.length >= 8;
   const hasLetter = /[a-zA-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
 
@@ -36,7 +36,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasMinLength,
       hasLetter,
       hasNumber,
-      error: "A senha deve possuir no mínimo 6 caracteres.",
+      error: "A senha deve possuir no mínimo 8 caracteres.",
     };
   }
 

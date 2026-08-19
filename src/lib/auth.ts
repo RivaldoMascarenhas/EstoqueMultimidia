@@ -10,6 +10,46 @@ if (!process.env.NEXTAUTH_SECRET) {
   );
 }
 
+// Rate limiter in-memory para tentativas de login (5 tentativas por 15 minutos por conta/email)
+const loginAttemptsMap = new Map<string, { count: number; blockedUntil: number }>();
+
+function checkLoginRateLimit(identifier: string, maxAttempts = 5, blockDurationMs = 15 * 60 * 1000): { allowed: boolean; waitMinutes?: number } {
+  const now = Date.now();
+  const record = loginAttemptsMap.get(identifier);
+
+  if (record) {
+    if (record.blockedUntil > now) {
+      const waitMinutes = Math.ceil((record.blockedUntil - now) / 60000);
+      return { allowed: false, waitMinutes };
+    }
+    // Se o período de bloqueio já passou, reinicia contagem
+    if (record.blockedUntil > 0 && record.blockedUntil <= now) {
+      loginAttemptsMap.set(identifier, { count: 1, blockedUntil: 0 });
+      return { allowed: true };
+    }
+  }
+
+  return { allowed: true };
+}
+
+function recordFailedLogin(identifier: string, maxAttempts = 5, blockDurationMs = 15 * 60 * 1000) {
+  const now = Date.now();
+  const record = loginAttemptsMap.get(identifier);
+
+  if (record) {
+    record.count += 1;
+    if (record.count >= maxAttempts) {
+      record.blockedUntil = now + blockDurationMs;
+    }
+  } else {
+    loginAttemptsMap.set(identifier, { count: 1, blockedUntil: 0 });
+  }
+}
+
+function resetLoginAttempts(identifier: string) {
+  loginAttemptsMap.delete(identifier);
+}
+
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
@@ -34,6 +74,12 @@ export const authOptions: NextAuthOptions = {
         const inputEmail = credentials.email.toLowerCase().trim();
         const username = inputEmail.split("@")[0];
 
+        // 0. Checar Rate Limit de tentativas
+        const rateLimitCheck = checkLoginRateLimit(inputEmail);
+        if (!rateLimitCheck.allowed) {
+          throw new Error(`Muitas tentativas incorretas. Conta bloqueada temporariamente. Tente novamente em ${rateLimitCheck.waitMinutes || 15} minutos.`);
+        }
+
         // 1. Tentar busca exata por e-mail
         let user = await prisma.user.findUnique({
           where: { email: inputEmail },
@@ -52,6 +98,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user || !user.active) {
+          recordFailedLogin(inputEmail);
           throw new Error("Credenciais inválidas ou usuário inativo");
         }
 
@@ -61,8 +108,12 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
+          recordFailedLogin(inputEmail);
           throw new Error("Credenciais inválidas");
         }
+
+        // Sucesso: limpar contagem de tentativas falhas
+        resetLoginAttempts(inputEmail);
 
         // Registrar log de auditoria de login
         await prisma.auditLog.create({
