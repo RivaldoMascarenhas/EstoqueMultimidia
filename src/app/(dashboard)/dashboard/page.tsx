@@ -546,8 +546,16 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               
-              {/* Barra Progressiva Segmentada */}
-              <div className="h-3 w-full rounded-full bg-accent overflow-hidden flex">
+              {/* Barra Progressiva Segmentada com Acessibilidade (A11y) */}
+              <div 
+                role="progressbar"
+                aria-label="Distribuição de status dos patrimônios"
+                aria-valuemin={0}
+                aria-valuemax={assets.total}
+                aria-valuenow={assets.available}
+                aria-valuetext={`${assets.available} disponíveis de ${assets.total} total`}
+                className="h-3 w-full rounded-full bg-accent overflow-hidden flex"
+              >
                 <div 
                   style={{ width: `${assets.total > 0 ? (assets.available / assets.total) * 100 : 0}%` }} 
                   className="bg-emerald-500 h-full transition-all duration-500" 

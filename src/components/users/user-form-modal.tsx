@@ -27,18 +27,21 @@ export function UserFormModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("OPERADOR");
   const [active, setActive] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const passwordPolicy = validatePasswordPolicy(password);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
 
   useEffect(() => {
     if (userToEdit) {
       setName(userToEdit.name || "");
       setEmail(userToEdit.email || "");
       setPassword("");
+      setConfirmPassword("");
       setRole(userToEdit.role || "OPERADOR");
       setActive(userToEdit.active ?? true);
       setMustChangePassword(userToEdit.mustChangePassword ?? false);
@@ -46,6 +49,7 @@ export function UserFormModal({
       setName("");
       setEmail("");
       setPassword("");
+      setConfirmPassword("");
       setRole("OPERADOR");
       setActive(true);
       setMustChangePassword(true);
@@ -62,7 +66,12 @@ export function UserFormModal({
 
     if (!userToEdit) {
       if (!passwordPolicy.isValid) {
-        toast.error(passwordPolicy.error || "A senha deve ter pelo menos 6 caracteres contendo letras e números.");
+        toast.error(passwordPolicy.error || "A senha deve ter pelo menos 8 caracteres contendo letras e números.");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        toast.error("A confirmação de senha não confere com a senha digitada.");
         return;
       }
     }
@@ -101,7 +110,7 @@ export function UserFormModal({
         toast.error(json.error || "Erro ao salvar usuário.");
       }
     } catch (e: any) {
-      toast.error("Erro de conexão ao salvar usuário.");
+      toast.error("Erro de conexão ao processar requisição.");
     } finally {
       setIsSubmitting(false);
     }
@@ -168,7 +177,7 @@ export function UserFormModal({
 
           {/* Senha (apenas na criação) */}
           {!userToEdit && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground">
                   Senha Inicial de Acesso: *
@@ -179,11 +188,41 @@ export function UserFormModal({
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres (letras e números)"
+                    placeholder="Mínimo 8 caracteres (letras e números)"
                     required
                     className="pl-9 h-10 rounded-xl text-xs bg-background"
                   />
                 </div>
+              </div>
+
+              {/* Confirmar Senha */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground">
+                  Confirmar Senha Inicial: *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repita a senha inicial"
+                    required
+                    className={`pl-9 h-10 rounded-xl text-xs bg-background ${
+                      confirmPassword.length > 0
+                        ? passwordsMatch
+                          ? "border-emerald-500 focus:ring-emerald-500"
+                          : "border-rose-500 focus:ring-rose-500"
+                        : ""
+                    }`}
+                  />
+                </div>
+                {confirmPassword.length > 0 && !passwordsMatch && (
+                  <p className="text-[11px] text-rose-500 font-medium">As senhas não coincidem.</p>
+                )}
+                {confirmPassword.length > 0 && passwordsMatch && (
+                  <p className="text-[11px] text-emerald-600 font-medium">✓ Senhas coincidem!</p>
+                )}
               </div>
 
               {/* Requisitos da Senha */}
@@ -194,7 +233,7 @@ export function UserFormModal({
                   </p>
                   <div className="grid grid-cols-3 gap-1">
                     <span className={passwordPolicy.hasMinLength ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
-                      {passwordPolicy.hasMinLength ? "✓" : "•"} 6+ caracteres
+                      {passwordPolicy.hasMinLength ? "✓" : "•"} 8+ caracteres
                     </span>
                     <span className={passwordPolicy.hasLetter ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
                       {passwordPolicy.hasLetter ? "✓" : "•"} 1+ letra

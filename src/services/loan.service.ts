@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { AssetStatus, LoanStatus } from "@prisma/client";
+import { AssetStatus, LoanStatus, MaintenanceStatus } from "@prisma/client";
 import { LoanCreateInput, LoanReturnInput, LoanRenewInput } from "@/schemas/loan.schema";
 
 export class LoanService {
@@ -368,7 +368,7 @@ export class LoanService {
       }
 
       const isDamaged = data.condition === "DAMAGED";
-      const targetAssetStatus = isDamaged ? AssetStatus.DAMAGED : AssetStatus.AVAILABLE;
+      const targetAssetStatus = isDamaged ? AssetStatus.IN_MAINTENANCE : AssetStatus.AVAILABLE;
       const targetLoanStatus = isDamaged ? LoanStatus.RETURNED_DAMAGED : LoanStatus.RETURNED;
 
       const now = new Date();
@@ -400,14 +400,40 @@ export class LoanService {
         where: { id: loan.assetId },
         data: {
           status: targetAssetStatus,
-          currentBoxId: data.returnBoxId,
+          currentBoxId: isDamaged ? null : data.returnBoxId,
         },
       });
+
+      let autoMaintenanceOrderNumber: string | null = null;
+
+      // 2.1 Se houver avaria, abrir OS corretiva automática
+      if (isDamaged) {
+        const year = now.getFullYear();
+        const count = await tx.maintenance.count();
+        const candidateOS = `OS-${year}-${String(count + 1).padStart(4, "0")}`;
+        const existingOS = await tx.maintenance.findUnique({
+          where: { orderNumber: candidateOS },
+        });
+        autoMaintenanceOrderNumber = existingOS
+          ? `OS-${year}-${String(count + 1).padStart(4, "0")}-${Date.now().toString().slice(-4)}`
+          : candidateOS;
+
+        await tx.maintenance.create({
+          data: {
+            assetId: loan.assetId,
+            orderNumber: autoMaintenanceOrderNumber,
+            issueDescription: `[Avaria na Devolução]: ${data.returnedCondition?.trim() || "Equipamento devolvido com defeito pelo solicitante " + loan.borrowerName}`,
+            serviceProvider: "Laboratório / Suporte Multimídia UniFAP",
+            status: MaintenanceStatus.PENDING,
+            createdByUserId: userId,
+          },
+        });
+      }
 
       // 3. Registrar na Linha do Tempo (AssetHistory)
       const actionName = isDamaged ? "DEVOLVIDO_COM_AVARIA" : "DEVOLVIDO";
       const conditionObs = isDamaged
-        ? `AVARIA IDENTIFICADA: ${data.returnedCondition || "Sem detalhes"}.`
+        ? `AVARIA IDENTIFICADA: ${data.returnedCondition || "Sem detalhes"}. OS gerada: ${autoMaintenanceOrderNumber}.`
         : "Equipamento conferido em perfeito estado.";
 
       await tx.assetHistory.create({
@@ -417,10 +443,10 @@ export class LoanService {
           fromStatus: AssetStatus.LOANED,
           toStatus: targetAssetStatus,
           fromLocation: `${loan.destination} (${loan.borrowerName})`,
-          toLocation: `${targetBox.name} (${targetBox.door.name})`,
+          toLocation: isDamaged ? "Setor de Manutenção / Triagem" : `${targetBox.name} (${targetBox.door.name})`,
           userId,
           userName: userName || "Operador",
-          observation: `Devolução recebida por ${userName || "Operador"}. Guardado na ${targetBox.name}. ${conditionObs}${
+          observation: `Devolução recebida por ${userName || "Operador"}. ${isDamaged ? "Encaminhado para manutenção." : "Guardado na " + targetBox.name + "."} ${conditionObs}${
             data.returnNotes ? ` Obs: ${data.returnNotes.trim()}` : ""
           }`,
         },
