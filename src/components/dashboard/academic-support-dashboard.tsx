@@ -21,14 +21,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateInput } from "@/lib/utils";
 
 interface AcademicSupportDashboardProps {
   userName: string;
   userRole: string;
 }
 
-export function AcademicSupportDashboard({ userName }: AcademicSupportDashboardProps) {
+export function AcademicSupportDashboard({ userName, userRole }: AcademicSupportDashboardProps) {
   const [requests, setRequests] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +38,7 @@ export function AcademicSupportDashboard({ userName }: AcademicSupportDashboardP
       setIsLoading(true);
       const [reqRes, roomRes] = await Promise.all([
         fetch("/api/v1/requests"),
-        fetch("/api/v1/rooms"),
+        fetch("/api/v1/rooms?activeOnly=true"),
       ]);
 
       const reqJson = await reqRes.json();
@@ -68,7 +68,7 @@ export function AcademicSupportDashboard({ userName }: AcademicSupportDashboardP
     fetchAcademicData();
   }, []);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = formatDateInput(new Date());
   const todayRequests = requests.filter((r) => r.date === today || (r.date && r.date.startsWith(today)));
   const pendingRequests = requests.filter((r) => r.status === "AGENDADO" || r.status === "EM_PREPARACAO");
   const readyRequests = requests.filter((r) => r.status === "PREPARADO" || r.status === "EM_ATENDIMENTO");

@@ -24,6 +24,7 @@ export const requestCreateSchema = z.object({
   notes: z.string().optional().nullable(),
   origin: z.nativeEnum(RequestOrigin).default(RequestOrigin.MANUAL),
   assignedUserId: z.string().optional().nullable(),
+  turnOnProjector: z.boolean().default(true).optional(),
   items: z.array(requestItemInputSchema).default([]),
   
   // Opções de Recorrência Semanal

@@ -14,9 +14,51 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { targetWebhookUrl, eventType } = body;
 
-    if (!targetWebhookUrl) {
+    if (!targetWebhookUrl || typeof targetWebhookUrl !== "string") {
       return NextResponse.json(
         { success: false, error: "Campo 'targetWebhookUrl' obrigatório (URL do Webhook do n8n)." },
+        { status: 400 }
+      );
+    }
+
+    // Validação estrita anti-SSRF (bloquear endereços locais e faixas privadas)
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(targetWebhookUrl.trim());
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "URL do Webhook inválida ou malformada." },
+        { status: 400 }
+      );
+    }
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      return NextResponse.json(
+        { success: false, error: "Protocolo de Webhook inválido. Utilize HTTP ou HTTPS." },
+        { status: 400 }
+      );
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const isLocalhost =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0" ||
+      hostname === "::1" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      hostname === "metadata.google.internal";
+
+    const isPrivateIp =
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
+      /^169\.254\./.test(hostname) ||
+      /^127\./.test(hostname);
+
+    if (isLocalhost || isPrivateIp) {
+      return NextResponse.json(
+        { success: false, error: "Endereços locais, privados ou de metadados internos não são permitidos para disparos de webhook por motivos de segurança." },
         { status: 400 }
       );
     }
@@ -66,15 +108,19 @@ export async function POST(req: NextRequest) {
 
     const payloadToSend = mockPayloads[eventType || "LOAN_OVERDUE_ALERT"] || mockPayloads.LOAN_OVERDUE_ALERT;
 
-    // Disparar requisição HTTP POST para a URL do Webhook
-    const response = await fetch(targetWebhookUrl, {
+    // Disparar requisição HTTP POST para a URL do Webhook com timeout de 10s
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(parsedUrl.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "UniFAP-Inventory-Webhook-Dispatcher/1.0",
       },
       body: JSON.stringify(payloadToSend),
-    });
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timeoutId));
 
     const responseStatus = response.status;
     let responseBody = "";
@@ -87,14 +133,17 @@ export async function POST(req: NextRequest) {
       message: `Evento de teste disparado com sucesso para o webhook!`,
       statusReceived: responseStatus,
       sentPayload: payloadToSend,
-      targetWebhookUrl,
+      targetWebhookUrl: parsedUrl.toString(),
     });
 
   } catch (error: any) {
+    const isTimeout = error.name === "AbortError";
     return NextResponse.json(
       { 
         success: false, 
-        error: `Falha ao conectar com o Webhook: ${error.message}. Verifique se a URL do n8n está acessível.` 
+        error: isTimeout
+          ? "Tempo limite de conexão (10s) excedido ao tentar contatar o Webhook."
+          : `Falha ao conectar com o Webhook: ${error.message}. Verifique se a URL do n8n está acessível.` 
       },
       { status: 500 }
     );

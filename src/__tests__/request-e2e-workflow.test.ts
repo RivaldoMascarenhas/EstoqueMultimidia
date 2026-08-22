@@ -1,7 +1,46 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RequestStatus, Role, ResourceType, TaskType, ReservationStatus, AssetStatus } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { RequestWorkflowService } from "@/services/request-workflow.service";
 import { RequestService } from "@/services/request.service";
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    shiftConfig: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    room: {
+      findUnique: vi.fn().mockResolvedValue({ id: "room-101", active: true, name: "101" }),
+    },
+    request: {
+      findUnique: vi.fn(),
+      delete: vi.fn(),
+    },
+    reservation: {
+      deleteMany: vi.fn(),
+    },
+    requestItem: {
+      deleteMany: vi.fn(),
+    },
+    requestTask: {
+      deleteMany: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
+    },
+    $transaction: vi.fn((cb) =>
+      cb({
+        room: { findUnique: vi.fn().mockResolvedValue({ id: "room-101", active: true, name: "101" }) },
+        user: { findUnique: vi.fn().mockResolvedValue({ id: "user-academic-1" }) },
+        reservation: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        requestItem: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        requestTask: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        request: { delete: vi.fn().mockResolvedValue({ id: "req-1" }) },
+        auditLog: { create: vi.fn().mockResolvedValue({ id: "audit-1" }) },
+      })
+    ),
+  },
+}));
 
 describe("E2E Operational Workflow & RBAC State Machine (16 Core Real Scenarios)", () => {
   const academicUser1 = { id: "user-academic-1", role: Role.ACADEMIC_SUPPORT };
@@ -333,6 +372,90 @@ describe("E2E Operational Workflow & RBAC State Machine (16 Core Real Scenarios)
       );
 
       expect(result.isOverride).toBe(true);
+    });
+
+    it("Cenário 17: Exclusão permanente de agendamento por outro Apoio Acadêmico -> BLOQUEADO", async () => {
+      (prisma.request.findUnique as any).mockResolvedValueOnce({
+        id: "req-1",
+        createdById: academicUser2.id,
+        room: { name: "101" },
+      });
+
+      await expect(
+        RequestService.deleteRequest("req-1", academicUser1)
+      ).rejects.toThrowError(/Permissão negada/);
+    });
+
+    it("Cenário 18: Exclusão permanente de agendamento pelo próprio criador ou ADMIN -> PERMITIDO", async () => {
+      (prisma.request.findUnique as any).mockResolvedValueOnce({
+        id: "req-1",
+        createdById: academicUser1.id,
+        room: { name: "101" },
+      });
+
+      const deleted = await RequestService.deleteRequest("req-1", academicUser1);
+      expect(deleted.id).toBe("req-1");
+    });
+
+    it("Cenário 19: Bloquear criação de agendamento com data no passado", async () => {
+      const pastInput = {
+        date: "2020-01-10",
+        startTime: "08:00",
+        endTime: "10:00",
+        roomId: "room-101",
+        professorName: "Prof. Passado",
+        items: [],
+      };
+
+      await expect(
+        RequestService.createRequest(pastInput as any, academicUser1.id)
+      ).rejects.toThrowError(/Não é permitido agendar para datas passadas/);
+    });
+
+    it("Cenário 20: Bloquear criação de agendamento com horário que já passou hoje", async () => {
+      const now = new Date();
+      const localYear = now.getFullYear();
+      const localMonth = String(now.getMonth() + 1).padStart(2, "0");
+      const localDay = String(now.getDate()).padStart(2, "0");
+      const localDateStr = `${localYear}-${localMonth}-${localDay}`;
+
+      // Horário de 30 minutos atrás
+      const pastTime = new Date(now.getTime() - 30 * 60 * 1000);
+
+      if (pastTime.getDate() === now.getDate()) {
+        const pastH = String(pastTime.getHours()).padStart(2, "0");
+        const pastM = String(pastTime.getMinutes()).padStart(2, "0");
+        const endH = String(Math.min(23, pastTime.getHours() + 1)).padStart(2, "0");
+
+        const pastTodayInput = {
+          date: localDateStr,
+          startTime: `${pastH}:${pastM}`,
+          endTime: `${endH}:59`,
+          roomId: "room-101",
+          professorName: "Prof. Noite",
+          items: [],
+        };
+
+        await expect(
+          RequestService.createRequest(pastTodayInput as any, academicUser1.id)
+        ).rejects.toThrowError(/Não é permitido agendar para um horário que já passou hoje/);
+      }
+    });
+
+    it("Cenário 21: Bloquear criação de agendamento aos domingos", async () => {
+      // 2026-08-30 é um domingo futuro
+      const sundayInput = {
+        date: "2026-08-30",
+        startTime: "08:00",
+        endTime: "10:00",
+        roomId: "room-101",
+        professorName: "Prof. Domingo",
+        items: [],
+      };
+
+      await expect(
+        RequestService.createRequest(sundayInput as any, academicUser1.id)
+      ).rejects.toThrowError(/A faculdade não funciona aos domingos/);
     });
   });
 });

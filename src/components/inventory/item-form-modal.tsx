@@ -660,7 +660,7 @@ export function ItemFormModal({
             />
           </div>
 
-          <DialogFooter className="pt-3 border-t border-border/80 flex items-center justify-end gap-2">
+          <DialogFooter className="sticky bottom-0 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 p-4 sm:p-6 bg-card/95 backdrop-blur-md border-t border-border/80 flex items-center justify-between sm:justify-end gap-2 z-20">
             <Button
               type="button"
               variant="outline"

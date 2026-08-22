@@ -59,16 +59,28 @@ export async function DELETE(
     const { session, error } = await requireSession();
     if (error) return error;
 
-    const cancelled = await RequestService.cancelRequest(params.id, session.user);
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get("action");
+
+    if (action === "cancel") {
+      const cancelled = await RequestService.cancelRequest(params.id, session.user);
+      return NextResponse.json({
+        success: true,
+        message: "Solicitação cancelada com sucesso!",
+        data: cancelled,
+      });
+    }
+
+    const deleted = await RequestService.deleteRequest(params.id, session.user);
 
     return NextResponse.json({
       success: true,
-      message: "Solicitação cancelada com sucesso!",
-      data: cancelled,
+      message: "Agendamento excluído da grade com sucesso!",
+      data: deleted,
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao cancelar solicitação." },
+      { success: false, error: error.message || "Erro ao processar exclusão do agendamento." },
       { status: 400 }
     );
   }

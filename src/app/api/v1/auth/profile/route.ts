@@ -119,13 +119,30 @@ export async function PUT(req: NextRequest) {
       updateData.name = name.trim();
     }
 
-    // Processar foto de perfil (Armazenamento direto no banco de dados)
+    // Processar foto de perfil (Armazenamento direto no banco de dados com limite de 500KB)
     if (avatarUrl !== undefined) {
-      if (avatarUrl && avatarUrl.startsWith("data:image")) {
+      if (avatarUrl && typeof avatarUrl === "string" && avatarUrl.startsWith("data:image")) {
+        // Validação de tipo de imagem suportado (PNG, JPEG, WebP)
+        const mimeMatch = avatarUrl.match(/^data:image\/(png|jpeg|jpg|webp);base64,/i);
+        if (!mimeMatch) {
+          return NextResponse.json(
+            { success: false, error: "Formato de imagem não suportado. Utilize PNG, JPEG ou WebP." },
+            { status: 400 }
+          );
+        }
+
+        // Validação de tamanho máximo (500KB ~ aprox. 700.000 caracteres base64)
+        if (avatarUrl.length > 750000) {
+          return NextResponse.json(
+            { success: false, error: "A imagem de avatar excede o limite máximo permitido de 500 KB." },
+            { status: 400 }
+          );
+        }
+
         updateData.avatarUrl = avatarUrl;
       } else if (avatarUrl === null || avatarUrl === "") {
         updateData.avatarUrl = null;
-      } else {
+      } else if (typeof avatarUrl === "string" && (avatarUrl.startsWith("/") || avatarUrl.startsWith("http"))) {
         updateData.avatarUrl = avatarUrl;
       }
     }

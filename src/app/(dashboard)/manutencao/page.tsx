@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -437,14 +438,40 @@ export default function ManutencaoPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
+                Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i} className="animate-pulse">
-                    <TableCell className="p-4"><div className="h-12 w-48 bg-muted rounded-lg" /></TableCell>
-                    <TableCell className="p-4"><div className="h-12 w-64 bg-muted rounded-lg" /></TableCell>
-                    <TableCell className="p-4"><div className="h-10 w-36 bg-muted rounded-lg" /></TableCell>
-                    <TableCell className="p-4"><div className="h-10 w-28 bg-muted rounded-lg" /></TableCell>
-                    <TableCell className="p-4"><div className="h-10 w-24 bg-muted rounded-lg" /></TableCell>
-                    <TableCell className="p-4 text-right"><div className="h-9 w-36 bg-muted rounded-lg ml-auto" /></TableCell>
+                    <TableCell className="p-4">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-4 w-44" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="p-4">
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-56" />
+                        <Skeleton className="h-3 w-40" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="p-4">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-4 w-36" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="p-4">
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                    </TableCell>
+                    <TableCell className="p-4">
+                      <Skeleton className="h-6 w-28 rounded-full" />
+                    </TableCell>
+                    <TableCell className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Skeleton className="h-8 w-8 rounded-xl" />
+                        <Skeleton className="h-8 w-8 rounded-xl" />
+                        <Skeleton className="h-8 w-8 rounded-xl" />
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : maintenances.length === 0 ? (

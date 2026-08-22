@@ -540,7 +540,7 @@ export function LoanFormModal({
             </div>
           </div>
 
-          <DialogFooter className="flex items-center justify-end gap-2.5 pt-3 border-t border-border/80">
+          <DialogFooter className="sticky bottom-0 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 p-4 sm:p-6 bg-card/95 backdrop-blur-md border-t border-border/80 flex items-center justify-between sm:justify-end gap-2.5 z-20">
             <Button
               type="button"
               variant="outline"

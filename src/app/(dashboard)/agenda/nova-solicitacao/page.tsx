@@ -54,7 +54,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatDateInput } from "@/lib/utils";
 
 interface AvailableItem {
   itemId: string;
@@ -81,7 +81,7 @@ interface SelectedEquipment {
   itemId?: string;
   label: string;
   quantity: number;
-  logisticsType: string;
+  logisticsType?: string;
   itemNotes?: string;
 }
 
@@ -107,6 +107,48 @@ const QUICK_TIME_SLOTS = [
   { label: "21:00 - 22:40", start: "21:00", end: "22:40" },
 ];
 
+function getInitialSchedule() {
+  const now = new Date();
+  const currentTotalMin = now.getHours() * 60 + now.getMinutes();
+
+  // Se hoje for domingo (getDay() === 0), sugere segunda-feira
+  if (now.getDay() === 0) {
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return {
+      date: formatDateInput(monday),
+      startTime: "08:00",
+      endTime: "10:00",
+    };
+  }
+
+  // Encontra o próximo slot para hoje com pelo menos 15 minutos de antecedência
+  const upcoming = QUICK_TIME_SLOTS.find((slot) => {
+    const [sh, sm] = slot.start.split(":").map(Number);
+    return sh * 60 + sm > currentTotalMin + 15;
+  });
+
+  if (upcoming) {
+    return {
+      date: formatDateInput(now),
+      startTime: upcoming.start,
+      endTime: upcoming.end,
+    };
+  }
+
+  // Se já é noite e todos os horários de hoje passaram, sugere o próximo dia útil
+  let nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  // Se o próximo dia for domingo, pula para segunda-feira
+  if (nextDay.getDay() === 0) {
+    nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+  }
+
+  return {
+    date: formatDateInput(nextDay),
+    startTime: "08:00",
+    endTime: "10:00",
+  };
+}
+
 export default function NovaSolicitacaoPage() {
   const router = useRouter();
   const { data: session } = useSession();
@@ -121,13 +163,61 @@ export default function NovaSolicitacaoPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Etapa 1: Quando, Onde e Quem?
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("10:00");
+  const [date, setDate] = useState(() => getInitialSchedule().date);
+  const [startTime, setStartTime] = useState(() => getInitialSchedule().startTime);
+  const [endTime, setEndTime] = useState(() => getInitialSchedule().endTime);
   const [roomId, setRoomId] = useState("");
   const [professorName, setProfessorName] = useState("");
   const [discipline, setDiscipline] = useState("");
   const [attendanceType, setAttendanceType] = useState("Aula Teórica");
+
+  const todayStr = useMemo(() => formatDateInput(new Date()), []);
+  const tomorrowStr = useMemo(() => {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return formatDateInput(d);
+  }, []);
+
+  const nextWorkDayStr = useMemo(() => {
+    const now = new Date();
+    let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    if (d.getDay() === 0) {
+      d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+    }
+    return formatDateInput(d);
+  }, []);
+
+  const isTodaySunday = useMemo(() => new Date().getDay() === 0, []);
+  const isTomorrowSunday = useMemo(() => {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return d.getDay() === 0;
+  }, []);
+
+  const isSelectedDateSunday = useMemo(() => {
+    if (!date) return false;
+    const [y, m, d] = date.split("-").map(Number);
+    const dt = new Date(y, m - 1, d, 12, 0, 0);
+    return dt.getDay() === 0;
+  }, [date]);
+
+  const isTimeSlotPast = (slotStart: string) => {
+    if (date !== todayStr) return false;
+    const now = new Date();
+    const [sh, sm] = slotStart.split(":").map(Number);
+    const slotMin = sh * 60 + sm;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    return slotMin <= nowMin;
+  };
+
+  const isSelectedTimeInPast = useMemo(() => {
+    if (!date || !startTime) return false;
+    const now = new Date();
+    const [y, m, d] = date.split("-").map(Number);
+    const [sh, sm] = startTime.split(":").map(Number);
+    const startDt = new Date(y, m - 1, d, sh, sm, 0);
+    return startDt < new Date(now.getTime() - 5 * 60 * 1000);
+  }, [date, startTime]);
 
   // Busca Inteligente de Salas
   const [roomSearch, setRoomSearch] = useState("");
@@ -135,7 +225,8 @@ export default function NovaSolicitacaoPage() {
   const [roomTypeFilter, setRoomTypeFilter] = useState<"ALL" | "WITH_PROJECTOR" | "WITHOUT_PROJECTOR">("ALL");
   const [roomFloorFilter, setRoomFloorFilter] = useState<string>("ALL");
 
-  // Etapa 2: Recursos
+  // Etapa 2: Recursos & Datashow
+  const [turnOnProjector, setTurnOnProjector] = useState<boolean>(true);
   const [selectedItems, setSelectedItems] = useState<SelectedEquipment[]>([]);
   const [resourceCategory, setResourceCategory] = useState<"ALL" | "COMPUTING" | "AUDIO" | "CABLES">("ALL");
   const [resourceSearch, setResourceSearch] = useState("");
@@ -157,7 +248,7 @@ export default function NovaSolicitacaoPage() {
   const [repeatUntilDate, setRepeatUntilDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 4);
-    return d.toISOString().split("T")[0];
+    return formatDateInput(d);
   });
   const [generalNotes, setGeneralNotes] = useState("");
 
@@ -267,10 +358,10 @@ export default function NovaSolicitacaoPage() {
 
     if (mode === "SEMESTER") {
       const endSem = new Date(baseDate.getTime() + 18 * 7 * 24 * 60 * 60 * 1000);
-      setRepeatUntilDate(endSem.toISOString().split("T")[0]);
+      setRepeatUntilDate(formatDateInput(endSem));
     } else if (mode === "MONTH") {
       const endMonth = new Date(baseDate.getTime() + 4 * 7 * 24 * 60 * 60 * 1000);
-      setRepeatUntilDate(endMonth.toISOString().split("T")[0]);
+      setRepeatUntilDate(formatDateInput(endMonth));
     }
   };
 
@@ -401,6 +492,31 @@ export default function NovaSolicitacaoPage() {
       toast.error("Defina os horários de início e término.");
       return;
     }
+    if (endTime <= startTime) {
+      toast.error("O horário de término deve ser posterior ao horário de início.");
+      return;
+    }
+
+    const now = new Date();
+    const [y, m, d] = date.split("-").map((v) => parseInt(v, 10));
+    const [sh, sm] = startTime.split(":").map((v) => parseInt(v, 10));
+    const startDateTime = new Date(y, m - 1, d, sh, sm, 0);
+
+    if (startDateTime < new Date(now.getTime() - 5 * 60 * 1000)) {
+      const isToday = now.getFullYear() === y && now.getMonth() === (m - 1) && now.getDate() === d;
+      if (isToday) {
+        toast.error(`O horário selecionado (${startTime}) já passou hoje. Por favor, escolha um horário futuro.`);
+      } else {
+        toast.error("Não é permitido agendar aulas para datas passadas.");
+      }
+      return;
+    }
+
+    if (startDateTime.getDay() === 0) {
+      toast.error("A faculdade não funciona aos domingos. Selecione uma data de segunda-feira a sábado.");
+      return;
+    }
+
     if (!roomId) {
       toast.error("Selecione a sala de aula.");
       return;
@@ -429,14 +545,29 @@ export default function NovaSolicitacaoPage() {
         notes: item.itemNotes || undefined,
       }));
 
-      // Se a sala tem projetor fixo e nenhum item móvel foi adicionado, incluímos a tag da sala
-      if (itemsPayload.length === 0 && isRoomWithProjector(currentRoom)) {
-        itemsPayload.push({
-          itemId: undefined,
-          label: `Apoio de Projeção Fixa (${currentRoom?.name})`,
-          quantity: 1,
-          notes: `Utilização do projetor fixo (${currentRoom?.fixedProjectorModel || "Instalado no teto"}).`,
-        });
+      // Se solicitou ligar o datashow
+      if (turnOnProjector) {
+        if (isRoomWithProjector(currentRoom)) {
+          const alreadyHasFixed = itemsPayload.some((i) => i.label.toLowerCase().includes("datashow") || i.label.toLowerCase().includes("projetor"));
+          if (!alreadyHasFixed) {
+            itemsPayload.unshift({
+              itemId: undefined,
+              label: `Ligar Datashow Fixo (${currentRoom?.name})`,
+              quantity: 1,
+              notes: `Ligar e testar sinal do projetor fixo (${currentRoom?.fixedProjectorModel || "No teto"}).`,
+            });
+          }
+        } else {
+          const hasMobileProj = itemsPayload.some((i) => i.label.toLowerCase().includes("datashow") || i.label.toLowerCase().includes("projetor"));
+          if (!hasMobileProj) {
+            itemsPayload.unshift({
+              itemId: undefined,
+              label: `Datashow Móvel para Sala ${currentRoom?.name}`,
+              quantity: 1,
+              notes: `Instalar e ligar projetor móvel na sala (sala sem projetor fixo).`,
+            });
+          }
+        }
       }
 
       const payload = {
@@ -448,6 +579,7 @@ export default function NovaSolicitacaoPage() {
         discipline: discipline.trim() || undefined,
         attendanceType: attendanceType.trim() || undefined,
         notes: generalNotes.trim() || undefined,
+        turnOnProjector,
         items: itemsPayload,
         repeatWeekly,
         repeatUntilDate: repeatWeekly ? repeatUntilDate : undefined,
@@ -470,6 +602,7 @@ export default function NovaSolicitacaoPage() {
           professorName,
           discipline,
           itemCount: selectedItems.length,
+          turnOnProjector,
           repeatWeekly,
           totalWeeks: estimatedWeeks,
         });
@@ -622,15 +755,52 @@ export default function NovaSolicitacaoPage() {
             <div className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-foreground block mb-1.5">
-                    Data da Aula *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Data da Aula *
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={isTodaySunday}
+                        onClick={() => setDate(todayStr)}
+                        className={cn(
+                          "text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors",
+                          isTodaySunday
+                            ? "opacity-40 text-muted-foreground line-through cursor-not-allowed"
+                            : date === todayStr
+                            ? "bg-primary/20 text-primary border border-primary/30 cursor-pointer"
+                            : "text-muted-foreground hover:text-foreground cursor-pointer"
+                        )}
+                        title={isTodaySunday ? "Hoje é domingo (sem expediente)" : "Selecionar data de hoje"}
+                      >
+                        {isTodaySunday ? "Hoje (Domingo)" : "Hoje"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDate(isTomorrowSunday ? nextWorkDayStr : tomorrowStr)}
+                        className={cn(
+                          "text-[10px] font-bold px-1.5 py-0.5 rounded-md transition-colors cursor-pointer",
+                          (isTomorrowSunday ? date === nextWorkDayStr : date === tomorrowStr)
+                            ? "bg-primary/20 text-primary border border-primary/30"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                        title={isTomorrowSunday ? "Pular domingo para segunda-feira" : "Selecionar amanhã"}
+                      >
+                        {isTomorrowSunday ? "Segunda-feira" : "Amanhã"}
+                      </button>
+                    </div>
+                  </div>
                   <input
                     type="date"
                     required
+                    min={todayStr}
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full h-11 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
+                    className={cn(
+                      "w-full h-11 text-xs font-semibold rounded-xl border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary",
+                      isSelectedDateSunday ? "border-rose-500/80 focus:ring-rose-500" : "border-border"
+                    )}
                   />
                 </div>
 
@@ -643,7 +813,10 @@ export default function NovaSolicitacaoPage() {
                     required
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full h-11 text-xs font-semibold rounded-xl border border-border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary"
+                    className={cn(
+                      "w-full h-11 text-xs font-semibold rounded-xl border bg-background px-3 text-foreground focus:ring-2 focus:ring-primary",
+                      isSelectedTimeInPast ? "border-rose-500/80 focus:ring-rose-500" : "border-border"
+                    )}
                   />
                 </div>
 
@@ -661,27 +834,54 @@ export default function NovaSolicitacaoPage() {
                 </div>
               </div>
 
+              {/* Alerta de Domingo Fechado */}
+              {isSelectedDateSunday && (
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in-50">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>
+                    <strong>Domingo não permitido:</strong> A instituição não tem funcionamento aos domingos. Por favor, selecione uma data de segunda-feira a sábado.
+                  </span>
+                </div>
+              )}
+
+              {/* Alerta de Horário no Passado */}
+              {isSelectedTimeInPast && !isSelectedDateSunday && (
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center gap-2.5 text-xs text-rose-600 dark:text-rose-400 animate-in fade-in-50">
+                  <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>
+                    <strong>Horário não permitido:</strong> O horário selecionado ({startTime}) já passou para a data informada. Por favor, escolha um horário futuro ou avance a data.
+                  </span>
+                </div>
+              )}
+
               {/* Atalhos Rápidos de Horário */}
               <div className="flex items-center gap-1.5 flex-wrap pt-1">
                 <span className="text-[11px] text-muted-foreground mr-1">Atalhos:</span>
-                {QUICK_TIME_SLOTS.map((slot, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => {
-                      setStartTime(slot.start);
-                      setEndTime(slot.end);
-                    }}
-                    className={cn(
-                      "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all cursor-pointer",
-                      startTime === slot.start && endTime === slot.end
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-accent/50 hover:bg-accent text-muted-foreground hover:text-foreground border-border/50"
-                    )}
-                  >
-                    {slot.label}
-                  </button>
-                ))}
+                {QUICK_TIME_SLOTS.map((slot, i) => {
+                  const isPast = isTimeSlotPast(slot.start);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={isPast}
+                      title={isPast ? "Este horário já passou hoje" : `Selecionar ${slot.label}`}
+                      onClick={() => {
+                        setStartTime(slot.start);
+                        setEndTime(slot.end);
+                      }}
+                      className={cn(
+                        "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all",
+                        isPast
+                          ? "opacity-35 bg-muted text-muted-foreground/60 border-border/30 line-through cursor-not-allowed"
+                          : startTime === slot.start && endTime === slot.end
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs cursor-pointer"
+                          : "bg-accent/50 hover:bg-accent text-muted-foreground hover:text-foreground border-border/50 cursor-pointer"
+                      )}
+                    >
+                      {slot.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -983,18 +1183,117 @@ export default function NovaSolicitacaoPage() {
           </CardHeader>
           <CardContent className="p-6 space-y-5">
 
-            {/* Banner Inteligente da Sala */}
-            {isRoomWithProjector(currentRoom) && (
-              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-3 text-emerald-800 dark:text-emerald-300 text-xs">
-                <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <div>
-                  <p className="font-bold">Projetor da {currentRoom?.name} já incluso! ({currentRoom?.fixedProjectorModel || "No teto"})</p>
-                  <p className="text-[11px] opacity-90">
-                    O suporte de projeção já está garantido na sala. Selecione abaixo apenas notebooks, microfones ou caixas de som extras.
-                  </p>
+            {/* 📽️ SELETOR INTELIGENTE DE LIGAR DATASHOW */}
+            <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card shadow-xs space-y-3.5">
+              <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className={cn(
+                    "p-2 rounded-xl border transition-colors",
+                    turnOnProjector 
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" 
+                      : "bg-muted text-muted-foreground border-border"
+                  )}>
+                    <Tv className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+                      <span>É preciso ligar o Datashow / Projetor para esta aula?</span>
+                      <span className="text-rose-500 text-xs">*</span>
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {isRoomWithProjector(currentRoom) 
+                        ? `A Sala ${currentRoom?.name} possui projetor fixo (${currentRoom?.fixedProjectorModel || "Instalado no teto"}).` 
+                        : `A Sala ${currentRoom?.name} não possui projetor fixo instalado.`}
+                    </p>
+                  </div>
                 </div>
+
+                <Badge 
+                  variant="outline" 
+                  className={cn(
+                    "text-[10px] font-bold px-2.5 py-0.5 rounded-full transition-colors",
+                    turnOnProjector 
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" 
+                      : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                  )}
+                >
+                  {turnOnProjector ? "Datashow Necessário" : "Projetor Não Necessário"}
+                </Badge>
               </div>
-            )}
+
+              {/* Grid das 2 opções de decisão */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Opção 1: Sim, Ligar Datashow */}
+                <button
+                  type="button"
+                  onClick={() => setTurnOnProjector(true)}
+                  className={cn(
+                    "p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 cursor-pointer group",
+                    turnOnProjector
+                      ? "bg-emerald-500/10 border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs"
+                      : "bg-background border-border/80 hover:border-border hover:bg-muted/30"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-xl shrink-0 mt-0.5 transition-colors",
+                    turnOnProjector 
+                      ? "bg-emerald-600 text-white shadow-xs shadow-emerald-600/30" 
+                      : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                  )}>
+                    <Check className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-bold text-foreground">
+                        Sim, ligar o Datashow
+                      </p>
+                      {turnOnProjector && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      {isRoomWithProjector(currentRoom)
+                        ? `A equipe do Multimídia irá à Sala ${currentRoom?.name} antes da aula para ligar o projetor fixo e testar a projeção.`
+                        : "A equipe levará e instalará um datashow móvel na sala antes da aula."}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Opção 2: Não precisa de Datashow */}
+                <button
+                  type="button"
+                  onClick={() => setTurnOnProjector(false)}
+                  className={cn(
+                    "p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 cursor-pointer group",
+                    !turnOnProjector
+                      ? "bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30 shadow-xs"
+                      : "bg-background border-border/80 hover:border-border hover:bg-muted/30"
+                  )}
+                >
+                  <div className={cn(
+                    "p-2 rounded-xl shrink-0 mt-0.5 transition-colors",
+                    !turnOnProjector 
+                      ? "bg-amber-600 text-white shadow-xs shadow-amber-600/30" 
+                      : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                  )}>
+                    <X className="w-4 h-4" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-bold text-foreground">
+                        Não precisa de Datashow
+                      </p>
+                      {!turnOnProjector && (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-snug">
+                      O professor não utilizará projeção (economiza lâmpada e dispensa preparação de datashow).
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
 
             {/* Categorias de Recursos */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1240,7 +1539,14 @@ export default function NovaSolicitacaoPage() {
 
                 <div className="flex items-center gap-2.5 text-muted-foreground">
                   <Tv className="w-4 h-4 text-primary shrink-0" />
-                  <span>Projetor da Sala: <strong className="text-foreground">{isRoomWithProjector(currentRoom) ? `Incluso ✅ (${currentRoom?.fixedProjectorModel || "No teto"})` : "Móvel"}</strong></span>
+                  <span>
+                    Ligar Datashow:{" "}
+                    <strong className={turnOnProjector ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400 font-bold"}>
+                      {turnOnProjector 
+                        ? (isRoomWithProjector(currentRoom) ? `Sim, ligar projetor fixo ✅ (${currentRoom?.fixedProjectorModel || "No teto"})` : "Sim, levar datashow móvel ✅") 
+                        : "Não precisa ligar ⏹️"}
+                    </strong>
+                  </span>
                 </div>
               </div>
 
@@ -1251,7 +1557,9 @@ export default function NovaSolicitacaoPage() {
                 </span>
                 {selectedItems.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    ✓ Apenas acionamento do projetor instalado na sala.
+                    {turnOnProjector 
+                      ? "✓ Apenas acionamento do projetor instalado na sala." 
+                      : "✓ Nenhum equipamento extra solicitado para entrega física."}
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -1412,6 +1720,12 @@ export default function NovaSolicitacaoPage() {
             <div className="flex justify-between border-b border-border/40 pb-2">
               <span className="text-muted-foreground">Sala & Horário:</span>
               <strong className="text-foreground">{createdSummary.roomName} • {createdSummary.startTime} às {createdSummary.endTime}</strong>
+            </div>
+            <div className="flex justify-between border-b border-border/40 pb-2">
+              <span className="text-muted-foreground">Datashow / Projeção:</span>
+              <strong className={createdSummary.turnOnProjector ? "text-emerald-600 dark:text-emerald-400 font-bold" : "text-amber-600 dark:text-amber-400 font-bold"}>
+                {createdSummary.turnOnProjector ? "Ligar Datashow antes da aula ✅" : "Não precisa ligar ⏹️"}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Recorrência:</span>

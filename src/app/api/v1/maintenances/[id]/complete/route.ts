@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { MaintenanceService } from "@/services/maintenance.service";
 import { maintenanceCompleteSchema } from "@/schemas/maintenance.schema";
 import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
-    const { session, error } = await requireSession();
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
     if (error) return error;
 
     const resolvedParams = await Promise.resolve(params);

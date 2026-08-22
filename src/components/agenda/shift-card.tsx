@@ -160,7 +160,9 @@ export function ShiftCard({
                   key={req.id}
                   onClick={() => onOpenDetails(req.id)}
                   className={`p-3 rounded-2xl border transition-all cursor-pointer group hover:scale-[1.01] ${
-                    req.status === "PREPARADO"
+                    req.status === "CANCELADO"
+                      ? "bg-muted/20 border-dashed border-border/80 opacity-70 hover:opacity-100"
+                      : req.status === "PREPARADO"
                       ? "bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/60"
                       : req.status === "EM_ATENDIMENTO"
                       ? "bg-blue-500/5 border-blue-500/30 hover:border-blue-500/60"
@@ -173,12 +175,17 @@ export function ShiftCard({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       {getStatusDot(req.status)}
-                      <span className="font-mono text-xs font-bold text-foreground">
+                      <span className={`font-mono text-xs font-bold ${req.status === "CANCELADO" ? "line-through text-muted-foreground" : "text-foreground"}`}>
                         {startStr} - {endStr}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
+                      {req.status === "CANCELADO" && (
+                        <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded-md border border-rose-500/20">
+                          Cancelado
+                        </span>
+                      )}
                       <span className="font-extrabold text-xs px-2 py-0.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
                         Sala {req.room?.name}
                       </span>

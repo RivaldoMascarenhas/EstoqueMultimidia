@@ -782,7 +782,7 @@ export function MaintenanceFormModal({
         </form>
 
         {/* 4. FOOTER FIXO */}
-        <div className="p-4 px-6 border-t border-border/80 bg-muted/20 flex items-center justify-between shrink-0">
+        <div className="sticky bottom-0 -mx-6 -mb-6 p-4 px-6 border-t border-border/80 bg-card/95 backdrop-blur-md flex items-center justify-between shrink-0 z-20">
           <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
             <span>Bloqueio automático de empréstimo ativo</span>

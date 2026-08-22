@@ -24,7 +24,7 @@ describe("Maintenance Lifecycle & Workshop Triaging Tests", () => {
 
   describe("2. Conclusão com Sucesso e Reintegração Física", () => {
     it("deve restaurar o patrimônio para AVAILABLE e exigir caixa do armário", () => {
-      const outcome = "AVAILABLE";
+      const outcome = "AVAILABLE" as string;
       const returnBoxId = "box-armario-1-porta-a";
       
       const targetAssetStatus = outcome === "AVAILABLE" ? AssetStatus.AVAILABLE : AssetStatus.WRITTEN_OFF;
@@ -38,7 +38,7 @@ describe("Maintenance Lifecycle & Workshop Triaging Tests", () => {
 
   describe("3. Baixa por Perda Total / Condenação Técnica", () => {
     it("deve transicionar o status do patrimônio para WRITTEN_OFF quando condenado", () => {
-      const outcome = "WRITTEN_OFF";
+      const outcome = "WRITTEN_OFF" as string;
       const targetAssetStatus = outcome === "AVAILABLE" ? AssetStatus.AVAILABLE : AssetStatus.WRITTEN_OFF;
 
       expect(targetAssetStatus).toBe(AssetStatus.WRITTEN_OFF);

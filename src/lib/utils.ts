@@ -28,6 +28,19 @@ export function formatDate(date: Date | string | null | undefined): string {
   }
 }
 
+/**
+ * Converte Date para string 'YYYY-MM-DD' no fuso horário LOCAL do navegador.
+ * Essencial para <input type="date" /> sem sofrer adiantamento de dia por UTC.
+ */
+export function formatDateInput(date?: Date | string | null): string {
+  const d = date ? (typeof date === "string" ? new Date(date) : date) : new Date();
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatDateTime(date: Date | string | null | undefined): string {
   if (!date) return "-";
   try {
