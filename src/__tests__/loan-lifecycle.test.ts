@@ -7,7 +7,7 @@ describe("Loan Lifecycle & Countertriaging Tests", () => {
 
   describe("1. Devolução Normal de Empréstimo", () => {
     it("deve calcular transição de status para RETURNED e restaurar Asset para AVAILABLE", () => {
-      const condition = "NORMAL";
+      const condition = "NORMAL" as string;
       const isDamaged = condition === "DAMAGED";
       const targetAssetStatus = isDamaged ? AssetStatus.IN_MAINTENANCE : AssetStatus.AVAILABLE;
       const targetLoanStatus = isDamaged ? LoanStatus.RETURNED_DAMAGED : LoanStatus.RETURNED;
@@ -19,7 +19,7 @@ describe("Loan Lifecycle & Countertriaging Tests", () => {
 
   describe("2. Devolução com Avaria e Geração Automática de OS", () => {
     it("deve identificar avaria, alterar status para RETURNED_DAMAGED e enviar Asset para IN_MAINTENANCE", () => {
-      const condition = "DAMAGED";
+      const condition = "DAMAGED" as string;
       const isDamaged = condition === "DAMAGED";
       const targetAssetStatus = isDamaged ? AssetStatus.IN_MAINTENANCE : AssetStatus.AVAILABLE;
       const targetLoanStatus = isDamaged ? LoanStatus.RETURNED_DAMAGED : LoanStatus.RETURNED;

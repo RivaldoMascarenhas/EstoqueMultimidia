@@ -67,16 +67,12 @@ export function RequestDetailModal({
   const [unfulfilledReasonText, setUnfulfilledReasonText] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Modal de Troca de Patrimônio (Asset Swap)
   const [swapTarget, setSwapTarget] = useState<{ itemId: string; currentAssetTag: string; itemLabel: string } | null>(null);
   const [swapNewAssetId, setSwapNewAssetId] = useState("");
   const [swapReason, setSwapReason] = useState("");
-
-  // Modal de Adição de Tarefa Personalizada
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskType, setNewTaskType] = useState<string>("CUSTOM");
 
   const displayUsers = useMemo(() => {
     const map = new Map<string, any>();
@@ -209,93 +205,7 @@ export function RequestDetailModal({
     }
   };
 
-  // 3. Alternar Conclusão de Tarefa Operacional (Checklist)
-  const handleToggleTask = async (taskId: string, currentCompleted: boolean) => {
-    if (!requestId || !isOperatorOrAdmin) return;
-    try {
-      // Atualização otimista
-      setRequest((prev: any) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          tasks: prev.tasks.map((t: any) =>
-            t.id === taskId ? { ...t, completed: !currentCompleted } : t
-          ),
-        };
-      });
-
-      const res = await fetch(`/api/v1/requests/${requestId}/tasks/${taskId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completed: !currentCompleted }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setRequest(data.data);
-        toast.success(!currentCompleted ? "Tarefa marcada como concluída!" : "Tarefa desmarcada.");
-        onUpdated?.();
-      } else {
-        toast.error(data.error || "Erro ao atualizar tarefa.");
-        fetchRequestDetails();
-      }
-    } catch {
-      toast.error("Erro ao atualizar tarefa.");
-      fetchRequestDetails();
-    }
-  };
-
-  // 4. Adicionar Tarefa Personalizada
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!request || !newTaskTitle.trim() || !isOperatorOrAdmin) return;
-    try {
-      setIsSaving(true);
-      const res = await fetch(`/api/v1/requests/${request.id}/tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: newTaskTitle.trim(),
-          taskType: newTaskType,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setRequest(data.data);
-        toast.success("Tarefa adicionada com sucesso!");
-        setIsAddTaskOpen(false);
-        setNewTaskTitle("");
-        onUpdated?.();
-      } else {
-        toast.error(data.error || "Erro ao adicionar tarefa.");
-      }
-    } catch {
-      toast.error("Erro ao comunicar com o servidor.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // 5. Excluir Tarefa
-  const handleDeleteTask = async (taskId: string) => {
-    if (!request || !isOperatorOrAdmin) return;
-    try {
-      const res = await fetch(`/api/v1/requests/${request.id}/tasks/${taskId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.success) {
-        setRequest(data.data);
-        toast.success("Tarefa removida.");
-        onUpdated?.();
-      } else {
-        toast.error(data.error || "Erro ao remover tarefa.");
-      }
-    } catch {
-      toast.error("Erro ao remover tarefa.");
-    }
-  };
-
-  // 6. Atualizar Status Global
+  // 3. Atualizar Status Global
   const handleUpdateStatus = async (newStatus: string) => {
     if (!request || !isOperatorOrAdmin) return;
     try {
@@ -462,7 +372,7 @@ export function RequestDetailModal({
     if (!request) return;
     try {
       setIsSaving(true);
-      const res = await fetch(`/api/v1/requests/${request.id}`, {
+      const res = await fetch(`/api/v1/requests/${request.id}?action=cancel`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -476,6 +386,30 @@ export function RequestDetailModal({
       }
     } catch {
       toast.error("Erro ao cancelar.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 11. Confirmar Exclusão Definitiva do Atendimento da Grade
+  const handleConfirmDeleteRequest = async () => {
+    if (!request) return;
+    try {
+      setIsSaving(true);
+      const res = await fetch(`/api/v1/requests/${request.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Agendamento excluído da grade com sucesso!");
+        setDeleteDialogOpen(false);
+        onUpdated?.();
+        onClose();
+      } else {
+        toast.error(data.error || "Erro ao excluir agendamento.");
+      }
+    } catch {
+      toast.error("Erro na comunicação ao excluir agendamento.");
     } finally {
       setIsSaving(false);
     }
@@ -495,15 +429,6 @@ export function RequestDetailModal({
         return <Badge variant="low">CANCELADO</Badge>;
       default:
         return <Badge variant="low">EM PREPARAÇÃO</Badge>;
-    }
-  };
-
-  const getTaskIcon = (type: string) => {
-    switch (type) {
-      case "FIXED_EQUIPMENT": return <Tv className="w-3.5 h-3.5 text-blue-500" />;
-      case "DELIVERY": return <MapPin className="w-3.5 h-3.5 text-amber-500" />;
-      case "COLLECTION": return <Archive className="w-3.5 h-3.5 text-purple-500" />;
-      default: return <Package className="w-3.5 h-3.5 text-emerald-500" />;
     }
   };
 
@@ -588,6 +513,17 @@ export function RequestDetailModal({
 
                 <div>
                   <span className="text-muted-foreground flex items-center gap-1">
+                    <Tv className="w-3.5 h-3.5 text-primary" /> Datashow / Projeção:
+                  </span>
+                  <p className="font-medium text-foreground mt-0.5">
+                    {request.items?.some((i: any) => i.resourceType === "FIXED_IN_ROOM" || i.label?.toLowerCase().includes("datashow") || i.label?.toLowerCase().includes("projetor"))
+                      ? `Ligar Projetor (${request.room?.fixedProjectorModel || "Fixo"})`
+                      : "Não necessário (Desligado)"}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-muted-foreground flex items-center gap-1">
                     <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Criado por:
                   </span>
                   <p className="font-medium text-foreground mt-0.5">
@@ -596,91 +532,7 @@ export function RequestDetailModal({
                 </div>
               </div>
 
-              {/* 2. Checklist de Tarefas Operacionais (RequestTask) */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    Tarefas Operacionais do Multimídia
-                  </h4>
-                  {isOperatorOrAdmin && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setIsAddTaskOpen(true)}
-                      className="h-7 text-[11px] text-primary hover:bg-primary/10 rounded-lg gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Adicionar Tarefa</span>
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  {request.tasks?.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2 text-center">Nenhuma tarefa operacional cadastrada.</p>
-                  ) : (
-                    request.tasks.map((task: any) => (
-                      <div
-                        key={task.id}
-                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                          task.completed
-                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-300"
-                            : "bg-card border-border/80 text-foreground"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          {isOperatorOrAdmin ? (
-                            <button
-                              type="button"
-                              onClick={() => handleToggleTask(task.id, task.completed)}
-                              className={`h-5 w-5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-                                task.completed
-                                  ? "bg-emerald-500 border-emerald-500 text-white"
-                                  : "border-muted-foreground/40 hover:border-primary"
-                              }`}
-                            >
-                              {task.completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                            </button>
-                          ) : (
-                            <div className="h-5 w-5 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-                              {task.completed ? <Check className="w-3 h-3 text-emerald-500" /> : <Clock className="w-3 h-3 text-muted-foreground" />}
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                            {getTaskIcon(task.taskType)}
-                            <span className={`text-xs font-medium ${task.completed ? "line-through opacity-80" : ""}`}>
-                              {task.title}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {task.completed && task.completedByUser && (
-                            <span className="text-[10px] text-muted-foreground hidden sm:inline font-mono">
-                              por {task.completedByUser.name}
-                            </span>
-                          )}
-                          {isOperatorOrAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteTask(task.id)}
-                              className="text-muted-foreground hover:text-rose-500 p-1 transition-colors"
-                              title="Remover tarefa"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* 3. Recursos Solicitados & Alocação de Patrimônio */}
+              {/* 2. Recursos Solicitados & Alocação de Patrimônio */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -898,21 +750,42 @@ export function RequestDetailModal({
               )}
 
               {/* 6. Ações do Rodapé */}
-              <div className="flex items-center justify-between pt-2 border-t border-border/80">
+              <div className="flex items-center justify-between pt-3 border-t border-border/80 flex-wrap gap-2">
                 {(isOperatorOrAdmin || (isAcademicSupport && request.createdById === userId)) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCancelDialogOpen(true)}
-                    disabled={isSaving || request.status === "CANCELADO"}
-                    className="text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-500/50 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500 rounded-xl gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Ban className="w-3.5 h-3.5" />
-                    <span>Cancelar Atendimento</span>
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Botão de Cancelar (quando ainda não está cancelado) */}
+                    {request.status !== "CANCELADO" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCancelDialogOpen(true)}
+                        disabled={isSaving}
+                        className="text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 hover:border-amber-500 rounded-xl gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Ban className="w-3.5 h-3.5" />
+                        <span>Cancelar Atendimento</span>
+                      </Button>
+                    )}
+
+                    {/* Botão de Excluir Permanentemente da Grade */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeleteDialogOpen(true)}
+                      disabled={isSaving}
+                      className="text-xs font-bold text-rose-600 dark:text-rose-400 border border-rose-500/40 bg-rose-500/10 hover:bg-rose-500/20 hover:border-rose-500 rounded-xl gap-1.5 shadow-xs cursor-pointer"
+                      title="Excluir agendamento para não aparecer mais na grade"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Excluir da Grade</span>
+                    </Button>
+                  </div>
                 )}
 
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={onClose}
@@ -1017,84 +890,7 @@ export function RequestDetailModal({
       </Dialog>
 
       {/* ========================================================================= */}
-      {/* DIALOG 2: MODAL DE ADICIONAR TAREFA PERSONALIZADA                         */}
-      {/* ========================================================================= */}
-      <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 bg-card border-border shadow-2xl space-y-4">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
-                <Plus className="w-5 h-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-base font-extrabold text-foreground">
-                  Nova Tarefa Operacional
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Adicione um checklist específico para a equipe de plantão
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateTask} className="space-y-3 pt-1 text-xs">
-            <div>
-              <label className="font-semibold text-foreground block mb-1">
-                Título da Tarefa:
-              </label>
-              <input
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="ex: Levar extensão de 10 metros extra..."
-                className="w-full h-9 rounded-xl border border-border bg-background px-3 text-foreground"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="font-semibold text-foreground block mb-1">
-                Tipo de Tarefa:
-              </label>
-              <select
-                value={newTaskType}
-                onChange={(e) => setNewTaskType(e.target.value)}
-                className="w-full h-9 rounded-xl border border-border bg-background px-3 text-foreground font-medium"
-              >
-                <option value="CUSTOM">Personalizada / Geral</option>
-                <option value="FIXED_EQUIPMENT">Infraestrutura Fixa</option>
-                <option value="SEPARATION">Separação no Armário</option>
-                <option value="DELIVERY">Transporte até a Sala</option>
-                <option value="COLLECTION">Recolhimento após a Aula</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/60">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddTaskOpen(false)}
-                className="rounded-xl text-xs"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={isSaving || !newTaskTitle.trim()}
-                className="rounded-xl text-xs bg-primary text-primary-foreground font-bold"
-              >
-                {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                <span>Adicionar</span>
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ========================================================================= */}
-      {/* DIALOG 3: MODAL DE AVISO DE EQUIPAMENTO NÃO LEVADO                        */}
+      {/* DIALOG 2: MODAL DE AVISO DE EQUIPAMENTO NÃO LEVADO                        */}
       {/* ========================================================================= */}
       <Dialog open={!!unfulfilledTarget} onOpenChange={(open) => !open && setUnfulfilledTarget(null)}>
         <DialogContent className="max-w-md rounded-3xl p-6 bg-card border-border shadow-2xl space-y-4">
@@ -1259,10 +1055,59 @@ export function RequestDetailModal({
               size="sm"
               onClick={handleConfirmCancelRequest}
               disabled={isSaving}
-              className="rounded-xl text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5"
+              className="rounded-xl text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold gap-1.5"
             >
               {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
               <span>Confirmar Cancelamento</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* DIALOG 6: CONFIRMAÇÃO DE EXCLUSÃO DEFINITIVA DO AGENDAMENTO DA GRADE      */}
+      {/* ========================================================================= */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => setDeleteDialogOpen(open)}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-card border-border shadow-2xl space-y-4">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-extrabold text-foreground">
+                  Excluir Agendamento da Grade
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Sala {request?.room?.name} • {request?.professorName || "Agendamento"}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <p className="text-xs text-muted-foreground pt-1 leading-relaxed">
+            Tem certeza que deseja excluir permanentemente este agendamento? Ele será <strong className="text-foreground">removido da grade de horários</strong> e quaisquer reservas de estoque serão liberadas.
+          </p>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmDeleteRequest}
+              disabled={isSaving}
+              className="rounded-xl text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5"
+            >
+              {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              <span>Sim, Excluir da Grade</span>
             </Button>
           </div>
         </DialogContent>

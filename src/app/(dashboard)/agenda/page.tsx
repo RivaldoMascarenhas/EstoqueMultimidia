@@ -20,10 +20,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ShiftCard } from "@/components/agenda/shift-card";
 import { CalendarGridView } from "@/components/agenda/calendar-grid-view";
 import { RequestDetailModal } from "@/components/agenda/request-detail-modal";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function AgendaPage() {
@@ -31,8 +32,7 @@ export default function AgendaPage() {
   const userRole = session?.user?.role || "OPERADOR";
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
+    return formatDateInput(new Date());
   });
 
   const [viewMode, setViewMode] = useState<"SHIFT_LIST" | "CALENDAR_GRID">("CALENDAR_GRID");
@@ -81,18 +81,17 @@ export default function AgendaPage() {
   const handlePrevDay = () => {
     const [year, month, day] = selectedDate.split("-").map(Number);
     const prevDate = new Date(year, month - 1, day - 1);
-    setSelectedDate(prevDate.toISOString().split("T")[0]);
+    setSelectedDate(formatDateInput(prevDate));
   };
 
   const handleNextDay = () => {
     const [year, month, day] = selectedDate.split("-").map(Number);
     const nextDate = new Date(year, month - 1, day + 1);
-    setSelectedDate(nextDate.toISOString().split("T")[0]);
+    setSelectedDate(formatDateInput(nextDate));
   };
 
   const handleToday = () => {
-    const todayStr = new Date().toISOString().split("T")[0];
-    setSelectedDate(todayStr);
+    setSelectedDate(formatDateInput(new Date()));
   };
 
   const handleOpenDetails = (requestId: string) => {
@@ -100,7 +99,7 @@ export default function AgendaPage() {
     setDetailModalOpen(true);
   };
 
-  const isCurrentDay = selectedDate === new Date().toISOString().split("T")[0];
+  const isCurrentDay = selectedDate === formatDateInput(new Date());
   const currentShift = agendaData?.currentShift || "MORNING";
   const shifts = agendaData?.shifts || {
     MORNING: { config: {}, stats: {}, requests: [] },
@@ -323,9 +322,23 @@ export default function AgendaPage() {
 
       {/* 3. Conteúdo Principal (Modo Lista de Turnos ou Modo Grade) */}
       {isLoading ? (
-        <div className="p-16 text-center text-muted-foreground animate-pulse rounded-3xl bg-card border border-border/60">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-primary" />
-          <p className="text-xs">Organizando atendimentos por turnos...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={`agenda-skel-${i}`} className="p-6 rounded-3xl bg-card border border-border/80 space-y-4 shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="w-8 h-8 rounded-xl" />
+                  <Skeleton className="w-24 h-5 rounded-md" />
+                </div>
+                <Skeleton className="w-16 h-5 rounded-full" />
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="w-full h-20 rounded-2xl" />
+                <Skeleton className="w-full h-20 rounded-2xl" />
+                <Skeleton className="w-full h-20 rounded-2xl" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : viewMode === "CALENDAR_GRID" ? (
         /* Modo 2: Grade Única Focada no Turno com Anti-Sobreposição */

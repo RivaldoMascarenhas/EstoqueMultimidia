@@ -15,6 +15,13 @@ vi.mock("@/lib/auth", () => ({
   authOptions: {},
 }));
 
+vi.mock("bcryptjs", () => ({
+  default: {
+    compare: vi.fn().mockImplementation((pwd, hash) => Promise.resolve(pwd === "correctPassword123" && hash !== "same")),
+    hash: vi.fn().mockResolvedValue("$2a$10$hashed"),
+  },
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
@@ -175,13 +182,17 @@ describe("Users API - Security & Role Authorization", () => {
         name: "Operador 1",
         email: "op1@unifap.br",
         passwordHash: "$2a$10$old_different_password_hash",
+        mustChangePassword: false,
       } as any);
 
       vi.mocked(prisma.user.update).mockResolvedValueOnce({} as any);
 
       const req = new NextRequest("http://localhost:3000/api/v1/users/op-1/password", {
         method: "PATCH",
-        body: JSON.stringify({ newPassword: "newsecretpassword123" }),
+        body: JSON.stringify({
+          currentPassword: "correctPassword123",
+          newPassword: "newsecretpassword123",
+        }),
       });
       const res = await updatePassword(req, { params: Promise.resolve({ id: "op-1" }) });
 

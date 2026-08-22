@@ -58,12 +58,12 @@ describe("Plataforma Operacional de Multimídia - Regras e Taxonomia", () => {
       };
 
       // 10 - 6 = 4 disponíveis. Pedir 4 deve passar:
-      const res = await RequestService.validateItemAvailability(itemId, 4, startTime, endTime, undefined, mockTx);
+      const res = await RequestService.validateItemAvailability(itemId, 4, startTime, endTime, undefined, mockTx as any);
       expect(res.name).toBe("Cabo HDMI 10m");
 
       // Pedir 5 (quando só restam 4) deve lançar erro:
       await expect(
-        RequestService.validateItemAvailability(itemId, 5, startTime, endTime, undefined, mockTx)
+        RequestService.validateItemAvailability(itemId, 5, startTime, endTime, undefined, mockTx as any)
       ).rejects.toThrow(/Disponibilidade insuficiente/);
     });
   });

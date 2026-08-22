@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -396,14 +397,42 @@ function EmprestimosContent() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                      <span>Carregando dados de empréstimos...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <TableRow key={`skeleton-loan-${index}`} className="animate-pulse">
+                    <TableCell className="py-4 pl-6">
+                      <div className="space-y-2">
+                        <Skeleton className="h-3.5 w-24 rounded-md" />
+                        <Skeleton className="h-4 w-44 rounded-md" />
+                        <Skeleton className="h-3 w-28 rounded-md" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-4">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3.5 w-32 rounded-md" />
+                        <Skeleton className="h-3 w-24 rounded-md" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-4">
+                      <Skeleton className="h-4 w-28 rounded-md" />
+                    </TableCell>
+                    <TableCell className="py-4 px-4">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3.5 w-32 rounded-md" />
+                        <Skeleton className="h-3 w-24 rounded-md" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-4">
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell className="py-4 px-4 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <Skeleton className="h-8 w-8 rounded-xl" />
+                        <Skeleton className="h-8 w-8 rounded-xl" />
+                        <Skeleton className="h-8 w-8 rounded-xl" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : loans.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-48 text-center">

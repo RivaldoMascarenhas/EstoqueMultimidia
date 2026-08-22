@@ -430,6 +430,31 @@ export class RequestService {
       throw new Error("O horário final deve ser posterior ao horário inicial.");
     }
 
+    // Validar se a data e horário são no passado para novas solicitações
+    const now = new Date();
+    // Tolerância de 5 minutos para latência de rede
+    const toleranceTime = new Date(now.getTime() - 5 * 60 * 1000);
+
+    if (startDateTime < toleranceTime) {
+      const isToday = now.getFullYear() === year && now.getMonth() === (month - 1) && now.getDate() === day;
+      if (isToday) {
+        throw new Error(
+          `Não é permitido agendar para um horário que já passou hoje (${data.startTime}). Horário atual: ${now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Selecione um horário futuro.`
+        );
+      } else {
+        throw new Error(
+          `Não é permitido agendar para datas passadas (${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}). Selecione a data de hoje ou uma data futura.`
+        );
+      }
+    }
+
+    // A faculdade não funciona aos domingos (getDay() === 0)
+    if (startDateTime.getDay() === 0) {
+      throw new Error(
+        "A faculdade não funciona aos domingos. Os atendimentos só podem ser agendados de segunda-feira a sábado."
+      );
+    }
+
     const shift = ShiftService.getShiftFromTime(startDateTime, shiftConfigs);
     const isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
 
@@ -513,11 +538,14 @@ export class RequestService {
       const initialTasks: Array<{ title: string; taskType: TaskType; orderIndex: number }> = [];
       let taskOrder = 1;
 
-      // Tarefas para recursos fixos da sala
-      const hasFixedProjector = data.items.some((i) => i.resourceType === ResourceType.FIXED_IN_ROOM);
-      if (hasFixedProjector) {
+      // Tarefas para recursos fixos da sala (respeitando se é necessário ligar o datashow)
+      const shouldTurnOnProjector = 
+        data.turnOnProjector !== false && 
+        (data.items.some((i) => i.resourceType === ResourceType.FIXED_IN_ROOM) || Boolean(room.fixedProjectorModel));
+
+      if (shouldTurnOnProjector && (room.fixedProjectorModel || data.items.some((i) => i.resourceType === ResourceType.FIXED_IN_ROOM))) {
         initialTasks.push({
-          title: `Ligar Datashow da Sala ${room.name} (${room.fixedProjectorModel})`,
+          title: `Ligar Datashow da Sala ${room.name} (${room.fixedProjectorModel || "Instalado"})`,
           taskType: TaskType.FIXED_EQUIPMENT,
           orderIndex: taskOrder++,
         });
@@ -1168,6 +1196,12 @@ export class RequestService {
           throw new Error("O horário final deve ser posterior ao horário inicial.");
         }
 
+        if (startDateTime.getDay() === 0) {
+          throw new Error(
+            "A faculdade não funciona aos domingos. Os atendimentos só podem ser agendados de segunda-feira a sábado."
+          );
+        }
+
         const shiftConfigs = await ShiftService.getShiftConfigs();
         shift = ShiftService.getShiftFromTime(startDateTime, shiftConfigs);
         isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
@@ -1359,6 +1393,64 @@ export class RequestService {
       });
 
       return updated;
+    });
+  }
+
+  /**
+   * Exclusão permanente de agendamento (Remove da grade e limpa reservas/itens)
+   */
+  static async deleteRequest(id: string, user: { id: string; role: Role }) {
+    const existing = await prisma.request.findUnique({
+      where: { id },
+      include: { room: true },
+    });
+
+    if (!existing) {
+      throw new Error("Solicitação de agendamento não encontrada.");
+    }
+
+    if (user.role === Role.ACADEMIC_SUPPORT && existing.createdById !== user.id) {
+      throw new Error("Permissão negada: você só pode excluir solicitações criadas pelo seu próprio usuário.");
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      // 1. Remover reservas vinculadas
+      await tx.reservation.deleteMany({
+        where: { requestId: id },
+      });
+
+      // 2. Remover itens da solicitação
+      await tx.requestItem.deleteMany({
+        where: { requestId: id },
+      });
+
+      // 3. Remover tarefas operacionais
+      await tx.requestTask.deleteMany({
+        where: { requestId: id },
+      });
+
+      // 4. Remover a solicitação em si
+      const deleted = await tx.request.delete({
+        where: { id },
+      });
+
+      // 5. Trilha de Auditoria
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "DELETE_REQUEST",
+          entity: "Request",
+          entityId: id,
+          details: {
+            professor: existing.professorName,
+            room: existing.room?.name,
+            startTime: existing.startTime,
+            status: existing.status,
+          },
+        },
+      });
+
+      return deleted;
     });
   }
 

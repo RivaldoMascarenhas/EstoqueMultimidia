@@ -137,8 +137,15 @@ export async function DELETE(
         _count: {
           select: {
             loansCreated: true,
+            loansReceived: true,
             movements: true,
             maintenances: true,
+            maintenancesClosed: true,
+            requestsCreated: true,
+            requestsAssigned: true,
+            tasksCompleted: true,
+            auditLogs: true,
+            apiKeys: true,
           },
         },
       },
@@ -153,8 +160,15 @@ export async function DELETE(
 
     const hasHistory = 
       user._count.loansCreated > 0 || 
+      user._count.loansReceived > 0 ||
       user._count.movements > 0 || 
-      user._count.maintenances > 0;
+      user._count.maintenances > 0 ||
+      user._count.maintenancesClosed > 0 ||
+      user._count.requestsCreated > 0 ||
+      user._count.requestsAssigned > 0 ||
+      user._count.tasksCompleted > 0 ||
+      user._count.auditLogs > 0 ||
+      user._count.apiKeys > 0;
 
     if (hasHistory) {
       // Soft delete / desativar para preservar a auditoria
