@@ -143,10 +143,11 @@ export async function PUT(req: NextRequest) {
         updateData.avatarUrl = avatarUrl;
       } else if (avatarUrl === null || avatarUrl === "") {
         updateData.avatarUrl = null;
-      } else if (typeof avatarUrl === "string" && avatarUrl.startsWith("/")) {
-        // Apenas caminhos relativos locais permitidos
+      } else if (typeof avatarUrl === "string" && avatarUrl.startsWith("/uploads/")) {
+        // Apenas caminhos de uploads locais estáticos permitidos
         updateData.avatarUrl = avatarUrl;
       }
+      // NOTA: Se for a rota da API (/api/v1/users/...), não altera o campo no banco para preservar a foto existente.
     }
 
     // Se estiver alterando a senha

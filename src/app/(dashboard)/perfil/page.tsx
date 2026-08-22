@@ -29,6 +29,7 @@ export default function PerfilPage() {
   const [profileData, setProfileData] = useState<any | null>(null);
   const [name, setName] = useState(session?.user?.name || "");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(session?.user?.avatarUrl || null);
+  const [imageError, setImageError] = useState(false);
   
   // Cropper modal states
   const [cropperOpen, setCropperOpen] = useState(false);
@@ -46,6 +47,7 @@ export default function PerfilPage() {
     if (session?.user) {
       setName((prev) => prev || session.user.name || "");
       setAvatarUrl((prev) => prev || session.user.avatarUrl || null);
+      setImageError(false);
     }
   }, [session?.user]);
 
@@ -58,6 +60,7 @@ export default function PerfilPage() {
         setProfileData(json.data);
         setName(json.data.name || "");
         setAvatarUrl(json.data.avatarUrl || null);
+        setImageError(false);
       } else if (!res.ok) {
         console.warn("Erro ao buscar dados do perfil:", json.error);
       }
@@ -99,6 +102,7 @@ export default function PerfilPage() {
 
   const handleApplyCroppedImage = (croppedBase64: string) => {
     setAvatarUrl(croppedBase64);
+    setImageError(false);
     toast.success("Enquadramento aplicado! Clique em 'Salvar Alterações' para salvar.");
   };
 
@@ -235,11 +239,12 @@ export default function PerfilPage() {
               {/* Foto / Avatar Preview */}
               <div className="relative group">
                 <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl overflow-hidden border-2 border-primary/40 bg-gradient-to-tr from-primary-600 to-indigo-500 flex items-center justify-center text-3xl font-extrabold text-white shadow-lg shadow-primary/20">
-                  {avatarUrl ? (
+                  {avatarUrl && !imageError ? (
                     <img
                       src={avatarUrl}
                       alt="Avatar"
                       className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
                     />
                   ) : (
                     <span>{(name || session?.user?.name || "U").charAt(0).toUpperCase()}</span>

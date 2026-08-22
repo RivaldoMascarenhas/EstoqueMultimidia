@@ -210,15 +210,17 @@ export default function UsuariosPage() {
                   {/* Nome e E-mail com Avatar */}
                   <TableCell className="text-xs py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-500 font-black text-sm text-white shadow-xs overflow-hidden ring-1 ring-primary/20">
-                        {user.avatarUrl ? (
+                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-500 font-black text-sm text-white shadow-xs overflow-hidden ring-1 ring-primary/20">
+                        <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
+                        {user.avatarUrl && (
                           <img
                             src={user.avatarUrl}
                             alt={user.name}
-                            className="h-full w-full object-cover"
+                            className="absolute inset-0 h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = "none";
+                            }}
                           />
-                        ) : (
-                          <span>{user.name ? user.name.charAt(0).toUpperCase() : "U"}</span>
                         )}
                       </div>
                       <div className="min-w-0">

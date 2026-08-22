@@ -68,10 +68,16 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
     setTheme(isDark ? "light" : "dark");
   };
 
+  const [avatarError, setAvatarError] = useState(false);
+
   const userRole = session?.user?.role || "OPERADOR";
   const userName = session?.user?.name || "Usuário";
   const userEmail = session?.user?.email || "usuario@fapce.edu.br";
   const userAvatar = session?.user?.avatarUrl || null;
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [userAvatar]);
 
   const getRoleVariant = (role: string) => {
     switch (role) {
@@ -260,8 +266,13 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2.5 rounded-xl p-1.5 hover:bg-accent/60 transition-colors focus:outline-none focus:ring-2 focus:ring-ring">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-500 text-xs font-bold text-white shadow-sm overflow-hidden ring-1 ring-primary/20">
-                {userAvatar ? (
-                  <img src={userAvatar} alt={userName} className="h-full w-full object-cover rounded-xl" />
+                {userAvatar && !avatarError ? (
+                  <img
+                    src={userAvatar}
+                    alt={userName}
+                    className="h-full w-full object-cover rounded-xl"
+                    onError={() => setAvatarError(true)}
+                  />
                 ) : (
                   getInitials(userName)
                 )}
