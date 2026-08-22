@@ -4,7 +4,6 @@ import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useLogout } from "@/components/auth/logout-provider";
 import { 
   Package, 
   LayoutDashboard, 
@@ -17,7 +16,6 @@ import {
   BarChart3, 
   Users, 
   Settings, 
-  LogOut, 
   ChevronLeft, 
   ChevronRight, 
   X,
@@ -26,7 +24,6 @@ import {
   School
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -56,11 +53,8 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { triggerLogout } = useLogout();
 
   const userRole = session?.user?.role || "OPERADOR";
-  const userName = session?.user?.name || "Usuário";
-  const userAvatar = session?.user?.avatarUrl || null;
 
   // Travar o scroll da página de fundo no mobile enquanto o menu lateral estiver aberto
   useEffect(() => {
@@ -75,16 +69,6 @@ export function Sidebar({
       };
     }
   }, [isMobileOpen]);
-
-  const getRoleVariant = (role: string) => {
-    switch (role) {
-      case "ADMIN": return "admin";
-      case "GESTOR": return "gestor";
-      case "OPERADOR": return "operador";
-      case "ACADEMIC_SUPPORT": return "academic";
-      default: return "consulta";
-    }
-  };
 
   const navSections: NavSection[] = [
     {
@@ -321,74 +305,28 @@ export function Sidebar({
           })}
         </div>
 
-        {/* Footer / User Profile & Desktop Collapse Button (Fixo no Rodapé) */}
-        <div className={cn("shrink-0 border-t border-border/80 space-y-2", collapsed ? "p-2" : "p-3")}>
-          {/* User Card Link to /perfil */}
-          <div className="flex items-center gap-1.5">
-            <Link
-              href="/perfil"
-              onClick={onCloseMobile}
+        {/* Desktop Collapse Button (Fixo no Rodapé apenas para Desktop) */}
+        {!isMobileView && (
+          <div className={cn("shrink-0 border-t border-border/80", collapsed ? "p-2" : "p-3")}>
+            <button
+              onClick={onToggleCollapse}
               className={cn(
-                "flex items-center rounded-xl bg-card/80 hover:bg-accent/80 border border-border/60 backdrop-blur-sm transition-all group flex-1",
-                collapsed ? "justify-center h-10 w-10 mx-auto p-0" : "gap-2.5 p-2"
+                "flex items-center justify-center rounded-xl text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer",
+                collapsed ? "h-9 w-9 mx-auto" : "w-full gap-2 py-2 px-3 border border-border/40 hover:border-border/80"
               )}
-              title={collapsed ? `${userName} (${userRole}) - Meu Perfil` : "Ver Meu Perfil"}
+              title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-500 text-xs font-bold text-white shadow-sm overflow-hidden ring-1 ring-primary/20">
-                {userAvatar ? (
-                  <img src={userAvatar} alt={userName} className="h-full w-full object-cover rounded-xl" />
-                ) : (
-                  userName.charAt(0).toUpperCase()
-                )}
-              </div>
-              {!collapsed && (
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate leading-tight">
-                    {userName}
-                  </span>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Badge variant={getRoleVariant(userRole)} className="text-[9px] px-1.5 py-0 h-4">
-                      {userRole === "ACADEMIC_SUPPORT" ? "APOIO ACADÊMICO" : userRole}
-                    </Badge>
-                  </div>
-                </div>
+              {collapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <>
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="text-[11px] font-medium">Recolher Menu</span>
+                </>
               )}
-            </Link>
-
-            {!collapsed && (
-              <button
-                onClick={triggerLogout}
-                title="Sair da conta"
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-500/15 hover:text-rose-600 transition-colors cursor-pointer"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
+            </button>
           </div>
-
-          {/* Desktop Collapse Toggle */}
-          {!isMobileView && (
-            <div className="hidden md:flex justify-center pt-1">
-              <button
-                onClick={onToggleCollapse}
-                className={cn(
-                  "flex items-center justify-center rounded-xl text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-all cursor-pointer",
-                  collapsed ? "h-9 w-9" : "w-full gap-2 py-2"
-                )}
-                title={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-              >
-                {collapsed ? (
-                  <ChevronRight className="h-4 w-4" />
-                ) : (
-                  <>
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="text-[11px]">Recolher Sidebar</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     );
   };
