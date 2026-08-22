@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, LoanStatus, MaintenanceStatus } from "@prisma/client";
 import { LoanCreateInput, LoanReturnInput, LoanRenewInput } from "@/schemas/loan.schema";
+import { formatTimeInTimezone } from "@/lib/utils";
 
 export class LoanService {
   /**
@@ -234,8 +235,8 @@ export class LoanService {
 
       if (overlappingReservation) {
         const req = overlappingReservation.request;
-        const startStr = req.startTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-        const endStr = req.endTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const startStr = formatTimeInTimezone(req.startTime);
+        const endStr = formatTimeInTimezone(req.endTime);
         throw new Error(
           `O equipamento #${asset.assetTag} está agendado para a Sala ${req.room?.name || ""} (${req.professorName || "Atendimento"}) das ${startStr} às ${endStr} e não pode ser emprestado neste período.`
         );

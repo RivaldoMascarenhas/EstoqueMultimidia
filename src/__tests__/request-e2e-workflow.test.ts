@@ -3,6 +3,7 @@ import { RequestStatus, Role, AssetStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { RequestWorkflowService } from "@/services/request-workflow.service";
 import { RequestService } from "@/services/request.service";
+import { getSystemNow } from "@/lib/utils";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -413,22 +414,16 @@ describe("E2E Operational Workflow & RBAC State Machine (16 Core Real Scenarios)
     });
 
     it("Cenário 20: Bloquear criação de agendamento com horário que já passou hoje", async () => {
-      const now = new Date();
-      const localYear = now.getFullYear();
-      const localMonth = String(now.getMonth() + 1).padStart(2, "0");
-      const localDay = String(now.getDate()).padStart(2, "0");
-      const localDateStr = `${localYear}-${localMonth}-${localDay}`;
+      const sysNow = getSystemNow();
 
-      // Horário de 30 minutos atrás
-      const pastTime = new Date(now.getTime() - 30 * 60 * 1000);
-
-      if (pastTime.getDate() === now.getDate()) {
-        const pastH = String(pastTime.getHours()).padStart(2, "0");
-        const pastM = String(pastTime.getMinutes()).padStart(2, "0");
-        const endH = String(Math.min(23, pastTime.getHours() + 1)).padStart(2, "0");
+      if (sysNow.totalMinutes >= 40) {
+        const pastTotalMin = sysNow.totalMinutes - 30;
+        const pastH = String(Math.floor(pastTotalMin / 60)).padStart(2, "0");
+        const pastM = String(pastTotalMin % 60).padStart(2, "0");
+        const endH = String(Math.min(23, Math.floor(pastTotalMin / 60) + 1)).padStart(2, "0");
 
         const pastTodayInput = {
-          date: localDateStr,
+          date: sysNow.dateStr,
           startTime: `${pastH}:${pastM}`,
           endTime: `${endH}:59`,
           roomId: "room-101",
