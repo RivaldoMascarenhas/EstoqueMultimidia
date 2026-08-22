@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Shift, ShiftConfig } from "@prisma/client";
 import { ShiftConfigItemInput } from "@/schemas/shift.schema";
+import { formatTimeInTimezone, getSystemNow } from "@/lib/utils";
 
 export interface ShiftInfo {
   shift: Shift;
@@ -58,15 +59,10 @@ export class ShiftService {
     let timeStr: string;
 
     if (timeInput instanceof Date) {
-      const hours = String(timeInput.getHours()).padStart(2, "0");
-      const minutes = String(timeInput.getMinutes()).padStart(2, "0");
-      timeStr = `${hours}:${minutes}`;
+      timeStr = formatTimeInTimezone(timeInput);
     } else if (typeof timeInput === "string") {
       if (timeInput.includes("T")) {
-        const d = new Date(timeInput);
-        const hours = String(d.getHours()).padStart(2, "0");
-        const minutes = String(d.getMinutes()).padStart(2, "0");
-        timeStr = `${hours}:${minutes}`;
+        timeStr = formatTimeInTimezone(new Date(timeInput));
       } else {
         timeStr = timeInput.trim();
       }
@@ -108,15 +104,10 @@ export class ShiftService {
     let timeStr: string;
 
     if (timeInput instanceof Date) {
-      const hours = String(timeInput.getHours()).padStart(2, "0");
-      const minutes = String(timeInput.getMinutes()).padStart(2, "0");
-      timeStr = `${hours}:${minutes}`;
+      timeStr = formatTimeInTimezone(timeInput);
     } else if (typeof timeInput === "string") {
       if (timeInput.includes("T")) {
-        const d = new Date(timeInput);
-        const hours = String(d.getHours()).padStart(2, "0");
-        const minutes = String(d.getMinutes()).padStart(2, "0");
-        timeStr = `${hours}:${minutes}`;
+        timeStr = formatTimeInTimezone(new Date(timeInput));
       } else {
         timeStr = timeInput.trim();
       }
@@ -215,7 +206,8 @@ export class ShiftService {
    */
   static async getCurrentShift(): Promise<Shift> {
     const configs = await this.getShiftConfigs();
-    return this.getShiftFromTime(new Date(), configs);
+    const now = getSystemNow();
+    return this.getShiftFromTime(now.timeStr, configs);
   }
 
   /**

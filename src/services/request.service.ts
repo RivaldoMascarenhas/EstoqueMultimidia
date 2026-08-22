@@ -19,6 +19,7 @@ import {
 } from "@/schemas/request.schema";
 import { ShiftService } from "@/services/shift.service";
 import { RequestWorkflowService } from "@/services/request-workflow.service";
+import { getSystemNow, formatTimeInTimezone } from "@/lib/utils";
 
 export class RequestService {
   /**
@@ -325,8 +326,8 @@ export class RequestService {
 
     if (conflictingReservations.length > 0) {
       const conflict = conflictingReservations[0].request;
-      const startStr = new Date(conflict.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const endStr = new Date(conflict.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const startStr = formatTimeInTimezone(conflict.startTime);
+      const endStr = formatTimeInTimezone(conflict.endTime);
       throw new Error(
         `Conflito de patrimônio: o equipamento ${asset.assetTag} já está reservado para a sala ${conflict.room.name} das ${startStr} às ${endStr} (${conflict.professorName || "Atendimento agendado"}).`
       );
@@ -430,22 +431,20 @@ export class RequestService {
       throw new Error("O horário final deve ser posterior ao horário inicial.");
     }
 
-    // Validar se a data e horário são no passado para novas solicitações
-    const now = new Date();
-    // Tolerância de 5 minutos para latência de rede
-    const toleranceTime = new Date(now.getTime() - 5 * 60 * 1000);
+    // Validar se a data e horário são no passado para novas solicitações no fuso de Fortaleza (Nordeste)
+    const sysNow = getSystemNow();
+    const reqDateStr = data.date;
+    const reqStartMinutes = startH * 60 + startM;
+    const nowMinutesWithTolerance = sysNow.totalMinutes - 5; // Tolerância de 5 minutos para latência de rede
 
-    if (startDateTime < toleranceTime) {
-      const isToday = now.getFullYear() === year && now.getMonth() === (month - 1) && now.getDate() === day;
-      if (isToday) {
-        throw new Error(
-          `Não é permitido agendar para um horário que já passou hoje (${data.startTime}). Horário atual: ${now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Selecione um horário futuro.`
-        );
-      } else {
-        throw new Error(
-          `Não é permitido agendar para datas passadas (${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}). Selecione a data de hoje ou uma data futura.`
-        );
-      }
+    if (reqDateStr < sysNow.dateStr) {
+      throw new Error(
+        `Não é permitido agendar para datas passadas (${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}/${year}). Selecione a data de hoje ou uma data futura.`
+      );
+    } else if (reqDateStr === sysNow.dateStr && reqStartMinutes < nowMinutesWithTolerance) {
+      throw new Error(
+        `Não é permitido agendar para um horário que já passou hoje (${data.startTime}). Horário atual: ${sysNow.timeStr}. Selecione um horário futuro.`
+      );
     }
 
     // A faculdade não funciona aos domingos (getDay() === 0)
@@ -674,8 +673,8 @@ export class RequestService {
 
           if (roomConflict) {
             const confProf = roomConflict.professorName || "Atendimento agendado";
-            const sTime = roomConflict.startTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-            const eTime = roomConflict.endTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            const sTime = formatTimeInTimezone(roomConflict.startTime);
+            const eTime = formatTimeInTimezone(roomConflict.endTime);
             throw new Error(
               `Conflito de agenda em ${dateStr}: a Sala ${room.name} já possui a aula/reserva "${confProf}" das ${sTime} às ${eTime}. Não foi possível criar a série completa.`
             );
@@ -1235,7 +1234,7 @@ export class RequestService {
         if (roomConflict) {
           const confProf = roomConflict.professorName || "Outro atendimento";
           throw new Error(
-            `A Sala ${targetRoom.name} já possui a aula/reserva "${confProf}" agendada das ${roomConflict.startTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} às ${roomConflict.endTime.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`
+            `A Sala ${targetRoom.name} já possui a aula/reserva "${confProf}" agendada das ${formatTimeInTimezone(roomConflict.startTime)} às ${formatTimeInTimezone(roomConflict.endTime)}.`
           );
         }
 
