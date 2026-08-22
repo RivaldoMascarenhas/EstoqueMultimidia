@@ -244,25 +244,27 @@ export function LoanFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[92vh] overflow-y-auto p-6 sm:p-8 rounded-3xl bg-card border-border shadow-2xl space-y-6">
-        <DialogHeader className="space-y-1">
-          <div className="flex items-center gap-2.5 text-primary">
-            <div className="p-2 rounded-2xl bg-primary/10 border border-primary/20">
-              <Handshake className="w-5 h-5" />
+      <DialogContent className="max-w-2xl sm:max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-card border-border shadow-2xl">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b border-border/80 shrink-0 space-y-1">
+            <div className="flex items-center gap-2.5 text-primary">
+              <div className="p-2 rounded-2xl bg-primary/10 border border-primary/20">
+                <Handshake className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-foreground">
+                  Novo Empréstimo de Equipamento
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Registre a cautela temporária de equipamento com emissão de Termo de Responsabilidade A4.
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-lg font-bold text-foreground">
-                Novo Empréstimo de Equipamento
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                Registre a cautela temporária de equipamento com emissão de Termo de Responsabilidade A4.
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Seção 1: Seleção do Equipamento */}
+          {/* Área Scrollável do Formulário */}
+          <div className="p-6 overflow-y-auto flex-1 space-y-6">
+            {/* Seção 1: Seleção do Equipamento */}
           <div className="space-y-3 p-4 rounded-2xl bg-muted/30 border border-border/80 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -537,37 +539,38 @@ export function LoanFormModal({
               />
             </div>
           </div>
+        </div>
 
-          <DialogFooter className="sticky bottom-0 -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 p-4 sm:p-6 bg-card/95 backdrop-blur-md border-t border-border/80 flex items-center justify-between sm:justify-end gap-2.5 z-20">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="h-11 px-5 rounded-xl text-xs font-semibold"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || !selectedAssetId}
-              className="h-11 px-6 gap-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-md shadow-primary/25"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Registrando Saída...</span>
-                </>
-              ) : (
-                <>
-                  <Handshake className="w-4 h-4" />
-                  <span>Confirmar Empréstimo</span>
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <DialogFooter className="p-4 sm:px-6 bg-card/95 backdrop-blur-md border-t border-border/80 flex items-center justify-between sm:justify-end gap-2.5 shrink-0 z-10">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="h-11 px-5 rounded-xl text-xs font-semibold"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting || !selectedAssetId}
+            className="h-11 px-6 gap-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-md shadow-primary/25"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Registrando Saída...</span>
+              </>
+            ) : (
+              <>
+                <Handshake className="w-4 h-4" />
+                <span>Confirmar Empréstimo</span>
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  </Dialog>
   );
 }
