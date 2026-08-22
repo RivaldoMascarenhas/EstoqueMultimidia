@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserPlus, UserCheck, Mail, Lock, User, Save } from "lucide-react";
+import { UserPlus, UserCheck, Mail, Lock, User, Save, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,8 @@ export function UserFormModal({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState("OPERADOR");
   const [active, setActive] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(true);
@@ -185,13 +187,21 @@ export function UserFormModal({
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Mínimo 8 caracteres (letras e números)"
                     required
-                    className="pl-9 h-10 rounded-xl text-xs bg-background"
+                    className="pl-9 pr-10 h-10 rounded-xl text-xs bg-background"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -203,12 +213,12 @@ export function UserFormModal({
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    type="password"
+                    type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repita a senha inicial"
                     required
-                    className={`pl-9 h-10 rounded-xl text-xs bg-background ${
+                    className={`pl-9 pr-10 h-10 rounded-xl text-xs bg-background ${
                       confirmPassword.length > 0
                         ? passwordsMatch
                           ? "border-emerald-500 focus:ring-emerald-500"
@@ -216,6 +226,14 @@ export function UserFormModal({
                         : ""
                     }`}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
                 {confirmPassword.length > 0 && !passwordsMatch && (
                   <p className="text-[11px] text-rose-500 font-medium">As senhas não coincidem.</p>
