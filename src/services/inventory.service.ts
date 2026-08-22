@@ -455,19 +455,25 @@ export class InventoryService {
    */
   static async createItem(data: ItemCreateInput, userId: string) {
     return await prisma.$transaction(async (tx) => {
+      let finalSku = data.sku ? data.sku.trim().toUpperCase() : "";
+      if (!finalSku) {
+        const prefix = data.itemType === ItemType.ASSET_EQUIPMENT ? "EQP" : "MAT";
+        finalSku = `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+      }
+
       // Verificar unicidade de SKU
       const existingSku = await tx.item.findUnique({
-        where: { sku: data.sku },
+        where: { sku: finalSku },
       });
 
       if (existingSku) {
-        throw new Error(`Já existe um item cadastrado com o SKU/Código '${data.sku}'.`);
+        throw new Error(`Já existe um item cadastrado com o SKU/Código '${finalSku}'.`);
       }
 
       const item = await tx.item.create({
         data: {
           name: data.name,
-          sku: data.sku,
+          sku: finalSku,
           categoryId: data.categoryId,
           itemType: data.itemType,
           unit: data.unit,
@@ -483,83 +489,170 @@ export class InventoryService {
         },
       });
 
-      // Se for um Equipamento Patrimonial e foi informado número de tombamento
-      if (item.itemType === ItemType.ASSET_EQUIPMENT && data.assetTag && data.assetTag.trim()) {
-        const cleanTag = data.assetTag.toUpperCase().trim();
+      // Se for um Equipamento Patrimonial e foi solicitada criação de lote ou tombamento individual
+      if (item.itemType === ItemType.ASSET_EQUIPMENT) {
+        const batchCount = data.batchQuantity || (data.initialQuantity && data.initialQuantity > 1 ? data.initialQuantity : 0);
 
-        // Verificar unicidade de Patrimônio
-        const existingTag = await tx.asset.findUnique({
-          where: { assetTag: cleanTag },
-        });
+        if (batchCount > 1) {
+          // Geração em Lote
+          const prefix = (data.tagPrefix || "PAT-").toUpperCase().trim();
+          let tagsToCreate: string[] = [];
 
-        if (existingTag) {
-          throw new Error(`Já existe um equipamento cadastrado com o número de patrimônio/tombamento '${cleanTag}'.`);
-        }
-
-        // Verificar número de série se informado
-        if (data.serialNumber && data.serialNumber.trim()) {
-          const cleanSerial = data.serialNumber.trim();
-          const existingSerial = await tx.asset.findFirst({
-            where: { serialNumber: cleanSerial },
-          });
-          if (existingSerial) {
-            throw new Error(`Já existe um equipamento cadastrado com o número de série '${cleanSerial}' (Patrimônio #${existingSerial.assetTag}).`);
+          if (data.startNumber !== undefined) {
+            for (let i = 0; i < batchCount; i++) {
+              const numStr = String(data.startNumber + i).padStart(6, "0");
+              tagsToCreate.push(`${prefix}${numStr}`);
+            }
+          } else {
+            const set = new Set<string>();
+            while (set.size < batchCount) {
+              const rand = Math.floor(100000 + Math.random() * 900000);
+              set.add(`${prefix}${rand}`);
+            }
+            tagsToCreate = Array.from(set);
           }
-        }
 
-        const asset = await tx.asset.create({
-          data: {
-            assetTag: cleanTag,
-            itemId: item.id,
-            serialNumber: data.serialNumber?.trim() || null,
-            model: data.model?.trim() || item.model || null,
-            currentBoxId: data.initialBoxId || null,
-            status: AssetStatus.AVAILABLE,
-            acquisitionDate: data.acquisitionDate ? new Date(data.acquisitionDate) : null,
-            acquisitionValue: data.acquisitionValue !== undefined ? data.acquisitionValue : null,
-            notes: data.notes?.trim() || null,
-          },
-          include: {
-            currentBox: {
+          // Verificar duplicidades no banco
+          const existing = await tx.asset.findMany({
+            where: { assetTag: { in: tagsToCreate } },
+            select: { assetTag: true },
+          });
+
+          if (existing.length > 0) {
+            const dups = existing.map((e) => e.assetTag).join(", ");
+            throw new Error(`As seguintes etiquetas de patrimônio já estão cadastradas: ${dups}`);
+          }
+
+          let boxInfo: any = null;
+          if (data.initialBoxId) {
+            boxInfo = await tx.box.findUnique({
+              where: { id: data.initialBoxId },
               include: { door: true },
+            });
+          }
+          const boxLocation = boxInfo
+            ? `${boxInfo.name} (${boxInfo.door?.name || "Porta"})`
+            : "Sem caixa atribuída";
+
+          for (let i = 0; i < tagsToCreate.length; i++) {
+            const tag = tagsToCreate[i];
+            const asset = await tx.asset.create({
+              data: {
+                assetTag: tag,
+                itemId: item.id,
+                model: data.model?.trim() || item.model || null,
+                currentBoxId: data.initialBoxId || null,
+                status: AssetStatus.AVAILABLE,
+                acquisitionDate: data.acquisitionDate ? new Date(data.acquisitionDate) : null,
+                acquisitionValue: data.acquisitionValue !== undefined ? data.acquisitionValue : null,
+                notes: data.notes?.trim() || `Cadastro inicial em lote (${i + 1}/${tagsToCreate.length})`,
+              },
+            });
+
+            await tx.assetHistory.create({
+              data: {
+                assetId: asset.id,
+                action: "CADASTRADO",
+                fromStatus: null,
+                toStatus: AssetStatus.AVAILABLE,
+                fromLocation: null,
+                toLocation: boxLocation,
+                userId,
+                userName: "Sistema",
+                observation: `Equipamento ${item.name} (#${asset.assetTag}) cadastrado em lote inicial (${i + 1} de ${tagsToCreate.length}). Local: ${boxLocation}.`,
+              },
+            });
+          }
+
+          await tx.auditLog.create({
+            data: {
+              userId,
+              action: "CREATE_ASSET_BATCH",
+              entity: "Asset",
+              entityId: item.id,
+              details: {
+                count: tagsToCreate.length,
+                itemName: item.name,
+                prefix,
+                firstTag: tagsToCreate[0],
+                lastTag: tagsToCreate[tagsToCreate.length - 1],
+              },
             },
-          },
-        });
+          });
+        } else if (data.assetTag && data.assetTag.trim()) {
+          // Cadastro Individual
+          const cleanTag = data.assetTag.toUpperCase().trim();
 
-        const boxLocation = asset.currentBox
-          ? `${asset.currentBox.name} (${asset.currentBox.door.name})`
-          : "Sem caixa atribuída";
+          const existingTag = await tx.asset.findUnique({
+            where: { assetTag: cleanTag },
+          });
 
-        // Criar primeiro registro na Linha do Tempo (AssetHistory)
-        await tx.assetHistory.create({
-          data: {
-            assetId: asset.id,
-            action: "CADASTRADO",
-            fromStatus: null,
-            toStatus: AssetStatus.AVAILABLE,
-            fromLocation: null,
-            toLocation: boxLocation,
-            userId,
-            userName: "Sistema",
-            observation: `Equipamento ${item.name} (#${asset.assetTag}) cadastrado e tombado no acervo do Suporte de TI da UniFAP. Local inicial: ${boxLocation}.`,
-          },
-        });
+          if (existingTag) {
+            throw new Error(`Já existe um equipamento cadastrado com o número de patrimônio/tombamento '${cleanTag}'.`);
+          }
 
-        // Registrar auditoria de criação do Ativo
-        await tx.auditLog.create({
-          data: {
-            userId,
-            action: "CREATE_ASSET",
-            entity: "Asset",
-            entityId: asset.id,
-            details: {
-              assetTag: asset.assetTag,
-              item: item.name,
-              serial: asset.serialNumber,
-              box: asset.currentBox?.code,
+          if (data.serialNumber && data.serialNumber.trim()) {
+            const cleanSerial = data.serialNumber.trim();
+            const existingSerial = await tx.asset.findFirst({
+              where: { serialNumber: cleanSerial },
+            });
+            if (existingSerial) {
+              throw new Error(`Já existe um equipamento cadastrado com o número de série '${cleanSerial}' (Patrimônio #${existingSerial.assetTag}).`);
+            }
+          }
+
+          const asset = await tx.asset.create({
+            data: {
+              assetTag: cleanTag,
+              itemId: item.id,
+              serialNumber: data.serialNumber?.trim() || null,
+              model: data.model?.trim() || item.model || null,
+              currentBoxId: data.initialBoxId || null,
+              status: AssetStatus.AVAILABLE,
+              acquisitionDate: data.acquisitionDate ? new Date(data.acquisitionDate) : null,
+              acquisitionValue: data.acquisitionValue !== undefined ? data.acquisitionValue : null,
+              notes: data.notes?.trim() || null,
             },
-          },
-        });
+            include: {
+              currentBox: {
+                include: { door: true },
+              },
+            },
+          });
+
+          const boxLocation = asset.currentBox
+            ? `${asset.currentBox.name} (${asset.currentBox.door.name})`
+            : "Sem caixa atribuída";
+
+          await tx.assetHistory.create({
+            data: {
+              assetId: asset.id,
+              action: "CADASTRADO",
+              fromStatus: null,
+              toStatus: AssetStatus.AVAILABLE,
+              fromLocation: null,
+              toLocation: boxLocation,
+              userId,
+              userName: "Sistema",
+              observation: `Equipamento ${item.name} (#${asset.assetTag}) cadastrado e tombado no acervo do Suporte de TI da UniFAP. Local inicial: ${boxLocation}.`,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              userId,
+              action: "CREATE_ASSET",
+              entity: "Asset",
+              entityId: asset.id,
+              details: {
+                assetTag: asset.assetTag,
+                item: item.name,
+                serial: asset.serialNumber,
+                box: asset.currentBox?.code,
+              },
+            },
+          });
+        }
       } else if (data.initialBoxId && data.initialQuantity && data.initialQuantity > 0) {
         // Se for Material em quantidade
         await tx.inventory.create({
