@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, MaintenanceStatus } from "@prisma/client";
-import { AssetCreateInput, AssetStatusUpdateInput } from "@/schemas/asset.schema";
+import { AssetCreateInput, AssetBatchCreateInput, AssetStatusUpdateInput } from "@/schemas/asset.schema";
 
 export class AssetService {
   /**
@@ -242,6 +242,134 @@ export class AssetService {
       });
 
       return asset;
+    });
+  }
+
+  /**
+   * Cadastra múltiplos equipamentos patrimoniais em lote (ex: 50 computadores Dell)
+   */
+  static async createBatchAssets(data: AssetBatchCreateInput, userId: string, userName?: string) {
+    const quantity = data.quantity || 1;
+    const prefix = (data.tagPrefix || "PAT-").toUpperCase().trim();
+
+    // 1. Gerar ou validar as tags patrimoniais
+    let tagsToCreate: string[] = [];
+
+    if (data.tags && data.tags.length > 0) {
+      tagsToCreate = data.tags.map((t) => t.toUpperCase().trim());
+    } else if (data.startNumber !== undefined) {
+      for (let i = 0; i < quantity; i++) {
+        const numStr = String(data.startNumber + i).padStart(6, "0");
+        tagsToCreate.push(`${prefix}${numStr}`);
+      }
+    } else {
+      // Gerar aleatórios únicos
+      const set = new Set<string>();
+      while (set.size < quantity) {
+        const rand = Math.floor(100000 + Math.random() * 900000);
+        set.add(`${prefix}${rand}`);
+      }
+      tagsToCreate = Array.from(set);
+    }
+
+    // 2. Verificar duplicidades no banco
+    const existing = await prisma.asset.findMany({
+      where: {
+        assetTag: { in: tagsToCreate },
+      },
+      select: { assetTag: true },
+    });
+
+    if (existing.length > 0) {
+      const dups = existing.map((e) => e.assetTag).join(", ");
+      throw new Error(`As seguintes etiquetas de patrimônio já estão cadastradas no sistema: ${dups}`);
+    }
+
+    const item = await prisma.item.findUnique({
+      where: { id: data.itemId },
+      include: { category: true },
+    });
+
+    if (!item) {
+      throw new Error("Item de catálogo selecionado não foi encontrado.");
+    }
+
+    let boxInfo: any = null;
+    if (data.currentBoxId) {
+      boxInfo = await prisma.box.findUnique({
+        where: { id: data.currentBoxId },
+        include: { door: true },
+      });
+    }
+
+    const boxLocation = boxInfo
+      ? `${boxInfo.name} (${boxInfo.door?.name || "Porta"})`
+      : "Sem caixa atribuída";
+
+    const rawDate = data.acquisitionDate || data.purchaseDate;
+    const rawValue = data.acquisitionValue !== undefined ? data.acquisitionValue : data.purchaseValue;
+
+    // 3. Executar transação de inserção em massa
+    return await prisma.$transaction(async (tx) => {
+      const createdAssets = [];
+
+      for (let i = 0; i < tagsToCreate.length; i++) {
+        const tag = tagsToCreate[i];
+        const asset = await tx.asset.create({
+          data: {
+            assetTag: tag,
+            itemId: data.itemId,
+            model: data.model?.trim() || null,
+            currentBoxId: data.currentBoxId || null,
+            status: AssetStatus.AVAILABLE,
+            acquisitionDate: rawDate ? new Date(rawDate) : null,
+            acquisitionValue: rawValue !== undefined && rawValue !== null ? rawValue : null,
+            notes: data.notes?.trim() || `Cadastro em lote (${i + 1}/${tagsToCreate.length})`,
+          },
+        });
+
+        // Histórico
+        await tx.assetHistory.create({
+          data: {
+            assetId: asset.id,
+            action: "CADASTRADO",
+            fromStatus: null,
+            toStatus: AssetStatus.AVAILABLE,
+            fromLocation: null,
+            toLocation: boxLocation,
+            userId,
+            userName: userName || "Admin",
+            observation: `Equipamento ${item.name} (#${asset.assetTag}) cadastrado em lote no acervo de TI (${i + 1} de ${tagsToCreate.length}). Local: ${boxLocation}.`,
+          },
+        });
+
+        createdAssets.push(asset);
+      }
+
+      // Registro de Auditoria do Lote
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "CREATE_ASSET_BATCH",
+          entity: "Asset",
+          entityId: createdAssets[0]?.id || "batch",
+          details: {
+            count: createdAssets.length,
+            itemName: item.name,
+            prefix,
+            firstTag: tagsToCreate[0],
+            lastTag: tagsToCreate[tagsToCreate.length - 1],
+            box: boxInfo?.code,
+          },
+        },
+      });
+
+      return {
+        count: createdAssets.length,
+        firstTag: tagsToCreate[0],
+        lastTag: tagsToCreate[tagsToCreate.length - 1],
+        assets: createdAssets,
+      };
     });
   }
 
