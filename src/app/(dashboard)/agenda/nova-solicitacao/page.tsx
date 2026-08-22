@@ -83,7 +83,7 @@ function isRoomWithProjector(r: any): boolean {
   return false;
 }
 
-export interface QuickTimeSlot {
+interface QuickTimeSlot {
   shift: "MORNING" | "AFTERNOON" | "NIGHT";
   shiftLabel: string;
   shiftEmoji: string;
@@ -93,7 +93,7 @@ export interface QuickTimeSlot {
   end: string;
 }
 
-export const QUICK_TIME_SLOTS: QuickTimeSlot[] = [
+const QUICK_TIME_SLOTS: QuickTimeSlot[] = [
   // ☀️ Manhã
   {
     shift: "MORNING",
