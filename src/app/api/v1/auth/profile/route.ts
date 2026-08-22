@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 
 // GET /api/v1/auth/profile - Obter dados completos do usuário logado
 export async function GET(req: NextRequest) {
@@ -142,7 +143,8 @@ export async function PUT(req: NextRequest) {
         updateData.avatarUrl = avatarUrl;
       } else if (avatarUrl === null || avatarUrl === "") {
         updateData.avatarUrl = null;
-      } else if (typeof avatarUrl === "string" && (avatarUrl.startsWith("/") || avatarUrl.startsWith("http"))) {
+      } else if (typeof avatarUrl === "string" && avatarUrl.startsWith("/")) {
+        // Apenas caminhos relativos locais permitidos
         updateData.avatarUrl = avatarUrl;
       }
     }
@@ -164,9 +166,10 @@ export async function PUT(req: NextRequest) {
         );
       }
 
-      if (newPassword.length < 6) {
+      const passwordCheck = validatePasswordPolicy(newPassword);
+      if (!passwordCheck.isValid) {
         return NextResponse.json(
-          { success: false, error: "A nova senha deve possuir no mínimo 6 caracteres." },
+          { success: false, error: passwordCheck.error || "A nova senha não atende aos requisitos de segurança institucional." },
           { status: 400 }
         );
       }

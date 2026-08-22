@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/api-guard";
 
 // GET /api/v1/users/[id]/avatar - Servir imagem do avatar diretamente do banco de dados (Base64 -> Buffer binário)
 export async function GET(
@@ -7,6 +8,9 @@ export async function GET(
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
+    const { error: sessionError } = await requireSession();
+    if (sessionError) return sessionError;
+
     const resolvedParams = await Promise.resolve(params);
     const id = resolvedParams?.id;
 
@@ -21,11 +25,6 @@ export async function GET(
 
     if (!user || !user.avatarUrl) {
       return new NextResponse("Avatar not found", { status: 404 });
-    }
-
-    // Se for URL externa completa (ex: http:// ou https://)
-    if (user.avatarUrl.startsWith("http://") || user.avatarUrl.startsWith("https://")) {
-      return NextResponse.redirect(user.avatarUrl);
     }
 
     // Se for formato Base64 (data:image/...)

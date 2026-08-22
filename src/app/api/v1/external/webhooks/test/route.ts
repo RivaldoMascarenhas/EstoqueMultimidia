@@ -119,6 +119,7 @@ export async function POST(req: NextRequest) {
         "User-Agent": "UniFAP-Inventory-Webhook-Dispatcher/1.0",
       },
       body: JSON.stringify(payloadToSend),
+      redirect: "manual",
       signal: controller.signal,
     }).finally(() => clearTimeout(timeoutId));
 
