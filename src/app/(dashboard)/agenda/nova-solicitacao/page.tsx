@@ -83,13 +83,103 @@ function isRoomWithProjector(r: any): boolean {
   return false;
 }
 
-const QUICK_TIME_SLOTS = [
-  { label: "08:00 - 10:00", start: "08:00", end: "10:00" },
-  { label: "10:00 - 12:00", start: "10:00", end: "12:00" },
-  { label: "14:00 - 16:00", start: "14:00", end: "16:00" },
-  { label: "16:00 - 18:00", start: "16:00", end: "18:00" },
-  { label: "19:00 - 21:00", start: "19:00", end: "21:00" },
-  { label: "21:00 - 22:40", start: "21:00", end: "22:40" },
+export interface QuickTimeSlot {
+  shift: "MORNING" | "AFTERNOON" | "NIGHT";
+  shiftLabel: string;
+  shiftEmoji: string;
+  label: string;
+  subLabel: string;
+  start: string;
+  end: string;
+}
+
+export const QUICK_TIME_SLOTS: QuickTimeSlot[] = [
+  // ☀️ Manhã
+  {
+    shift: "MORNING",
+    shiftLabel: "Manhã",
+    shiftEmoji: "☀️",
+    label: "07:20 - 09:00",
+    subLabel: "Aulas AB",
+    start: "07:20",
+    end: "09:00",
+  },
+  {
+    shift: "MORNING",
+    shiftLabel: "Manhã",
+    shiftEmoji: "☀️",
+    label: "09:20 - 11:00",
+    subLabel: "Aulas CD",
+    start: "09:20",
+    end: "11:00",
+  },
+  {
+    shift: "MORNING",
+    shiftLabel: "Manhã",
+    shiftEmoji: "☀️",
+    label: "07:20 - 11:00",
+    subLabel: "Turno Completo (ABCD)",
+    start: "07:20",
+    end: "11:00",
+  },
+
+  // 🌤️ Tarde
+  {
+    shift: "AFTERNOON",
+    shiftLabel: "Tarde",
+    shiftEmoji: "🌤️",
+    label: "14:00 - 15:40",
+    subLabel: "Aulas AB",
+    start: "14:00",
+    end: "15:40",
+  },
+  {
+    shift: "AFTERNOON",
+    shiftLabel: "Tarde",
+    shiftEmoji: "🌤️",
+    label: "16:00 - 17:40",
+    subLabel: "Aulas CD",
+    start: "16:00",
+    end: "17:40",
+  },
+  {
+    shift: "AFTERNOON",
+    shiftLabel: "Tarde",
+    shiftEmoji: "🌤️",
+    label: "14:00 - 17:40",
+    subLabel: "Turno Completo (ABCD)",
+    start: "14:00",
+    end: "17:40",
+  },
+
+  // 🌙 Noite
+  {
+    shift: "NIGHT",
+    shiftLabel: "Noite",
+    shiftEmoji: "🌙",
+    label: "18:20 - 20:00",
+    subLabel: "Aulas AB",
+    start: "18:20",
+    end: "20:00",
+  },
+  {
+    shift: "NIGHT",
+    shiftLabel: "Noite",
+    shiftEmoji: "🌙",
+    label: "20:20 - 22:00",
+    subLabel: "Aulas CD",
+    start: "20:20",
+    end: "22:00",
+  },
+  {
+    shift: "NIGHT",
+    shiftLabel: "Noite",
+    shiftEmoji: "🌙",
+    label: "18:20 - 22:00",
+    subLabel: "Turno Completo (ABCD)",
+    start: "18:20",
+    end: "22:00",
+  },
 ];
 
 function getInitialSchedule() {
@@ -101,8 +191,8 @@ function getInitialSchedule() {
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     return {
       date: formatDateInput(monday),
-      startTime: "08:00",
-      endTime: "10:00",
+      startTime: "07:20",
+      endTime: "09:00",
     };
   }
 
@@ -129,8 +219,8 @@ function getInitialSchedule() {
 
   return {
     date: formatDateInput(nextDay),
-    startTime: "08:00",
-    endTime: "10:00",
+    startTime: "07:20",
+    endTime: "09:00",
   };
 }
 
@@ -834,34 +924,144 @@ export default function NovaSolicitacaoPage() {
                 </div>
               )}
 
-              {/* Atalhos Rápidos de Horário */}
-              <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                <span className="text-[11px] text-muted-foreground mr-1">Atalhos:</span>
-                {QUICK_TIME_SLOTS.map((slot, i) => {
-                  const isPast = isTimeSlotPast(slot.start);
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={isPast}
-                      title={isPast ? "Este horário já passou hoje" : `Selecionar ${slot.label}`}
-                      onClick={() => {
-                        setStartTime(slot.start);
-                        setEndTime(slot.end);
-                      }}
-                      className={cn(
-                        "text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-all",
-                        isPast
-                          ? "opacity-35 bg-muted text-muted-foreground/60 border-border/30 line-through cursor-not-allowed"
-                          : startTime === slot.start && endTime === slot.end
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs cursor-pointer"
-                          : "bg-accent/50 hover:bg-accent text-muted-foreground hover:text-foreground border-border/50 cursor-pointer"
-                      )}
-                    >
-                      {slot.label}
-                    </button>
-                  );
-                })}
+              {/* Atalhos Rápidos por Turno */}
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Atalhos de Horário por Turno:
+                  </span>
+                  <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                    Clique para preencher início e término
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Grupo Manhã */}
+                  <div className="p-2.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 px-1 pb-0.5">
+                      <span>☀️</span>
+                      <span>Manhã</span>
+                    </div>
+                    <div className="space-y-1">
+                      {QUICK_TIME_SLOTS.filter((s) => s.shift === "MORNING").map((slot, i) => {
+                        const isPast = isTimeSlotPast(slot.start);
+                        const isSelected = startTime === slot.start && endTime === slot.end;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            disabled={isPast}
+                            title={isPast ? "Este horário já passou hoje" : `${slot.label} (${slot.subLabel})`}
+                            onClick={() => {
+                              setStartTime(slot.start);
+                              setEndTime(slot.end);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between py-1.5 px-2.5 rounded-xl text-xs transition-all text-left",
+                              isPast
+                                ? "opacity-35 bg-muted text-muted-foreground/60 line-through cursor-not-allowed border border-transparent"
+                                : isSelected
+                                ? "bg-amber-500 text-white font-bold shadow-xs border border-amber-500 cursor-pointer"
+                                : "bg-card hover:bg-amber-500/10 text-foreground border border-border/60 hover:border-amber-500/40 cursor-pointer"
+                            )}
+                          >
+                            <span className="font-mono font-medium">{slot.label}</span>
+                            <span className={cn(
+                              "text-[10px] truncate ml-1",
+                              isSelected ? "text-amber-100 font-semibold" : "text-muted-foreground"
+                            )}>
+                              {slot.subLabel}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Grupo Tarde */}
+                  <div className="p-2.5 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 px-1 pb-0.5">
+                      <span>🌤️</span>
+                      <span>Tarde</span>
+                    </div>
+                    <div className="space-y-1">
+                      {QUICK_TIME_SLOTS.filter((s) => s.shift === "AFTERNOON").map((slot, i) => {
+                        const isPast = isTimeSlotPast(slot.start);
+                        const isSelected = startTime === slot.start && endTime === slot.end;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            disabled={isPast}
+                            title={isPast ? "Este horário já passou hoje" : `${slot.label} (${slot.subLabel})`}
+                            onClick={() => {
+                              setStartTime(slot.start);
+                              setEndTime(slot.end);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between py-1.5 px-2.5 rounded-xl text-xs transition-all text-left",
+                              isPast
+                                ? "opacity-35 bg-muted text-muted-foreground/60 line-through cursor-not-allowed border border-transparent"
+                                : isSelected
+                                ? "bg-blue-600 text-white font-bold shadow-xs border border-blue-600 cursor-pointer"
+                                : "bg-card hover:bg-blue-500/10 text-foreground border border-border/60 hover:border-blue-500/40 cursor-pointer"
+                            )}
+                          >
+                            <span className="font-mono font-medium">{slot.label}</span>
+                            <span className={cn(
+                              "text-[10px] truncate ml-1",
+                              isSelected ? "text-blue-100 font-semibold" : "text-muted-foreground"
+                            )}>
+                              {slot.subLabel}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Grupo Noite */}
+                  <div className="p-2.5 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 px-1 pb-0.5">
+                      <span>🌙</span>
+                      <span>Noite</span>
+                    </div>
+                    <div className="space-y-1">
+                      {QUICK_TIME_SLOTS.filter((s) => s.shift === "NIGHT").map((slot, i) => {
+                        const isPast = isTimeSlotPast(slot.start);
+                        const isSelected = startTime === slot.start && endTime === slot.end;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            disabled={isPast}
+                            title={isPast ? "Este horário já passou hoje" : `${slot.label} (${slot.subLabel})`}
+                            onClick={() => {
+                              setStartTime(slot.start);
+                              setEndTime(slot.end);
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between py-1.5 px-2.5 rounded-xl text-xs transition-all text-left",
+                              isPast
+                                ? "opacity-35 bg-muted text-muted-foreground/60 line-through cursor-not-allowed border border-transparent"
+                                : isSelected
+                                ? "bg-purple-600 text-white font-bold shadow-xs border border-purple-600 cursor-pointer"
+                                : "bg-card hover:bg-purple-500/10 text-foreground border border-border/60 hover:border-purple-500/40 cursor-pointer"
+                            )}
+                          >
+                            <span className="font-mono font-medium">{slot.label}</span>
+                            <span className={cn(
+                              "text-[10px] truncate ml-1",
+                              isSelected ? "text-purple-100 font-semibold" : "text-muted-foreground"
+                            )}>
+                              {slot.subLabel}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
