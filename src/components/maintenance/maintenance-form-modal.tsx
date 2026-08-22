@@ -266,10 +266,10 @@ export function MaintenanceFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent hideClose className="max-w-4xl max-h-[94vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-card border-border shadow-2xl gap-0">
+      <DialogContent hideClose className="max-w-4xl max-h-[92vh] sm:max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-3xl bg-card border-border shadow-2xl gap-0">
         
         {/* 1. HEADER FIXO ELEGANTE */}
-        <div className="px-6 py-4 border-b border-border/80 flex items-center justify-between bg-accent/20 shrink-0">
+        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border/80 flex items-center justify-between bg-accent/20 shrink-0">
           <div className="flex items-center gap-3">
             <div className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-md transition-all shrink-0",
@@ -282,7 +282,7 @@ export function MaintenanceFormModal({
               <Wrench className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
                 <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
                   Abertura de Ordem de Serviço (OS)
                 </DialogTitle>
@@ -290,7 +290,7 @@ export function MaintenanceFormModal({
                   Protocolo: OS-{new Date().getFullYear()}-NOVA
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 sm:line-clamp-none">
                 {maintenanceType === "INTERNAL"
                   ? "Reparo e testes executados no laboratório do Suporte TI"
                   : maintenanceType === "EXTERNAL"
@@ -309,9 +309,9 @@ export function MaintenanceFormModal({
           </button>
         </div>
 
-        {/* 2. SELETOR VISUAL FIXO DE TIPO NO TOPO */}
-        <div className="px-6 pt-3 pb-3 border-b border-border/60 bg-muted/20 shrink-0">
-          <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-muted/60 border border-border/60 max-w-2xl mx-auto">
+        {/* 2. SELETOR VISUAL FIXO DE TIPO NO TOPO (RESPONSIVO) */}
+        <div className="px-4 sm:px-6 py-2.5 border-b border-border/60 bg-muted/20 shrink-0">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-muted/60 border border-border/60 max-w-2xl mx-auto">
             <button
               type="button"
               onClick={() => {
@@ -319,28 +319,30 @@ export function MaintenanceFormModal({
                 setServiceProvider("");
               }}
               className={cn(
-                "flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                "flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer truncate",
                 maintenanceType === "INTERNAL"
                   ? "bg-card text-blue-600 dark:text-blue-400 shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               )}
             >
-              <Home className="w-3.5 h-3.5 text-blue-500" />
-              <span>🛠️ Manutenção Interna</span>
+              <Home className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span className="hidden sm:inline">🛠️ Manutenção Interna</span>
+              <span className="sm:hidden">Interna</span>
             </button>
 
             <button
               type="button"
               onClick={() => setMaintenanceType("EXTERNAL")}
               className={cn(
-                "flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                "flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer truncate",
                 maintenanceType === "EXTERNAL"
                   ? "bg-card text-purple-600 dark:text-purple-400 shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               )}
             >
-              <Building2 className="w-3.5 h-3.5 text-purple-500" />
-              <span>🏢 Assistência Externa</span>
+              <Building2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+              <span className="hidden sm:inline">🏢 Assistência Externa</span>
+              <span className="sm:hidden">Externa</span>
             </button>
 
             <button
@@ -350,25 +352,26 @@ export function MaintenanceFormModal({
                 setServiceProvider("");
               }}
               className={cn(
-                "flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                "flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer truncate",
                 maintenanceType === "PREVENTIVE"
                   ? "bg-card text-cyan-600 dark:text-cyan-400 shadow-xs border border-border/80"
                   : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               )}
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-cyan-500" />
-              <span>🛡️ Preventiva</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+              <span className="hidden sm:inline">🛡️ Preventiva</span>
+              <span className="sm:hidden">Preventiva</span>
             </button>
           </div>
         </div>
 
-        {/* 3. CORPO DO FORMULÁRIO COM DUAS COLUNAS */}
+        {/* 3. CORPO DO FORMULÁRIO COM DUAS COLUNAS E SCROLL INDEPENDENTE */}
         <form 
           id="maintenance-create-form" 
           onSubmit={handleSubmit} 
-          className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6"
+          className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pb-6">
             
             {/* === COLUNA ESQUERDA: EQUIPAMENTO COM BUSCA, DEFEITO E PRIORIDADE === */}
             <div className="space-y-4">
@@ -780,10 +783,10 @@ export function MaintenanceFormModal({
           </div>
         </form>
 
-        {/* 4. FOOTER FIXO */}
-        <div className="sticky bottom-0 -mx-6 -mb-6 p-4 px-6 border-t border-border/80 bg-card/95 backdrop-blur-md flex items-center justify-between shrink-0 z-20">
+        {/* 4. FOOTER FIXO COM ESPAÇAMENTO LIMPO E RESPONSIVO */}
+        <div className="p-4 sm:px-6 border-t border-border/80 bg-card/95 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 z-10">
           <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
             <span>Bloqueio automático de empréstimo ativo</span>
           </div>
 
@@ -793,7 +796,7 @@ export function MaintenanceFormModal({
               variant="outline"
               onClick={onClose}
               disabled={isSubmitting}
-              className="rounded-xl h-10 px-4 text-xs cursor-pointer"
+              className="flex-1 sm:flex-none rounded-xl h-11 sm:h-10 px-4 text-xs font-semibold cursor-pointer"
             >
               Cancelar
             </Button>
@@ -803,7 +806,7 @@ export function MaintenanceFormModal({
               form="maintenance-create-form"
               disabled={isSubmitting}
               className={cn(
-                "rounded-xl h-10 px-5 text-xs font-semibold gap-2 text-white shadow-md cursor-pointer transition-all",
+                "flex-1 sm:flex-none rounded-xl h-11 sm:h-10 px-5 text-xs font-bold gap-2 text-white shadow-md cursor-pointer transition-all",
                 maintenanceType === "INTERNAL"
                   ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20"
                   : maintenanceType === "EXTERNAL"
