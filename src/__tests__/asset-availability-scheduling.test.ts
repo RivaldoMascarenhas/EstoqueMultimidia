@@ -13,7 +13,7 @@ describe("Validação de Disponibilidade de Patrimônios para Agendamento", () =
           sku: "EQP-EPSON-X49",
           active: true,
           itemType: ItemType.ASSET_EQUIPMENT,
-          logisticsType: ItemLogisticsType.MOBILE_PORTABLE,
+          logisticsType: ItemLogisticsType.MOBILE_STOCK,
           inventories: [],
           assets: [
             {
@@ -65,7 +65,7 @@ describe("Validação de Disponibilidade de Patrimônios para Agendamento", () =
           sku: "PC-DELL-3080",
           active: true,
           itemType: ItemType.ASSET_EQUIPMENT,
-          logisticsType: ItemLogisticsType.MOBILE_PORTABLE,
+          logisticsType: ItemLogisticsType.MOBILE_STOCK,
           inventories: [],
           assets: batchAssets,
         }),
@@ -102,7 +102,7 @@ describe("Validação de Disponibilidade de Patrimônios para Agendamento", () =
           sku: "EQP-JBL-100",
           active: true,
           itemType: ItemType.ASSET_EQUIPMENT,
-          logisticsType: ItemLogisticsType.MOBILE_PORTABLE,
+          logisticsType: ItemLogisticsType.MOBILE_STOCK,
           inventories: [],
           assets: [
             { id: "asset-1", status: AssetStatus.AVAILABLE, active: true },
@@ -142,7 +142,7 @@ describe("Validação de Disponibilidade de Patrimônios para Agendamento", () =
           sku: "EQP-SHURE-58",
           active: true,
           itemType: ItemType.ASSET_EQUIPMENT,
-          logisticsType: ItemLogisticsType.MOBILE_PORTABLE,
+          logisticsType: ItemLogisticsType.MOBILE_STOCK,
           inventories: [],
           assets: [], // Nenhum ativo AVAILABLE retornado pelo filtro de status
         }),
@@ -171,14 +171,14 @@ describe("Validação de Disponibilidade de Patrimônios para Agendamento", () =
       name: "Notebook Acer Nitro",
       sku: "EQP-ACER-01",
       category: { name: "Informática" },
-      logisticsType: ItemLogisticsType.MOBILE_PORTABLE,
+      logisticsType: ItemLogisticsType.MOBILE_STOCK,
       inventories: [],
       assets: [
         { id: "a1", status: AssetStatus.AVAILABLE },
         { id: "a2", status: AssetStatus.AVAILABLE },
         { id: "a3", status: AssetStatus.IN_MAINTENANCE },
         { id: "a4", status: AssetStatus.LOANED },
-      ],
+      ] as { id: string; status: AssetStatus }[],
     };
 
     const totalAssets = testItem.assets.length; // 4
@@ -197,3 +197,4 @@ describe("Validação de Disponibilidade de Patrimônios para Agendamento", () =
     expect(netAvailable > 0).toBe(true);
   });
 });
+
