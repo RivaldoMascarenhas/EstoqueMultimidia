@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Printer, X, Monitor, Package, ShieldCheck, Building2 } from "lucide-react";
+import { Printer, Building2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,

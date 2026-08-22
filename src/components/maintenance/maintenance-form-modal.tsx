@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   MapPin,
   Search,
-  CheckCircle2,
   RefreshCw,
   ChevronDown,
   Clock,

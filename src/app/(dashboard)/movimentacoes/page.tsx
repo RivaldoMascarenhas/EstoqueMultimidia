@@ -3,30 +3,24 @@
 import React, { useState, useEffect } from "react";
 import { 
   History, 
-  Download, 
   Search, 
-  Filter, 
   ArrowUpRight, 
   ArrowDownLeft, 
   ArrowRightLeft, 
   SlidersHorizontal, 
-  Calendar, 
   RefreshCw, 
   Package, 
   User, 
-  Boxes,
-  FileSpreadsheet,
-  AlertTriangle,
-  ChevronDown,
-  RotateCcw,
-  X
+  FileSpreadsheet, 
+  ChevronDown, 
+  RotateCcw
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { formatDateTime, formatDate } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function MovimentacoesPage() {

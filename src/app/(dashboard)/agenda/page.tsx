@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { 
   CalendarDays, 
@@ -11,9 +10,6 @@ import {
   RefreshCw, 
   LayoutGrid, 
   List, 
-  Sparkles, 
-  Layers, 
-  AlertTriangle,
   History,
   Maximize2,
   Minimize2
@@ -28,9 +24,6 @@ import { formatDate, formatDateInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function AgendaPage() {
-  const { data: session } = useSession();
-  const userRole = session?.user?.role || "OPERADOR";
-
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return formatDateInput(new Date());
   });
@@ -195,15 +188,15 @@ export default function AgendaPage() {
       </div>
 
       {/* 2. Barra de Controle de Data, Filtro de Turno e Modo de Visualização */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border/80 shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border/80 shadow-xs">
         
         {/* Navegador de Data */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={handlePrevDay}
-            className="h-8 w-8 p-0 rounded-xl"
+            className="h-8 w-8 p-0 rounded-xl shrink-0"
             title="Dia anterior"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -213,7 +206,7 @@ export default function AgendaPage() {
             variant={isCurrentDay ? "default" : "outline"}
             size="sm"
             onClick={handleToday}
-            className="h-8 text-xs font-bold px-3 rounded-xl"
+            className="h-8 text-xs font-bold px-3 rounded-xl shrink-0"
           >
             Hoje
           </Button>
@@ -222,19 +215,19 @@ export default function AgendaPage() {
             variant="outline"
             size="sm"
             onClick={handleNextDay}
-            className="h-8 w-8 p-0 rounded-xl"
+            className="h-8 w-8 p-0 rounded-xl shrink-0"
             title="Próximo dia"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
 
           {/* Date Picker Nativo */}
-          <div className="relative flex items-center ml-2">
+          <div className="relative flex items-center ml-1 sm:ml-2">
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="h-8 text-xs font-semibold rounded-xl border border-border bg-background px-2.5 text-foreground focus:ring-1 focus:ring-primary cursor-pointer"
+              className="h-8 text-xs font-semibold rounded-xl border border-border bg-background px-2 text-foreground focus:ring-1 focus:ring-primary cursor-pointer max-w-[130px] sm:max-w-none"
             />
           </div>
 
@@ -244,12 +237,12 @@ export default function AgendaPage() {
         </div>
 
         {/* Filtro de Turnos & Toggle de Modo (Lista / Grade) */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap justify-between sm:justify-start">
           {/* Seletor de Turnos */}
-          <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/60 text-xs">
+          <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/60 text-xs overflow-x-auto max-w-full">
             <button
               onClick={() => setSelectedShiftFilter("ALL")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+              className={`px-2 py-1 rounded-lg font-medium transition-all text-xs shrink-0 ${
                 selectedShiftFilter === "ALL"
                   ? "bg-card text-foreground font-bold shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
@@ -259,7 +252,7 @@ export default function AgendaPage() {
             </button>
             <button
               onClick={() => setSelectedShiftFilter("MORNING")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
+              className={`px-2 py-1 rounded-lg font-medium transition-all flex items-center gap-1 text-xs shrink-0 ${
                 selectedShiftFilter === "MORNING"
                   ? "bg-card text-amber-600 dark:text-amber-400 font-bold shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
@@ -269,7 +262,7 @@ export default function AgendaPage() {
             </button>
             <button
               onClick={() => setSelectedShiftFilter("AFTERNOON")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
+              className={`px-2 py-1 rounded-lg font-medium transition-all flex items-center gap-1 text-xs shrink-0 ${
                 selectedShiftFilter === "AFTERNOON"
                   ? "bg-card text-orange-600 dark:text-orange-400 font-bold shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
@@ -279,7 +272,7 @@ export default function AgendaPage() {
             </button>
             <button
               onClick={() => setSelectedShiftFilter("NIGHT")}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
+              className={`px-2 py-1 rounded-lg font-medium transition-all flex items-center gap-1 text-xs shrink-0 ${
                 selectedShiftFilter === "NIGHT"
                   ? "bg-card text-indigo-600 dark:text-indigo-400 font-bold shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
@@ -290,7 +283,7 @@ export default function AgendaPage() {
           </div>
 
           {/* Toggle de Visualização (Lista por Turno vs Grade Google Calendar) */}
-          <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/60 text-xs">
+          <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/60 text-xs shrink-0">
             <button
               onClick={() => setViewMode("SHIFT_LIST")}
               className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5 ${

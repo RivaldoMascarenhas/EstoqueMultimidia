@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Archive, Plus, Loader2 } from "lucide-react";
+import { Archive } from "lucide-react";
 import {
   Dialog,
   DialogContent,

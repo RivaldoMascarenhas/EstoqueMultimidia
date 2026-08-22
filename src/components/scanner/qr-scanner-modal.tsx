@@ -4,14 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
 import { 
-  Camera, 
-  X, 
   Search, 
   ArrowRight, 
   AlertCircle, 
   RefreshCw, 
-  QrCode,
-  Sparkles,
+  QrCode, 
   SwitchCamera
 } from "lucide-react";
 import {
@@ -237,7 +234,14 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     }
   }, [isOpen]);
 
+  const triggerHaptic = () => {
+    if (typeof window !== "undefined" && "navigator" in window && navigator.vibrate) {
+      navigator.vibrate(80);
+    }
+  };
+
   const handleScanSuccess = (rawText: string) => {
+    triggerHaptic();
     stopScanner();
     onClose();
 

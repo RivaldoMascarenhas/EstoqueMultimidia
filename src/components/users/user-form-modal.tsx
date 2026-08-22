@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserPlus, UserCheck, Shield, Mail, Lock, User, AlertCircle, X, Save } from "lucide-react";
+import { UserPlus, UserCheck, Mail, Lock, User, Save } from "lucide-react";
 import {
   Dialog,
   DialogContent,

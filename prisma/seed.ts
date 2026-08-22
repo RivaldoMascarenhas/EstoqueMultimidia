@@ -3,9 +3,6 @@ import {
   Role, 
   ItemType, 
   AssetStatus, 
-  LoanStatus, 
-  MovementType, 
-  MaintenanceStatus,
   Shift,
   ItemLogisticsType,
   RequestStatus,
@@ -53,7 +50,7 @@ async function main() {
     },
   });
 
-  const rodrigo = await prisma.user.create({
+  await prisma.user.create({
     data: {
       name: 'Rodrigo Gestor',
       email: 'rodrigo@unifap.br',
@@ -387,7 +384,7 @@ async function main() {
   });
 
   // Ativo 1: Projetor Móvel Disponível
-  const assetProjetor1 = await prisma.asset.create({
+  await prisma.asset.create({
     data: {
       itemId: itemDatashowMovel.id,
       assetTag: '123456',
@@ -402,7 +399,7 @@ async function main() {
   });
 
   // Ativo 2: Projetor Móvel Emprestado
-  const assetProjetor2 = await prisma.asset.create({
+  await prisma.asset.create({
     data: {
       itemId: itemDatashowMovel.id,
       assetTag: '123457',
@@ -431,7 +428,7 @@ async function main() {
     },
   });
 
-  const assetNotebook2 = await prisma.asset.create({
+  await prisma.asset.create({
     data: {
       itemId: itemNotebook.id,
       assetTag: 'PAT-NOT-002',
@@ -524,7 +521,7 @@ async function main() {
     const startMorning = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 8, 0, 0);
     const endMorning = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0, 0);
 
-    const reqMorning = await prisma.request.create({
+    await prisma.request.create({
       data: {
         date: dateOnly,
         startTime: startMorning,

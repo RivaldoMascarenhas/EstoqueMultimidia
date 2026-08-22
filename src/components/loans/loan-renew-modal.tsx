@@ -6,9 +6,7 @@ import {
   Clock, 
   FileText, 
   Loader2, 
-  Monitor, 
-  User, 
-  Sparkles 
+  Monitor 
 } from "lucide-react";
 import {
   Dialog,

@@ -15,8 +15,7 @@ import {
   Shield, 
   CheckCircle2, 
   AlertTriangle,
-  User,
-  ExternalLink
+  User
 } from "lucide-react";
 import { Breadcrumbs } from "./breadcrumbs";
 import { Badge } from "@/components/ui/badge";

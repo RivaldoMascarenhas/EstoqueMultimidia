@@ -1,9 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AssetStatus, LoanStatus, MaintenanceStatus, Role } from "@prisma/client";
-import { LoanService } from "@/services/loan.service";
+import { describe, it, expect } from "vitest";
+import { AssetStatus, LoanStatus } from "@prisma/client";
 
 describe("Loan Lifecycle & Countertriaging Tests", () => {
-  const operatorUserId = "user-operator-1";
 
   describe("1. Devolução Normal de Empréstimo", () => {
     it("deve calcular transição de status para RETURNED e restaurar Asset para AVAILABLE", () => {

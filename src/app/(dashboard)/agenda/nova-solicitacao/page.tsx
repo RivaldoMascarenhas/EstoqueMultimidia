@@ -2,43 +2,28 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { 
   CalendarDays, 
   Clock, 
   MapPin, 
   User, 
-  BookOpen, 
   Package, 
   Tv, 
-  Monitor, 
   Repeat, 
   ArrowLeft, 
   ArrowRight,
   CheckCircle2, 
-  AlertCircle, 
-  Sparkles,
-  Layers,
   Plus,
   Minus,
   Trash2,
-  ShieldCheck,
   AlertTriangle,
-  RefreshCw,
   Search,
   Calendar,
   GraduationCap,
-  FileText,
   Volume2,
-  Mic,
-  Laptop,
-  Presentation,
-  Cable,
   Check,
-  Info,
   DoorOpen,
-  Building2,
   X
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -151,14 +136,12 @@ function getInitialSchedule() {
 
 export default function NovaSolicitacaoPage() {
   const router = useRouter();
-  const { data: session } = useSession();
 
   // Wizard Step State (1: Quando & Onde, 2: Recursos, 3: Revisão & Recorrência, 4: Sucesso)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
   const [rooms, setRooms] = useState<any[]>([]);
   const [availabilityData, setAvailabilityData] = useState<AvailableItem[]>([]);
-  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -169,7 +152,7 @@ export default function NovaSolicitacaoPage() {
   const [roomId, setRoomId] = useState("");
   const [professorName, setProfessorName] = useState("");
   const [discipline, setDiscipline] = useState("");
-  const [attendanceType, setAttendanceType] = useState("Aula Teórica");
+  const [attendanceType] = useState("Aula Teórica");
 
   const todayStr = useMemo(() => formatDateInput(new Date()), []);
   const tomorrowStr = useMemo(() => {
@@ -259,7 +242,6 @@ export default function NovaSolicitacaoPage() {
   useEffect(() => {
     const loadRooms = async () => {
       try {
-        setIsLoadingCatalogs(true);
         const res = await fetch("/api/v1/rooms?activeOnly=true");
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
@@ -273,8 +255,6 @@ export default function NovaSolicitacaoPage() {
       } catch (err) {
         toast.error("Erro ao carregar lista de salas.");
         setRooms([]);
-      } finally {
-        setIsLoadingCatalogs(false);
       }
     };
     loadRooms();

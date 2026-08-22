@@ -12,20 +12,18 @@ import {
   Archive, 
   ShieldCheck, 
   AlertTriangle, 
-  Loader2,
-  Clock,
-  ExternalLink,
-  MapPin,
-  User,
-  Calendar,
-  Phone,
-  Mail,
+  Loader2, 
+  Clock, 
+  ExternalLink, 
+  MapPin, 
+  User, 
+  Calendar, 
+  Phone, 
   Info
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { QrCodeDisplay } from "@/components/scanner/qr-code-display";
 import { AssetStatusModal } from "@/components/assets/asset-status-modal";
 import { AssetLabelPrinter } from "@/components/assets/asset-label-printer";
@@ -129,7 +127,6 @@ export default function AssetDetailsPage() {
   const historyList = asset.history || [];
   const loansList = asset.loans || [];
   const activeLoan = loansList.find((l: any) => l.status === "ACTIVE" || l.status === "OVERDUE") || null;
-  const activeMaintenance = asset.maintenances?.find((m: any) => m.status === "PENDING" || m.status === "IN_PROGRESS") || null;
   const activeRes = asset.reservations && asset.reservations.length > 0 ? asset.reservations[0] : null;
 
   const now = new Date();

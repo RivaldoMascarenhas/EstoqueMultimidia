@@ -5,20 +5,13 @@ import { useSession } from "next-auth/react";
 import { 
   User, 
   Mail, 
-  Shield, 
   Lock, 
   Camera, 
   Save, 
-  CheckCircle2, 
   Sparkles, 
-  Handshake, 
-  Boxes, 
-  History, 
-  Wrench,
-  Upload,
-  Trash2,
-  Crop,
-  KeyRound
+  Upload, 
+  Trash2, 
+  Crop
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +35,6 @@ export default function PerfilPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -54,7 +46,6 @@ export default function PerfilPage() {
 
   const fetchProfile = async () => {
     try {
-      setIsLoading(true);
       const res = await fetch("/api/v1/auth/profile");
       const json = await res.json();
 
@@ -67,8 +58,6 @@ export default function PerfilPage() {
       }
     } catch (e) {
       console.warn("Erro de conexão ao carregar perfil:", e);
-    } finally {
-      setIsLoading(false);
     }
   };
 

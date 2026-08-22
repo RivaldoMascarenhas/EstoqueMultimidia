@@ -1,13 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import { 
   Wrench, 
   Plus, 
   Search, 
-  Filter, 
-  AlertTriangle, 
   CheckCircle2, 
   Clock, 
   Building2, 
@@ -15,18 +12,10 @@ import {
   Printer, 
   MessageSquare, 
   Edit3, 
-  Trash2, 
-  Eye, 
-  Sparkles, 
-  Tag, 
-  ShieldAlert, 
-  RefreshCw,
-  Archive,
-  Lightbulb,
-  ExternalLink,
+  RefreshCw, 
   Ban
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +34,7 @@ import { MaintenanceCompleteModal } from "@/components/maintenance/maintenance-c
 import { MaintenanceUpdateModal } from "@/components/maintenance/maintenance-update-modal";
 import { MaintenanceOsModal } from "@/components/maintenance/maintenance-os-modal";
 import { MaintenanceWhatsAppModal } from "@/components/maintenance/maintenance-whatsapp-modal";
-import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ManutencaoPage() {

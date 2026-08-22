@@ -34,8 +34,6 @@ export function Breadcrumbs() {
     );
   }
 
-  const lastLabel = ROUTE_LABELS[segments[segments.length - 1].toLowerCase()] || decodeURIComponent(segments[segments.length - 1]);
-
   return (
     <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
       <Link

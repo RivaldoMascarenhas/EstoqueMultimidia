@@ -15,15 +15,11 @@ import {
   Trash2, 
   Monitor, 
   ShieldCheck, 
-  Sparkles,
-  Ban,
-  ArrowRight,
-  Plus,
-  ArrowLeftRight,
-  MapPin,
-  FileText,
-  AlertTriangle,
-  Archive
+  Sparkles, 
+  Ban, 
+  ArrowLeftRight, 
+  FileText, 
+  AlertTriangle
 } from "lucide-react";
 import {
   Dialog,

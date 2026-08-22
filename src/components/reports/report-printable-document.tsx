@@ -4,11 +4,7 @@ import React from "react";
 import { useSession } from "next-auth/react";
 import { 
   Printer, 
-  Building2, 
-  FileText, 
-  X, 
-  CheckCircle2, 
-  AlertTriangle 
+  FileText 
 } from "lucide-react";
 import {
   Dialog,

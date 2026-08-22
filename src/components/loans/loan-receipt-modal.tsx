@@ -4,23 +4,13 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { 
   Printer, 
-  FileCheck2, 
-  ShieldCheck, 
-  Building2, 
-  QrCode, 
-  X, 
-  CheckCircle2, 
-  Clock, 
-  AlertTriangle 
+  FileCheck2 
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import QRCode from "qrcode";
 

@@ -8,10 +8,7 @@ import {
   Archive, 
   FileText, 
   Loader2, 
-  User, 
-  Calendar, 
-  MapPin, 
-  Monitor,
+  Monitor, 
   Wrench
 } from "lucide-react";
 import {
@@ -25,7 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface LoanReturnModalProps {
@@ -46,7 +43,6 @@ export function LoanReturnModal({
   const [returnedCondition, setReturnedCondition] = useState("");
   const [returnNotes, setReturnNotes] = useState("");
   const [allBoxes, setAllBoxes] = useState<any[]>([]);
-  const [isLoadingBoxes, setIsLoadingBoxes] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -60,7 +56,6 @@ export function LoanReturnModal({
 
   const loadBoxes = async () => {
     try {
-      setIsLoadingBoxes(true);
       const res = await fetch("/api/v1/boxes");
       const json = await res.json();
       if (json && json.success && Array.isArray(json.data)) {
@@ -74,10 +69,8 @@ export function LoanReturnModal({
       } else {
         setAllBoxes([]);
       }
-      setIsLoadingBoxes(false);
     } catch (err) {
       setAllBoxes([]);
-      setIsLoadingBoxes(false);
     }
   };
 

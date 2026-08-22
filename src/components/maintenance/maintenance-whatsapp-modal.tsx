@@ -4,19 +4,15 @@ import React, { useState, useEffect } from "react";
 import { 
   MessageSquare, 
   Copy, 
-  ExternalLink, 
   Check, 
   X, 
-  Send,
-  Phone,
-  Tag,
-  Wrench
+  Send, 
+  Phone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { formatDateTime } from "@/lib/utils";
 
 interface MaintenanceWhatsAppModalProps {
   isOpen: boolean;

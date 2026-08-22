@@ -4,21 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { 
   Printer, 
-  Wrench, 
-  Building2, 
-  FileText, 
-  X, 
-  Clock,
-  Tag,
-  DollarSign
+  FileText 
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
+import { formatDate, formatCurrency } from "@/lib/utils";
 import QRCode from "qrcode";
 
 interface MaintenanceOsModalProps {

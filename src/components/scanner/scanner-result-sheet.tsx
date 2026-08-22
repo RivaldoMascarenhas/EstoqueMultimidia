@@ -8,20 +8,14 @@ import {
   Boxes, 
   Handshake, 
   Wrench, 
-  ArrowRight, 
   X, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Clock, 
   MapPin, 
-  ExternalLink,
-  ChevronRight,
-  RefreshCw,
-  FileCheck2
+  ExternalLink, 
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
+import { formatDateTime, formatDate } from "@/lib/utils";
 
 interface ScannerResultSheetProps {
   result: {

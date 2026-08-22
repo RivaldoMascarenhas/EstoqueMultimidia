@@ -2,16 +2,9 @@
 
 import React, { useMemo } from "react";
 import { 
-  Clock, 
-  MapPin, 
-  User, 
   Tv, 
   Package, 
-  CheckCircle2, 
-  AlertTriangle,
-  ChevronRight,
-  Sparkles,
-  CalendarDays
+  CheckCircle2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -263,70 +256,85 @@ export function CalendarGridView({
     <div className="space-y-4 animate-in fade-in-50 duration-300">
       
       {/* 1. Abas de Seleção Rápida de Turno da Grade */}
-      <div className="p-2 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+      <div className="p-1.5 sm:p-2 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center justify-between flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-1.5 w-full sm:flex sm:items-center sm:w-auto flex-1 min-w-0">
           
           {/* Botão Manhã */}
           <button
             onClick={() => onSelectShift("MORNING")}
-            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`w-full sm:w-auto px-2 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 cursor-pointer ${
               selectedShift === "MORNING"
-                ? "bg-amber-500 text-amber-950 shadow-md shadow-amber-500/20 scale-[1.02]"
+                ? "bg-amber-500 text-amber-950 shadow-md shadow-amber-500/20"
                 : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
-            <span className="text-base">🌅</span>
-            <span>Manhã (07:00 - 12:00)</span>
-            <Badge 
-              variant="outline" 
-              className={`text-[10px] px-1.5 py-0 ${
-                selectedShift === "MORNING" ? "border-amber-950/30 bg-amber-950/10 text-amber-950 font-black" : "border-border text-muted-foreground"
-              }`}
-            >
-              {countMorning}
-            </Badge>
+            <div className="flex items-center justify-center gap-1 min-w-0">
+              <span className="text-sm sm:text-base shrink-0">🌅</span>
+              <span className="truncate">Manhã</span>
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1 py-0 ml-0.5 ${
+                  selectedShift === "MORNING" ? "border-amber-950/30 bg-amber-950/10 text-amber-950 font-black" : "border-border text-muted-foreground"
+                }`}
+              >
+                {countMorning}
+              </Badge>
+            </div>
+            <span className="text-[10px] font-normal opacity-80 hidden md:inline">
+              (07:00 - 12:00)
+            </span>
           </button>
 
           {/* Botão Tarde */}
           <button
             onClick={() => onSelectShift("AFTERNOON")}
-            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`w-full sm:w-auto px-2 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 cursor-pointer ${
               selectedShift === "AFTERNOON"
-                ? "bg-orange-500 text-orange-950 shadow-md shadow-orange-500/20 scale-[1.02]"
+                ? "bg-orange-500 text-orange-950 shadow-md shadow-orange-500/20"
                 : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
-            <span className="text-base">☀️</span>
-            <span>Tarde (12:00 - 18:00)</span>
-            <Badge 
-              variant="outline" 
-              className={`text-[10px] px-1.5 py-0 ${
-                selectedShift === "AFTERNOON" ? "border-orange-950/30 bg-orange-950/10 text-orange-950 font-black" : "border-border text-muted-foreground"
-              }`}
-            >
-              {countAfternoon}
-            </Badge>
+            <div className="flex items-center justify-center gap-1 min-w-0">
+              <span className="text-sm sm:text-base shrink-0">☀️</span>
+              <span className="truncate">Tarde</span>
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1 py-0 ml-0.5 ${
+                  selectedShift === "AFTERNOON" ? "border-orange-950/30 bg-orange-950/10 text-orange-950 font-black" : "border-border text-muted-foreground"
+                }`}
+              >
+                {countAfternoon}
+              </Badge>
+            </div>
+            <span className="text-[10px] font-normal opacity-80 hidden md:inline">
+              (12:00 - 18:00)
+            </span>
           </button>
 
           {/* Botão Noite */}
           <button
             onClick={() => onSelectShift("NIGHT")}
-            className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            className={`w-full sm:w-auto px-2 py-2 sm:px-4 sm:py-2.5 rounded-xl font-bold text-xs transition-all flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 cursor-pointer ${
               selectedShift === "NIGHT"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20 scale-[1.02]"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
                 : "bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
-            <span className="text-base">🌙</span>
-            <span>Noite (18:00 - 22:30)</span>
-            <Badge 
-              variant="outline" 
-              className={`text-[10px] px-1.5 py-0 ${
-                selectedShift === "NIGHT" ? "border-white/30 bg-white/20 text-white font-black" : "border-border text-muted-foreground"
-              }`}
-            >
-              {countNight}
-            </Badge>
+            <div className="flex items-center justify-center gap-1 min-w-0">
+              <span className="text-sm sm:text-base shrink-0">🌙</span>
+              <span className="truncate">Noite</span>
+              <Badge 
+                variant="outline" 
+                className={`text-[10px] px-1 py-0 ml-0.5 ${
+                  selectedShift === "NIGHT" ? "border-white/30 bg-white/20 text-white font-black" : "border-border text-muted-foreground"
+                }`}
+              >
+                {countNight}
+              </Badge>
+            </div>
+            <span className="text-[10px] font-normal opacity-80 hidden md:inline">
+              (18:00 - 22:30)
+            </span>
           </button>
 
         </div>

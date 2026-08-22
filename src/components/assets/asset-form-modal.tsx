@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Monitor, Plus, Loader2, Sparkles, FolderPlus, ChevronDown } from "lucide-react";
+import { Monitor, Plus, ChevronDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,

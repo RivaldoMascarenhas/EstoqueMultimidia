@@ -1,6 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
-import { RequestService } from "@/services/request.service";
-import { prisma } from "@/lib/prisma";
+import { describe, it, expect } from "vitest";
 
 describe("RequestService - Recorrência Semanal e Materialização de Séries", () => {
   it("deve calcular corretamente as datas das instâncias para 4 semanas consecutivas", async () => {

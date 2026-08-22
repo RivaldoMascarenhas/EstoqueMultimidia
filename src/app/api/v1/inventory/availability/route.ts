@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
-import { RequestStatus, LoanStatus, AssetStatus, ItemLogisticsType } from "@prisma/client";
+import { AssetStatus, ItemLogisticsType } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,23 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { 
-  Archive, 
   ArrowDownLeft, 
   Plus, 
   RefreshCw, 
   Printer, 
-  QrCode, 
-  Package, 
   Monitor, 
   ArrowLeft, 
   Loader2, 
   CheckCircle2,
-  AlertTriangle,
-  History,
-  Calendar
+  AlertTriangle
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,12 +23,9 @@ import { LabelPrinterModal } from "@/components/cabinet/label-printer";
 import { StockExitModal } from "@/components/inventory/stock-exit-modal";
 import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
 import { StockTransferModal } from "@/components/inventory/stock-transfer-modal";
-import { formatDate, formatDateTime } from "@/lib/utils";
-import { toast } from "sonner";
 
 export default function BoxDetailsPage() {
   const params = useParams();
-  const router = useRouter();
   const boxCode = (params?.code as string)?.toUpperCase();
 
   const [boxData, setBoxData] = useState<any | null>(null);

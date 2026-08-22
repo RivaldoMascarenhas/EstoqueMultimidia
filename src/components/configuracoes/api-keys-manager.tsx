@@ -8,11 +8,6 @@ import {
   Copy,
   CheckCircle2,
   AlertTriangle,
-  Clock,
-  Shield,
-  ShieldCheck,
-  Calendar,
-  Lock,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

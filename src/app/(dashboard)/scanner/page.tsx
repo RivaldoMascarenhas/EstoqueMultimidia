@@ -7,20 +7,17 @@ import {
   Camera, 
   RefreshCw, 
   Search, 
-  Zap, 
   Handshake, 
   Boxes, 
   Wrench, 
   History, 
-  Tag, 
   CheckCircle2, 
   AlertTriangle, 
-  Sparkles,
-  Volume2,
-  VolumeX,
-  Keyboard,
-  ArrowRight,
-  ShieldCheck,
+  Sparkles, 
+  Volume2, 
+  VolumeX, 
+  Keyboard, 
+  ArrowRight, 
   SwitchCamera
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -260,10 +257,6 @@ export default function ScannerPage() {
 
         await startCamera(nextCam.id, nextIndex);
 
-        const isFront = /front|user|frontal/i.test(nextCam.label);
-        const isBack = /back|rear|environment|traseira/i.test(nextCam.label);
-        const typeHint = isFront ? "🤳 Frontal" : isBack ? "📷 Traseira" : "📹";
-
         toast.info(
           `Câmera alterada para: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`
         );
@@ -368,6 +361,7 @@ export default function ScannerPage() {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCode.trim()) return;
+    triggerHaptic();
     processCodeLookup(manualCode.trim());
     setManualCode("");
   };

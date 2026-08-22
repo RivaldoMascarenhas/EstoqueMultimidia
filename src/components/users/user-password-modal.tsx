@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { KeyRound, Lock, AlertCircle, Save, X, Check } from "lucide-react";
+import { KeyRound, Lock, Save, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,

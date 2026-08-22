@@ -21,9 +21,6 @@ import {
   ChevronLeft, 
   ChevronRight, 
   X,
-  QrCode,
-  ShieldCheck,
-  Server,
   Camera,
   CalendarDays,
   School

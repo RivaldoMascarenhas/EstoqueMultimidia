@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET as getUsers, POST as createUser } from "@/app/api/v1/users/route";
-import { PUT as updateUser, DELETE as deleteUser } from "@/app/api/v1/users/[id]/route";
+import { DELETE as deleteUser } from "@/app/api/v1/users/[id]/route";
 import { PATCH as updatePassword } from "@/app/api/v1/users/[id]/password/route";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";

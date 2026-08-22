@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Wrench, AlertTriangle, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { Wrench } from "lucide-react";
 import {
   Dialog,
   DialogContent,

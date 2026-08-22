@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useSession } from "next-auth/react";
-import { Lock, ShieldAlert, KeyRound, CheckCircle2, ArrowRight, Sparkles, XCircle, Check } from "lucide-react";
+import { Lock, KeyRound, ArrowRight, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
