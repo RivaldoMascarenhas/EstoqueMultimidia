@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { KeyRound, Lock, Save, Check } from "lucide-react";
+import { KeyRound, Lock, Save, Check, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,8 @@ export function UserPasswordModal({
 }: UserPasswordModalProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [mustChangePassword, setMustChangePassword] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -63,6 +65,8 @@ export function UserPasswordModal({
         toast.success(json.message || "Senha redefinida com sucesso!");
         setNewPassword("");
         setConfirmPassword("");
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
         onClose();
       } else {
         toast.error(json.error || "Erro ao redefinir senha.");
@@ -105,13 +109,21 @@ export function UserPasswordModal({
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                type="password"
+                type={showNewPassword ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 6 dígitos (letras e números)"
+                placeholder="Mínimo 8 dígitos (letras e números)"
                 required
-                className="pl-9 h-10 rounded-xl text-xs bg-background"
+                className="pl-9 pr-10 h-10 rounded-xl text-xs bg-background"
               />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
@@ -123,7 +135,7 @@ export function UserPasswordModal({
             <div className="grid grid-cols-2 gap-1.5">
               <div className={`flex items-center gap-1.5 ${policy.hasMinLength ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
                 {policy.hasMinLength ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
-                <span>Mínimo 6 caracteres</span>
+                <span>Mínimo 8 caracteres</span>
               </div>
               <div className={`flex items-center gap-1.5 ${policy.hasLetter ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
                 {policy.hasLetter ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
@@ -147,13 +159,21 @@ export function UserPasswordModal({
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Repita a nova senha"
                 required
-                className="pl-9 h-10 rounded-xl text-xs bg-background"
+                className="pl-9 pr-10 h-10 rounded-xl text-xs bg-background"
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
