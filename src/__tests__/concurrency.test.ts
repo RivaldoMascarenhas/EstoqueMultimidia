@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LoanService } from "@/services/loan.service";
 import { InventoryService } from "@/services/inventory.service";
 import { prisma } from "@/lib/prisma";
-import { AssetStatus, LoanStatus, MovementType } from "@prisma/client";
+import { AssetStatus, LoanStatus } from "@prisma/client";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {

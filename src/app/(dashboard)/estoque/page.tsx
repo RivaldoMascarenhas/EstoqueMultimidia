@@ -6,15 +6,10 @@ import {
   Package, 
   Plus, 
   Search, 
-  Filter, 
   ArrowDownLeft, 
-  RefreshCw, 
-  AlertTriangle, 
-  Loader2, 
-  CheckCircle2, 
-  Sparkles
+  Loader2
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +36,6 @@ export default function EstoquePage() {
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
   const [selectedItemForExit, setSelectedItemForExit] = useState<any | null>(null);
   const [selectedItemForEntry, setSelectedItemForEntry] = useState<any | null>(null);
-  const [selectedItemForTransfer, setSelectedItemForTransfer] = useState<any | null>(null);
 
   const fetchData = async () => {
     try {
@@ -271,7 +265,6 @@ export default function EstoquePage() {
               </TableHeader>
               <TableBody>
                 {items.map((item) => {
-                  const hasStock = item.totalQuantity > 0;
                   const firstBox = item.inventories[0]?.box;
                   const firstBoxQty = item.inventories[0]?.quantity || 0;
 

@@ -4,18 +4,13 @@ import React, { useState, useEffect } from "react";
 import { 
   CheckCircle2, 
   X, 
-  Archive, 
-  Trash2, 
   DollarSign, 
   FileText, 
-  Wrench, 
   Tag, 
   Sparkles, 
-  AlertTriangle,
-  Lightbulb,
-  Boxes,
-  Clock,
-  ShieldCheck
+  AlertTriangle, 
+  Boxes, 
+  Clock
 } from "lucide-react";
 import {
   Dialog,

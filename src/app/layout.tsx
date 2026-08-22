@@ -6,6 +6,7 @@ import { AppProviders } from "@/components/providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
+  applicationName: "UniFAP Multimídia",
   title: {
     default: "UniFAP • Estoque & Multimídia | Centro Universitário Paraíso",
     template: "%s | UniFAP Suporte TI & Multimídia",
@@ -14,6 +15,12 @@ export const metadata: Metadata = {
     "Sistema Integrado de Gestão de Estoque, Patrimônio, Armário Físico, Empréstimos e Manutenções do Setor de Suporte de TI & Multimídia do Centro Universitário Paraíso (UniFAP).",
   keywords: ["UniFAP", "Centro Universitário Paraíso", "Estoque", "Suporte TI", "Multimídia", "Patrimônio", "Empréstimos", "Armário"],
   authors: [{ name: "Suporte de TI & Multimídia - UniFAP" }],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "UniFAP Multimídia",
+  },
   icons: {
     icon: "/brand/logo-unifap-quadrada.png",
     apple: "/brand/logo-unifap-quadrada.png",

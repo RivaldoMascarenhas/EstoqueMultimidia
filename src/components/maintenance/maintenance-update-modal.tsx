@@ -6,15 +6,12 @@ import {
   X, 
   Building2, 
   DollarSign, 
-  User, 
   Phone, 
   FileText, 
   Check, 
-  AlertTriangle,
-  Tag,
-  Sparkles,
-  Home,
-  ShieldCheck
+  AlertTriangle, 
+  Tag, 
+  Sparkles
 } from "lucide-react";
 import {
   Dialog,
@@ -25,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface MaintenanceUpdateModalProps {
   isOpen: boolean;

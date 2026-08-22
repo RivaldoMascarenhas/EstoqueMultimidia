@@ -12,10 +12,7 @@ import {
   ChevronRight, 
   RefreshCw, 
   ShieldCheck, 
-  Monitor, 
-  School,
-  ExternalLink,
-  Info
+  School
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

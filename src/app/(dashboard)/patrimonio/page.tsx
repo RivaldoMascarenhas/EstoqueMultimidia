@@ -6,22 +6,14 @@ import {
   Monitor, 
   Plus, 
   Search, 
-  Filter, 
   Wrench, 
-  QrCode, 
   Printer, 
-  AlertTriangle, 
-  CheckCircle2, 
   Loader2, 
   Handshake, 
   ChevronRight, 
-  Eye, 
-  Layers,
-  ArrowRight,
-  MapPin,
-  Archive
+  MapPin
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";

@@ -6,18 +6,11 @@ import {
   History, 
   ArrowLeft, 
   CheckCircle2, 
-  AlertTriangle, 
-  Sparkles, 
-  Clock, 
-  MapPin, 
-  User, 
-  Package, 
   RefreshCw, 
   Plus, 
-  Check, 
-  FileText
+  Check
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";

@@ -8,16 +8,10 @@ import {
   Printer, 
   Camera, 
   Search, 
-  Package, 
-  Boxes,
-  Layers, 
-  ArrowUpRight,
-  ChevronRight,
-  Filter,
-  Plus,
-  Box as BoxIcon
+  Boxes, 
+  ChevronRight, 
+  Plus
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";

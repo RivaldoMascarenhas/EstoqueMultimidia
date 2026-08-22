@@ -2,16 +2,10 @@
 
 import React from "react";
 import { 
-  Clock, 
-  MapPin, 
-  User, 
   Tv, 
   Package, 
   CheckCircle2, 
-  AlertTriangle, 
-  Sparkles,
-  ChevronRight,
-  Monitor
+  ChevronRight
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

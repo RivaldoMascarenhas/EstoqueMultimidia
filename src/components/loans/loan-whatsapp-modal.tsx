@@ -8,11 +8,8 @@ import {
   ExternalLink, 
   Phone, 
   User, 
-  AlertTriangle, 
-  Clock,
-  Package,
-  MapPin,
-  Calendar,
+  Package, 
+  MapPin, 
   Send
 } from "lucide-react";
 import {
@@ -26,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime, formatDate } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface LoanWhatsAppModalProps {
@@ -60,7 +57,6 @@ export function LoanWhatsAppModal({
   const assetTag = loan.asset?.assetTag || loan.assetTag || "";
   const protocol = loan.protocol || (loan.id ? `LOAN-${loan.id.slice(-8).toUpperCase()}` : "LOAN");
   const returnDateStr = loan.expectedReturnDate ? formatDateTime(loan.expectedReturnDate) : "Data não definida";
-  const loanDateStr = loan.loanDate ? formatDateTime(loan.loanDate) : null;
 
   // Limpar telefone para link wa.me (apenas dígitos)
   const cleanPhone = phone ? phone.replace(/\D/g, "") : "";

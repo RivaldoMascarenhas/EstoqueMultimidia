@@ -123,10 +123,6 @@ export async function POST(req: NextRequest) {
     }).finally(() => clearTimeout(timeoutId));
 
     const responseStatus = response.status;
-    let responseBody = "";
-    try {
-      responseBody = await response.text();
-    } catch (e) {}
 
     return NextResponse.json({
       success: true,

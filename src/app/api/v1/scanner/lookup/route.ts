@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AssetStatus, LoanStatus, MaintenanceStatus } from "@prisma/client";
+import { LoanStatus, MaintenanceStatus } from "@prisma/client";
 import { requireSession } from "@/lib/api-guard";
 
 export async function POST(req: NextRequest) {
@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     }
 
     let parsedTag = rawInput;
-    let parsedType: "ASSET" | "BOX" | "ITEM" | "LOAN" | "MAINTENANCE" | "UNKNOWN" = "UNKNOWN";
 
     // 1. Tentar fazer parse se for um JSON institucional gerado pelo sistema
     if (rawInput.startsWith("{") && rawInput.endsWith("}")) {
@@ -26,16 +25,12 @@ export async function POST(req: NextRequest) {
         const json = JSON.parse(rawInput);
         if (json.assetTag) {
           parsedTag = json.assetTag;
-          parsedType = "ASSET";
         } else if (json.boxCode) {
           parsedTag = json.boxCode;
-          parsedType = "BOX";
         } else if (json.protocol && json.protocol.startsWith("LOAN-")) {
           parsedTag = json.protocol;
-          parsedType = "LOAN";
         } else if (json.osNumber) {
           parsedTag = json.osNumber;
-          parsedType = "MAINTENANCE";
         }
       } catch (e) {
         // Não é JSON válido, continuar
@@ -46,11 +41,9 @@ export async function POST(req: NextRequest) {
     if (parsedTag.includes("/caixas/")) {
       const parts = parsedTag.split("/caixas/");
       parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
-      parsedType = "BOX";
     } else if (parsedTag.includes("/patrimonio/")) {
       const parts = parsedTag.split("/patrimonio/");
       parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
-      parsedType = "ASSET";
     }
 
     // Limpar prefixos comuns como #, #PAT-, #OS-

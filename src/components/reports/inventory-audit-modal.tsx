@@ -4,12 +4,8 @@ import React, { useState, useEffect } from "react";
 import { 
   ClipboardCheck, 
   CheckCircle2, 
-  AlertTriangle, 
-  X, 
-  Boxes, 
   Package, 
   Tag, 
-  Sparkles,
   Save
 } from "lucide-react";
 import {
@@ -17,7 +13,6 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface InventoryAuditModalProps {

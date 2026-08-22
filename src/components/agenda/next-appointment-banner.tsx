@@ -4,13 +4,11 @@ import React from "react";
 import { 
   Sparkles, 
   Clock, 
-  MapPin, 
   User, 
   ArrowRight, 
   CheckCircle2, 
   Tv, 
-  Package,
-  Layers
+  Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

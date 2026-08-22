@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  BarChart3, 
   FileSpreadsheet, 
   FileText, 
-  Download, 
   Printer, 
   ClipboardCheck, 
   Boxes, 
@@ -14,13 +12,7 @@ import {
   Wrench, 
   History, 
   Filter, 
-  Calendar, 
   RefreshCw, 
-  CheckCircle2, 
-  Package, 
-  Tag, 
-  DollarSign,
-  Search,
   Sparkles
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -40,7 +32,6 @@ export default function RelatoriosPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reportData, setReportData] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Modais
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
@@ -48,7 +39,6 @@ export default function RelatoriosPage() {
 
   const fetchReport = async () => {
     try {
-      setIsLoading(true);
       const params = new URLSearchParams();
       params.append("type", selectedReportType);
       if (startDate) params.append("startDate", startDate);
@@ -64,8 +54,6 @@ export default function RelatoriosPage() {
       }
     } catch (err) {
       toast.error("Erro na comunicação com o servidor.");
-    } finally {
-      setIsLoading(false);
     }
   };
 

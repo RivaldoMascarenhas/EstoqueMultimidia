@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { 
   School, 
   Search, 
@@ -12,18 +11,13 @@ import {
   Tv, 
   CheckCircle2, 
   AlertTriangle, 
-  RefreshCw,
-  Layers, 
-  Calendar,
-  Sparkles,
-  X,
-  Package,
-  Barcode,
-  Tag,
-  Info
+  RefreshCw, 
+  X, 
+  Barcode, 
+  Tag
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -60,7 +54,6 @@ export default function SalasPage() {
   const [search, setSearch] = useState("");
   const [selectedFloor, setSelectedFloor] = useState("ALL");
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingAssets, setIsLoadingAssets] = useState(false);
 
   // Modal de Criação / Edição de Sala
   const [modalOpen, setModalOpen] = useState(false);
@@ -115,7 +108,6 @@ export default function SalasPage() {
 
   const fetchAssets = async () => {
     try {
-      setIsLoadingAssets(true);
       const res = await fetch("/api/v1/assets");
       const data = await res.json();
       if (data.success) {
@@ -123,8 +115,6 @@ export default function SalasPage() {
       }
     } catch (err) {
       console.error("Erro ao carregar patrimônios:", err);
-    } finally {
-      setIsLoadingAssets(false);
     }
   };
 

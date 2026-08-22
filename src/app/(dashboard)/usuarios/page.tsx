@@ -26,7 +26,6 @@ import { toast } from "sonner";
 export default function UsuariosPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
   // Modais
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -38,7 +37,6 @@ export default function UsuariosPage() {
 
   const fetchUsers = async () => {
     try {
-      setIsLoading(true);
       const res = await fetch("/api/v1/users");
       const json = await res.json();
       if (json.success) {
@@ -48,8 +46,6 @@ export default function UsuariosPage() {
       }
     } catch (e) {
       toast.error("Erro ao conectar com o servidor.");
-    } finally {
-      setIsLoading(false);
     }
   };
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { BottomNav } from "@/components/layout/bottom-nav";
 import { GlobalSearchModal } from "@/components/search/global-search-modal";
 import { ForceChangePasswordModal } from "@/components/auth/force-change-password-modal";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased flex flex-col">
-      {/* Sidebar (Desktop & Mobile) */}
+      {/* Sidebar (Desktop & Mobile Drawer) */}
       <Sidebar
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
@@ -72,11 +73,14 @@ export default function DashboardLayout({
           onOpenSearch={() => setIsSearchOpen(true)}
         />
 
-        {/* Dynamic Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        {/* Dynamic Page Content (com padding inferior estendido no mobile para acomodar a Bottom Navigation Bar) */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 md:pb-8">
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Visível apenas em telas menores que md) */}
+      <BottomNav />
 
       {/* Global Search Modal (Spotlight / Cmd+K) */}
       <GlobalSearchModal

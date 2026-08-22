@@ -6,15 +6,11 @@ import {
   Search, 
   Package, 
   Tag, 
-  Archive, 
   Handshake, 
   Wrench, 
   ArrowRight, 
   X, 
-  CornerDownLeft, 
-  Clock, 
-  Building2,
-  Boxes,
+  Boxes, 
   Sparkles
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";

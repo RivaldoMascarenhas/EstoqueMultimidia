@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AssetStatus, LoanStatus, MaintenanceStatus, MovementType } from "@prisma/client";
+import { AssetStatus, LoanStatus, MaintenanceStatus } from "@prisma/client";
 import { requireSession } from "@/lib/api-guard";
 import { RequestService } from "@/services/request.service";
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AssetStatus, LoanStatus, MaintenanceStatus, MovementType } from "@prisma/client";
 import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
@@ -206,8 +205,6 @@ export async function GET(req: NextRequest) {
       let returnedOverdue = 0;
       let returnedDamaged = 0;
       let activeCount = 0;
-
-      const now = new Date();
 
       loans.forEach((l) => {
         if (l.status === "RETURNED") {

@@ -8,13 +8,11 @@ import {
   Camera, 
   Printer, 
   Plus, 
-  Archive, 
   ChevronRight, 
   Loader2, 
-  AlertCircle,
   QrCode
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";

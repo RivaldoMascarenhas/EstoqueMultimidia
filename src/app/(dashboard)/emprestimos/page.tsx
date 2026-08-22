@@ -6,13 +6,10 @@ import {
   Handshake, 
   Plus, 
   Search, 
-  Filter, 
-  Calendar, 
   Clock, 
   AlertTriangle, 
   CheckCircle2, 
   Loader2, 
-  FileText, 
   MessageSquare, 
   Printer, 
   CalendarClock, 
@@ -23,12 +20,10 @@ import {
   Monitor, 
   MapPin, 
   Building2, 
-  Sparkles,
-  Phone,
-  ArrowRight,
+  Phone, 
   ShieldAlert
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +42,6 @@ import { LoanRenewModal } from "@/components/loans/loan-renew-modal";
 import { LoanReceiptModal } from "@/components/loans/loan-receipt-modal";
 import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { toast } from "sonner";
 
 function EmprestimosContent() {
   const searchParams = useSearchParams();

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { 
   Handshake, 
-  X, 
   Calendar, 
   Clock, 
   User, 
@@ -15,8 +14,7 @@ import {
   Search, 
   PackageCheck, 
   Loader2, 
-  Sparkles,
-  Info,
+  Sparkles, 
   CalendarCheck2
 } from "lucide-react";
 import {

@@ -5,25 +5,16 @@ import {
   Settings, 
   Key, 
   Archive, 
-  Package, 
   Plus, 
   Layers, 
-  ShieldCheck, 
-  Server, 
-  CheckCircle2,
   Trash2,
-  Lock,
-  Copy,
   Send,
   Sparkles,
   Bot,
   Zap,
-  Globe,
-  Terminal,
   Code2,
   Edit,
-  CalendarDays,
-  Calendar
+  CalendarDays
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +39,6 @@ export default function ConfiguracoesPage() {
   const [categoryToEdit, setCategoryToEdit] = useState<any | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<any | null>(null);
   const [isDeleteCategoryModalOpen, setIsDeleteCategoryModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Playground de Teste de API
   const [testToken, setTestToken] = useState("");
@@ -64,7 +54,6 @@ export default function ConfiguracoesPage() {
 
   const fetchData = async () => {
     try {
-      setIsLoading(true);
       const [doorsRes, catRes] = await Promise.all([
         fetch("/api/v1/doors"),
         fetch("/api/v1/categories"),
@@ -75,10 +64,8 @@ export default function ConfiguracoesPage() {
 
       if (doorsJson.success) setDoors(doorsJson.data);
       if (catJson.success) setCategories(catJson.data);
-      setIsLoading(false);
     } catch (err: any) {
       toast.error("Erro ao carregar configurações.");
-      setIsLoading(false);
     }
   };
 

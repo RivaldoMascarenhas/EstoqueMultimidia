@@ -2,11 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  Clock, 
-  Sparkles, 
   Save, 
   RefreshCw, 
-  CheckCircle2,
   CalendarDays
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";

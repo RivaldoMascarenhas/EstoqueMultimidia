@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { ShiftService, DEFAULT_SHIFTS } from "@/services/shift.service";
 import { RequestService } from "@/services/request.service";
-import { Shift, ResourceType, TaskType, AssetStatus, ReservationStatus, RequestStatus } from "@prisma/client";
+import { Shift, TaskType, RequestStatus } from "@prisma/client";
 
 describe("Plataforma Operacional de Multimídia - Regras e Taxonomia", () => {
   describe("1. Regras de Turno & Horários Fora do Expediente", () => {
@@ -80,20 +80,6 @@ describe("Plataforma Operacional de Multimídia - Regras e Taxonomia", () => {
             lampStatus: null,
           }),
         },
-      };
-
-      const requestInput: any = {
-        date: "2026-08-18",
-        startTime: "08:00",
-        endTime: "10:00",
-        roomId: "sala-sem-datashow",
-        items: [
-          {
-            resourceType: ResourceType.FIXED_IN_ROOM,
-            label: "Datashow",
-            quantity: 1,
-          },
-        ],
       };
 
       // Simulação da validação da regra de sala

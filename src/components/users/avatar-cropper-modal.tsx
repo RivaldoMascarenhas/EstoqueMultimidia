@@ -7,10 +7,7 @@ import {
   RotateCw, 
   Crop, 
   Check, 
-  X, 
-  Move, 
-  Sparkles,
-  Camera
+  Move
 } from "lucide-react";
 import {
   Dialog,
