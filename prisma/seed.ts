@@ -38,8 +38,9 @@ async function main() {
   await prisma.apiKey.deleteMany();
   await prisma.user.deleteMany();
 
-  // 2. Usuários iniciais com senhas com hash seguro
-  const defaultPassword = await bcrypt.hash('UniFAP@2026', 10);
+  // 2. Usuários iniciais com senhas com hash seguro e troca obrigatória no primeiro login
+  const seedPasswordRaw = process.env.SEED_DEFAULT_PASSWORD || 'UniFAP@2026';
+  const defaultPassword = await bcrypt.hash(seedPasswordRaw, 10);
 
   const rivaldo = await prisma.user.create({
     data: {
@@ -47,6 +48,7 @@ async function main() {
       email: 'rivaldo@unifap.br',
       passwordHash: defaultPassword,
       role: Role.ADMIN,
+      mustChangePassword: true,
     },
   });
 
@@ -56,6 +58,7 @@ async function main() {
       email: 'rodrigo@unifap.br',
       passwordHash: defaultPassword,
       role: Role.GESTOR,
+      mustChangePassword: true,
     },
   });
 
@@ -65,6 +68,7 @@ async function main() {
       email: 'thomas@unifap.br',
       passwordHash: defaultPassword,
       role: Role.OPERADOR,
+      mustChangePassword: true,
     },
   });
 
@@ -74,6 +78,7 @@ async function main() {
       email: 'pedro@unifap.br',
       passwordHash: defaultPassword,
       role: Role.OPERADOR,
+      mustChangePassword: true,
     },
   });
 
@@ -83,6 +88,7 @@ async function main() {
       email: 'paloma@unifap.br',
       passwordHash: defaultPassword,
       role: Role.ACADEMIC_SUPPORT,
+      mustChangePassword: true,
     },
   });
 

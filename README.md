@@ -347,16 +347,19 @@ Acesse no navegador: **[http://localhost:3000](http://localhost:3000)**
 
 ---
 
-## 🔑 Usuários Pré-Configurados (Seed)
+## 🔑 Usuários Iniciais para Testes Locais (Ambiente de Desenvolvimento)
 
-O script de seed (`prisma/seed.ts`) cria automaticamente as credenciais para testes de todos os perfis de acesso:
+O script de seed (`prisma/seed.ts`) cria contas de teste para validar os diferentes níveis de acesso. Todos os usuários criados via seed possuem **troca obrigatória de senha ativada (`mustChangePassword: true`)** no primeiro acesso:
 
-| Nome | E-mail | Senha Padrão | Perfil de Acesso | Permissões |
-| :--- | :--- | :--- | :--- | :--- |
-| **Rivaldo** | `rivaldo@unifap.br` | `UniFAP@2026` | **`ADMIN`** | Acesso irrestrito a todo o sistema, usuários e chaves de API. |
-| **Rodrigo** | `rodrigo@unifap.br` | `UniFAP@2026` | **`GESTOR`** | Gestão de estoque, patrimônios, OS, relatórios e auditoria. |
-| **Thomas** | `thomas@unifap.br` | `UniFAP@2026` | **`OPERADOR`** | Empréstimos, devoluções, baixas, entradas e scanner mobile. |
-| **Pedro** | `pedro@unifap.br` | `UniFAP@2026` | **`OPERADOR`** | Empréstimos, devoluções, baixas, entradas e scanner mobile. |
+| Nome | E-mail | Perfil de Acesso | Permissões |
+| :--- | :--- | :--- | :--- |
+| **Rivaldo** | `rivaldo@unifap.br` | **`ADMIN`** | Acesso irrestrito a todo o sistema, usuários e chaves de API. |
+| **Rodrigo** | `rodrigo@unifap.br` | **`GESTOR`** | Gestão de estoque, patrimônios, OS, relatórios e auditoria. |
+| **Thomas** | `thomas@unifap.br` | **`OPERADOR`** | Empréstimos, devoluções, baixas, entradas e scanner mobile. |
+| **Pedro** | `pedro@unifap.br` | **`OPERADOR`** | Empréstimos, devoluções, baixas, entradas e scanner mobile. |
+| **Paloma** | `paloma@unifap.br` | **`APOIO ACADÊMICO`** | Agendamento e requisição de salas e equipamentos. |
+
+> ⚠️ **Aviso de Segurança em Produção:** Nunca utilize senhas padrão em produção. Defina a variável de ambiente `SEED_DEFAULT_PASSWORD` antes de rodar o seed ou crie o administrador principal diretamente via painel seguro.
 
 ---
 

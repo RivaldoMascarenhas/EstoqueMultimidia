@@ -305,12 +305,19 @@ export function ReportPrintableDocument({
       return;
     }
 
+    const safeTitle = (report.title || "Relatório Institucional")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="pt-BR">
         <head>
           <meta charset="UTF-8">
-          <title>${report.title} - UniFAP</title>
+          <title>${safeTitle} - UniFAP</title>
           <style>
             ${reportDocumentStyles}
           </style>
