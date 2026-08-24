@@ -64,6 +64,33 @@ function toMinutes(val: string | Date): number {
 }
 
 /**
+ * Gera marcadores de hora dinâmicos para a régua da linha do tempo
+ */
+function generateHourMarkers(startStr: string, endStr: string): string[] {
+  const startMin = toMinutes(startStr);
+  const endMin = toMinutes(endStr);
+  const markers: string[] = [];
+
+  const startHour = Math.floor(startMin / 60);
+  const endHour = Math.ceil(endMin / 60);
+
+  markers.push(startStr);
+
+  for (let h = startHour + 1; h <= endHour; h++) {
+    const curMin = h * 60;
+    if (curMin > startMin && curMin < endMin) {
+      markers.push(`${String(h).padStart(2, "0")}:00`);
+    }
+  }
+
+  if (!markers.includes(endStr)) {
+    markers.push(endStr);
+  }
+
+  return markers;
+}
+
+/**
  * Algoritmo Anti-Sobreposição:
  * Agrupa eventos que colidem no tempo e calcula colunas paralelas não sobrepostas (colIndex / totalCols)
  */
@@ -169,15 +196,17 @@ export function CalendarGridView({
       case "MORNING": {
         const config = shiftsData.MORNING?.config || { startTime: "07:00", endTime: "12:00", label: "Manhã", emoji: "🌅" };
         const requests = shiftsData.MORNING?.requests || [];
+        const startStr = config.startTime || "07:00";
+        const endStr = config.endTime || "12:00";
         return {
           key: "MORNING",
-          title: "Turno da Manhã",
-          emoji: "🌅",
-          startStr: config.startTime || "07:00",
-          endStr: config.endTime || "12:00",
-          startMin: toMinutes(config.startTime || "07:00"),
-          endMin: toMinutes(config.endTime || "12:00"),
-          hourMarkers: ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00"],
+          title: `Turno da ${config.label || "Manhã"}`,
+          emoji: config.emoji || "🌅",
+          startStr,
+          endStr,
+          startMin: toMinutes(startStr),
+          endMin: toMinutes(endStr),
+          hourMarkers: generateHourMarkers(startStr, endStr),
           requests,
           themeBadge: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
           headerBg: "from-amber-500/15 via-card to-card border-amber-500/30",
@@ -187,15 +216,17 @@ export function CalendarGridView({
       case "AFTERNOON": {
         const config = shiftsData.AFTERNOON?.config || { startTime: "12:00", endTime: "18:00", label: "Tarde", emoji: "☀️" };
         const requests = shiftsData.AFTERNOON?.requests || [];
+        const startStr = config.startTime || "12:00";
+        const endStr = config.endTime || "18:00";
         return {
           key: "AFTERNOON",
-          title: "Turno da Tarde",
-          emoji: "☀️",
-          startStr: config.startTime || "12:00",
-          endStr: config.endTime || "18:00",
-          startMin: toMinutes(config.startTime || "12:00"),
-          endMin: toMinutes(config.endTime || "18:00"),
-          hourMarkers: ["12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"],
+          title: `Turno da ${config.label || "Tarde"}`,
+          emoji: config.emoji || "☀️",
+          startStr,
+          endStr,
+          startMin: toMinutes(startStr),
+          endMin: toMinutes(endStr),
+          hourMarkers: generateHourMarkers(startStr, endStr),
           requests,
           themeBadge: "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30",
           headerBg: "from-orange-500/15 via-card to-card border-orange-500/30",
@@ -203,17 +234,19 @@ export function CalendarGridView({
         };
       }
       case "NIGHT": {
-        const config = shiftsData.NIGHT?.config || { startTime: "18:00", endTime: "22:30", label: "Noite", emoji: "🌙" };
+        const config = shiftsData.NIGHT?.config || { startTime: "18:00", endTime: "22:00", label: "Noite", emoji: "🌙" };
         const requests = shiftsData.NIGHT?.requests || [];
+        const startStr = config.startTime || "18:00";
+        const endStr = config.endTime || "22:00";
         return {
           key: "NIGHT",
-          title: "Turno da Noite",
-          emoji: "🌙",
-          startStr: config.startTime || "18:00",
-          endStr: config.endTime || "22:30",
-          startMin: toMinutes(config.startTime || "18:00"),
-          endMin: toMinutes(config.endTime || "22:30"),
-          hourMarkers: ["18:00", "19:00", "20:00", "21:00", "22:00", "22:30"],
+          title: `Turno da ${config.label || "Noite"}`,
+          emoji: config.emoji || "🌙",
+          startStr,
+          endStr,
+          startMin: toMinutes(startStr),
+          endMin: toMinutes(endStr),
+          hourMarkers: generateHourMarkers(startStr, endStr),
           requests,
           themeBadge: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
           headerBg: "from-indigo-500/15 via-card to-card border-indigo-500/30",
@@ -281,7 +314,7 @@ export function CalendarGridView({
               </Badge>
             </div>
             <span className="text-[10px] font-normal opacity-80 hidden md:inline">
-              (07:00 - 12:00)
+              ({shiftsData.MORNING?.config?.startTime || "07:00"} - {shiftsData.MORNING?.config?.endTime || "12:00"})
             </span>
           </button>
 
@@ -307,7 +340,7 @@ export function CalendarGridView({
               </Badge>
             </div>
             <span className="text-[10px] font-normal opacity-80 hidden md:inline">
-              (12:00 - 18:00)
+              ({shiftsData.AFTERNOON?.config?.startTime || "12:00"} - {shiftsData.AFTERNOON?.config?.endTime || "18:00"})
             </span>
           </button>
 
@@ -333,7 +366,7 @@ export function CalendarGridView({
               </Badge>
             </div>
             <span className="text-[10px] font-normal opacity-80 hidden md:inline">
-              (18:00 - 22:30)
+              ({shiftsData.NIGHT?.config?.startTime || "18:00"} - {shiftsData.NIGHT?.config?.endTime || "22:00"})
             </span>
           </button>
 

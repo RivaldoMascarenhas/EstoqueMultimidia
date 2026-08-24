@@ -175,7 +175,10 @@ export class RequestService {
         orderIndex: shift === Shift.MORNING ? 1 : shift === Shift.AFTERNOON ? 2 : 3,
       };
 
-      const requestsInShift = allRequests.filter((r) => r.shift === shift);
+      const requestsInShift = allRequests.filter((r) => {
+        const calculatedShift = ShiftService.getShiftFromTime(r.startTime, configs);
+        return calculatedShift === shift;
+      });
       const total = requestsInShift.length;
       const preparados = requestsInShift.filter((r) => r.status === RequestStatus.PREPARADO).length;
       const emAtendimento = requestsInShift.filter((r) => r.status === RequestStatus.EM_ATENDIMENTO).length;
@@ -454,8 +457,8 @@ export class RequestService {
       );
     }
 
-    const shift = ShiftService.getShiftFromTime(startDateTime, shiftConfigs);
-    const isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
+    const shift = ShiftService.getShiftFromTime(data.startTime, shiftConfigs);
+    const isOutsideShift = ShiftService.isOutsideRegularShifts(data.startTime, shiftConfigs);
 
     return await prisma.$transaction(async (tx) => {
       // 1. Validar sala
@@ -1202,8 +1205,9 @@ export class RequestService {
         }
 
         const shiftConfigs = await ShiftService.getShiftConfigs();
-        shift = ShiftService.getShiftFromTime(startDateTime, shiftConfigs);
-        isOutsideShift = ShiftService.isOutsideRegularShifts(startDateTime, shiftConfigs);
+        const checkTime = data.startTime || existing.startTime;
+        shift = ShiftService.getShiftFromTime(checkTime, shiftConfigs);
+        isOutsideShift = ShiftService.isOutsideRegularShifts(checkTime, shiftConfigs);
       }
 
       // Validação de alteração de sala ou conflito de horário
