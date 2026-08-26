@@ -24,6 +24,42 @@ yarn-error.log*
 *.db
 *.sqlite
 postgres_data/
+unifap_postgres_data/
+
+# Python & Virtual Environments (Biometric API)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+biometric-api/.venv/
+biometric-api/venv/
+biometric-api/__pycache__/
+biometric-api/*/__pycache__/
 
 # IDE & OS Files
 .DS_Store
@@ -32,3 +68,4 @@ postgres_data/
 .idea/
 Thumbs.db
 *.tsbuildinfo
+
