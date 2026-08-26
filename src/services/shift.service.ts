@@ -252,6 +252,19 @@ export class ShiftService {
         },
       });
 
+      // Sincronizar o turno de todas as solicitações cadastradas de acordo com as novas faixas
+      const allReqs = await tx.request.findMany({
+        select: { id: true, startTime: true },
+      });
+      for (const req of allReqs) {
+        const newShift = ShiftService.getShiftFromTime(req.startTime, updatedList);
+        const isOutside = ShiftService.isOutsideRegularShifts(req.startTime, updatedList);
+        await tx.request.update({
+          where: { id: req.id },
+          data: { shift: newShift, isOutsideShift: isOutside },
+        });
+      }
+
       return updatedList;
     });
   }
