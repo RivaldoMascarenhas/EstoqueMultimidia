@@ -1,22 +1,80 @@
+version: "3.8"
+
+networks:
+  unifap-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: unifap_estoque_db
-    restart: always
+    image: pgvector/pgvector:pg16
+    container_name: unifap-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: unifap_secure_password_2026
-      POSTGRES_DB: unifap_estoque
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unifap_secure_password_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-estoque_multimidia}
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
-      - unifap_postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - unifap-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d unifap_estoque"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-estoque_multimidia}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-volumes:
-  unifap_postgres_data:
-    driver: local
+  biometric-api:
+    build:
+      context: ./biometric-api
+      dockerfile: Dockerfile
+    container_name: unifap-biometric-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-unifap_secure_password_2026}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
+      BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:-unifap_biometric_secret_token_2026_internal_only}
+      RECOGNITION_TOLERANCE: ${RECOGNITION_TOLERANCE:-0.60}
+      PORT: 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - unifap-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unifap-web-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-unifap_secure_password_2026}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-unifap_nextauth_super_secret_jwt_key_2026}
+      BIOMETRIC_API_URL: http://biometric-api:8000
+      BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:-unifap_biometric_secret_token_2026_internal_only}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      biometric-api:
+        condition: service_started
+    networks:
+      - unifap-network
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: unifap-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+    networks:
+      - unifap-network

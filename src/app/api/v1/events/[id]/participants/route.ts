@@ -1,0 +1,120 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-guard";
+import { EventService } from "@/services/event.service";
+import { addParticipantSchema } from "@/schemas/event.schema";
+import { Role } from "@prisma/client";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.OPERADOR,
+    Role.CONSULTA,
+  ]);
+  if (error) return error;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const query = searchParams.get("query") || undefined;
+    const category = searchParams.get("category") || undefined;
+    const isEligibleParam = searchParams.get("isEligible");
+    const isEligible = isEligibleParam !== null ? isEligibleParam === "true" : undefined;
+    const hasPresenceParam = searchParams.get("hasPresence");
+    const hasPresence = hasPresenceParam !== null ? hasPresenceParam === "true" : undefined;
+    const hasFaceParam = searchParams.get("hasFace");
+    const hasFace = hasFaceParam !== null ? hasFaceParam === "true" : undefined;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+
+    const result = await EventService.listEventParticipants(params.id, {
+      query,
+      category,
+      isEligible,
+      hasPresence,
+      hasFace,
+      page,
+      limit,
+    });
+
+    return NextResponse.json({ success: true, ...result });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message || "Erro ao listar participantes." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { session, error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.OPERADOR,
+  ]);
+  if (error) return error;
+
+  try {
+    const body = await req.json();
+    const parsed = addParticipantSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0]?.message || "Dados inválidos." },
+        { status: 400 }
+      );
+    }
+
+    const participant = await EventService.addParticipant(
+      params.id,
+      parsed.data.personId,
+      parsed.data.category,
+      parsed.data.ticketNumber,
+      session?.user?.id
+    );
+
+    return NextResponse.json({ success: true, participant }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message || "Erro ao adicionar participante." },
+      { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { session, error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.OPERADOR,
+  ]);
+  if (error) return error;
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const personId = searchParams.get("personId");
+
+    if (!personId) {
+      return NextResponse.json(
+        { success: false, error: "Parâmetro 'personId' é obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    await EventService.removeParticipant(params.id, personId, session?.user?.id);
+    return NextResponse.json({ success: true, message: "Participante removido do evento." });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message || "Erro ao remover participante." },
+      { status: 400 }
+    );
+  }
+}

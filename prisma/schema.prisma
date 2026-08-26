@@ -8,7 +8,7 @@ generator client {
 }
 
 // ----------------------------------------------------
-// ENUMS
+// ENUMS (ESTOQUE & OPERAÇÃO)
 // ----------------------------------------------------
 
 enum Role {
@@ -114,7 +114,48 @@ enum MaintenanceStatus {
 }
 
 // ----------------------------------------------------
-// USUÁRIOS E AUTORIZAÇÃO
+// ENUMS (EVENTOS, BIOMETRIA & SORTEIOS)
+// ----------------------------------------------------
+
+enum EventStatus {
+  DRAFT
+  OPEN
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PrizeStatus {
+  AVAILABLE
+  DRAWING
+  DRAWN
+  DELIVERED
+  CANCELLED
+}
+
+enum ParticipantStatus {
+  ACTIVE
+  REGISTERED
+  CONFIRMED
+  WAITLIST
+  INACTIVE
+  CANCELLED
+}
+
+enum PresenceMethod {
+  FACE
+  MANUAL
+  QR_CODE
+}
+
+enum DrawType {
+  PERSON
+  RANGE
+}
+
+// ----------------------------------------------------
+// USUÁRIOS E AUTORIZAÇÃO (SISTEMA MULTIMÍDIA)
 // ----------------------------------------------------
 
 model User {
@@ -139,6 +180,11 @@ model User {
   requestsCreated    Request[]         @relation("RequestCreatedBy")
   requestsAssigned   Request[]         @relation("RequestAssignedUser")
   tasksCompleted     RequestTask[]
+
+  // Relações com Eventos e Sorteios
+  presencesOperated  Presence[]        @relation("PresenceOperator")
+  drawsOperated      Draw[]            @relation("DrawOperator")
+  prizesDelivered    Winner[]          @relation("PrizeDeliveryOperator")
 }
 
 model ApiKey {
@@ -158,7 +204,277 @@ model ApiKey {
 }
 
 // ----------------------------------------------------
-// ESTRUTURA FÍSICA DO ARMÁRIO
+// DOMÍNIO CENTRAL DE PESSOAS FÍSICAS (UNIFICADO)
+// ----------------------------------------------------
+
+model Person {
+  id           String    @id @default(cuid())
+  name         String
+  cpf          String?   @unique
+  registration String?   @unique // Matrícula institucional / código acadêmico
+  email        String?
+  phone        String?
+  photoUrl     String?
+  category     String?   // Aluno, Professor, Técnico, Convidado, etc.
+  active       Boolean   @default(true)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  faceEmbeddings FaceEmbedding[]
+  participations EventParticipant[]
+  presences      Presence[]
+  drawsWon       Winner[]
+
+  @@index([name])
+  @@index([registration])
+  @@index([cpf])
+  @@index([email])
+  @@index([active])
+}
+
+// ----------------------------------------------------
+// BIOMETRIA FACIAL (FACE EMBEDDINGS)
+// ----------------------------------------------------
+
+model FaceEmbedding {
+  id        String   @id @default(cuid())
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  model     String   @default("dlib_face_recognition")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([personId])
+  @@index([active])
+}
+
+// ----------------------------------------------------
+// DISPOSITIVOS / TOTENS DE CAPTURA
+// ----------------------------------------------------
+
+model Device {
+  id         String    @id @default(cuid())
+  identifier String    @unique // ex: "TOTEM-ENTRADA-AUDITORIO"
+  name       String    // ex: "Totem Principal 1"
+  location   String?   // ex: "Hall do Auditório A"
+  status     String    @default("ACTIVE")
+  lastSeenAt DateTime?
+  notes      String?
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  presences  Presence[]
+}
+
+// ----------------------------------------------------
+// DOMÍNIO DE EVENTOS & PRESENÇA
+// ----------------------------------------------------
+
+model Event {
+  id                 String       @id @default(cuid())
+  name               String       @default("Evento")
+  slug               String       @unique
+  description        String?
+  date               DateTime?
+  time               String?
+  location           String?
+  logoUrl            String?
+  coverUrl           String?
+  status             EventStatus  @default(DRAFT)
+  primaryColor       String       @default("#002B49")
+  secondaryColor     String       @default("#EAA023")
+  allowRepeatWinners Boolean      @default(false)
+  maxParticipants    Int?
+  presentationToken  String?      @unique
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @default(now()) @updatedAt
+
+  participants EventParticipant[]
+  prizes       Prize[]
+  draws        Draw[]
+  winners      Winner[]
+  presences    Presence[]
+  theme        EventTheme?
+  soundConfig  SoundConfig?
+
+  @@index([slug])
+  @@index([status])
+  @@index([presentationToken])
+}
+
+model EventParticipant {
+  id           String            @id @default(cuid())
+  eventId      String
+  event        Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  personId     String
+  person       Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  ticketNumber Int               @default(1)
+  category     String?
+  status       ParticipantStatus @default(ACTIVE)
+  isEligible   Boolean           @default(true)
+  isWinner     Boolean           @default(false)
+  registeredAt DateTime          @default(now())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @default(now()) @updatedAt
+
+  @@unique([eventId, personId])
+  @@index([eventId, ticketNumber])
+  @@index([eventId])
+  @@index([personId])
+  @@index([eventId, isEligible])
+}
+
+model Presence {
+  id             String         @id @default(cuid())
+  eventId        String
+  event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  personId       String
+  person         Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  method         PresenceMethod @default(FACE)
+  confidence     Float?
+  distance       Float?
+  capturedAt     DateTime       @default(now())
+  deviceId       String?
+  device         Device?        @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  operatorUserId String?
+  operatorUser   User?          @relation("PresenceOperator", fields: [operatorUserId], references: [id], onDelete: SetNull)
+  status         String         @default("REGISTERED")
+  createdAt      DateTime       @default(now())
+
+  @@unique([eventId, personId])
+  @@index([eventId])
+  @@index([personId])
+  @@index([capturedAt])
+}
+
+// ----------------------------------------------------
+// PATROCINADORES, PRÊMIOS E SORTEIOS
+// ----------------------------------------------------
+
+model Sponsor {
+  id          String   @id @default(cuid())
+  name        String
+  logoUrl     String?
+  description String?
+  website     String?
+  instagram   String?
+  phone       String?
+  email       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  prizes Prize[]
+}
+
+model Prize {
+  id             String      @id @default(cuid())
+  eventId        String
+  event          Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  sponsorId      String?
+  sponsor        Sponsor?    @relation(fields: [sponsorId], references: [id], onDelete: SetNull)
+  name           String
+  description    String?
+  imageUrl       String?
+  quantity       Int         @default(1)
+  estimatedValue Decimal?    @db.Decimal(10, 2)
+  order          Int         @default(0)
+  status         PrizeStatus @default(AVAILABLE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  draws   Draw[]
+  winners Winner[]
+
+  @@index([eventId])
+  @@index([sponsorId])
+  @@index([status])
+}
+
+model Draw {
+  id             String    @id @default(cuid())
+  eventId        String
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  prizeId        String
+  prize          Prize     @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  drawType       DrawType  @default(PERSON)
+  winnerPersonId String?
+  drawnNumber    Int?
+  drawnName      String?
+  operatorUserId String?
+  operatorUser   User?     @relation("DrawOperator", fields: [operatorUserId], references: [id], onDelete: SetNull)
+  timestamp      DateTime  @default(now())
+  notes          String?
+  status         String    @default("COMPLETED")
+
+  winners Winner[]
+
+  @@index([eventId])
+  @@index([prizeId])
+}
+
+model Winner {
+  id                String    @id @default(cuid())
+  eventId           String
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  prizeId           String
+  prize             Prize     @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  personId          String
+  person            Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  drawId            String
+  draw              Draw      @relation(fields: [drawId], references: [id], onDelete: Cascade)
+  drawDate          DateTime  @default(now())
+  delivered         Boolean   @default(false)
+  deliveredAt       DateTime?
+  deliveryNotes     String?
+  deliveredByUserId String?
+  deliveredByUser   User?     @relation("PrizeDeliveryOperator", fields: [deliveredByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([eventId])
+  @@index([prizeId])
+  @@index([personId])
+  @@index([drawId])
+}
+
+model EventTheme {
+  id                String   @id @default(cuid())
+  eventId           String   @unique
+  event             Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  heroTitle         String?
+  heroSubtitle      String?
+  backgroundPattern String   @default("modern-mesh")
+  customCss         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model SoundConfig {
+  id           String   @id @default(cuid())
+  eventId      String   @unique
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  soundEnabled Boolean  @default(true)
+  volume       Float    @default(0.8)
+  soundPreset  String   @default("institutional")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model IdempotencyRecord {
+  key       String   @id
+  eventId   String
+  result    String
+  createdAt DateTime @default(now())
+
+  @@index([eventId])
+}
+
+// ----------------------------------------------------
+// ESTRUTURA FÍSICA DO ARMÁRIO (ESTOQUE)
 // ----------------------------------------------------
 
 model Door {
@@ -415,10 +731,10 @@ model AuditLog {
   id          String    @id @default(cuid())
   userId      String?
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action      String    // ex: "LOGIN", "CREATE_ITEM", "CREATE_REQUEST", "ALLOCATE_ASSET", "SWAP_ASSET", etc.
-  entity      String    // ex: "Item", "Asset", "Loan", "Inventory", "Request", "Room", "Reservation", "RequestTask"
+  action      String    // ex: "LOGIN", "CREATE_ITEM", "FACE_ENROLL", "DRAW_EXECUTE", etc.
+  entity      String    // ex: "Item", "Asset", "Loan", "Person", "Event", "Prize", "Draw", "Presence"
   entityId    String?
-  details     Json?     // Payload com estado antes e depois (diff)
+  details     Json?     // Payload com detalhes das operações
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime  @default(now())
@@ -427,6 +743,7 @@ model AuditLog {
   @@index([entity])
   @@index([action])
   @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ----------------------------------------------------
@@ -491,7 +808,7 @@ model RoomFixedEquipment {
 }
 
 // ----------------------------------------------------
-// SOLICITAÇÕES OPERACIONAIS (MULTIMÍDIA)
+// AGENDAMENTOS OPERACIONAIS (MULTIMÍDIA)
 // ----------------------------------------------------
 
 model Request {

@@ -21,7 +21,12 @@ import {
   X,
   Camera,
   CalendarDays,
-  School
+  School,
+  Calendar,
+  Trophy,
+  ScanFace,
+  Gauge,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -143,6 +148,39 @@ export function Sidebar({
           href: "/movimentacoes",
           icon: History,
           roles: ["ADMIN", "GESTOR", "OPERADOR"],
+        },
+      ],
+    },
+    {
+      title: "EVENTOS & BIOMETRIA",
+      items: [
+        {
+          title: "Hub de Eventos",
+          href: "/eventos",
+          icon: Calendar,
+          badge: "Novo",
+        },
+        {
+          title: "Sorteios ao Vivo",
+          href: "/sorteios",
+          icon: Trophy,
+        },
+        {
+          title: "Presença Facial",
+          href: "/presenca",
+          icon: ScanFace,
+        },
+        {
+          title: "Pessoas & Biometria",
+          href: "/biometria/pessoas",
+          icon: Users,
+          roles: ["ADMIN", "GESTOR", "OPERADOR"],
+        },
+        {
+          title: "Lab Biométrico",
+          href: "/biometria/testar",
+          icon: Gauge,
+          roles: ["ADMIN", "GESTOR"],
         },
       ],
     },

@@ -18,6 +18,15 @@ async function main() {
   console.log('🌱 Iniciando Seed do Banco de Dados UniFAP...');
 
   // 1. Limpeza de dados antigos para seed idempotente
+  await prisma.winner.deleteMany();
+  await prisma.draw.deleteMany();
+  await prisma.prize.deleteMany();
+  await prisma.presence.deleteMany();
+  await prisma.eventParticipant.deleteMany();
+  await prisma.event.deleteMany();
+  await prisma.sponsor.deleteMany();
+  await prisma.faceEmbedding.deleteMany();
+  await prisma.person.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.requestItem.deleteMany();
   await prisma.request.deleteMany();
