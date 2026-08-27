@@ -465,6 +465,18 @@ export default function EventHubPage() {
               Operar Sorteio (Projeção)
             </Link>
 
+            <a
+              href={`/totem/${event.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl border border-emerald-500/30 transition-colors shadow-xs"
+              title="Abrir Totem de Presença Facial em Nova Janela para Segundo Monitor ou Kiosk"
+            >
+              <Camera className="h-4 w-4" />
+              <span>Totem Facial (2ª Tela)</span>
+              <ExternalLink className="h-3 w-3 opacity-70" />
+            </a>
+
             <button
               onClick={() => setIsImportModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-muted/60 hover:bg-accent rounded-xl border border-border transition-colors"
@@ -801,6 +813,7 @@ export default function EventHubPage() {
               eventName={event.name}
               onPresenceRecorded={(res) => {
                 fetchEvent();
+                fetchParticipants();
                 if (res.person) {
                   setRecentPresences((prev) => [
                     {

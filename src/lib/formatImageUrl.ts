@@ -1,32 +1,47 @@
 /**
- * Normalizes image URLs, automatically converting Google Drive, Dropbox,
- * and OneDrive share links to direct raw image URLs suitable for <img> tags.
+ * Normalizes image URLs, automatically routing Google Drive and external shared
+ * storage links through our proxy to guarantee 100% reliability with zero CORS/referrer blocks.
  */
 export function normalizeImageUrl(url: string | null | undefined): string {
   if (!url || typeof url !== "string") return "";
-  const trimmed = url.trim();
+  let trimmed = url.trim();
 
-  // Handle Google Drive links
-  // Patterns:
-  // - https://drive.google.com/file/d/FILE_ID/view...
-  // - https://drive.google.com/open?id=FILE_ID
-  // - https://drive.google.com/uc?id=FILE_ID
-  // - https://docs.google.com/uc?id=FILE_ID
-  if (trimmed.includes("drive.google.com") || trimmed.includes("docs.google.com")) {
+  // If already proxied, Base64 or local public asset, return as-is
+  if (
+    trimmed.startsWith("/api/v1/image-proxy") ||
+    trimmed.startsWith("data:image/") ||
+    trimmed.startsWith("/brand/") ||
+    trimmed.startsWith("/branding/") ||
+    trimmed.startsWith("/uploads/") ||
+    trimmed.startsWith("/models/")
+  ) {
+    return trimmed;
+  }
+
+  // Handle Google Drive links (including sharing links, uc, open, file/d/, and thumbnail links)
+  if (
+    trimmed.includes("drive.google.com") ||
+    trimmed.includes("docs.google.com") ||
+    trimmed.includes("googleusercontent.com") ||
+    trimmed.startsWith("thumbnail?id=") ||
+    trimmed.startsWith("/thumbnail?id=") ||
+    trimmed.startsWith("https://drive.google.com/thumbnail")
+  ) {
     const fileIdMatch =
       trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
       trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
 
     if (fileIdMatch && fileIdMatch[1]) {
-      const fileId = fileIdMatch[1];
-      // Google Drive thumbnail endpoint serves the high-resolution raw image without auth/CORS restrictions
-      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+      return `/api/v1/image-proxy?id=${fileIdMatch[1]}`;
     }
+    return `/api/v1/image-proxy?url=${encodeURIComponent(trimmed)}`;
   }
 
   // Handle Dropbox links
   if (trimmed.includes("dropbox.com")) {
-    return trimmed.replace("dl=0", "raw=1").replace("www.dropbox.com", "dl.dropboxusercontent.com");
+    return trimmed
+      .replace("dl=0", "raw=1")
+      .replace("www.dropbox.com", "dl.dropboxusercontent.com");
   }
 
   return trimmed;

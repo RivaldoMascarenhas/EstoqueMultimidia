@@ -242,15 +242,30 @@ export class ShiftService {
         updatedList.push(record);
       }
 
+      let validUserId: string | null = null;
+      if (userId) {
+        const userExists = await tx.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        });
+        if (userExists) {
+          validUserId = userExists.id;
+        }
+      }
+
       // Trilha de auditoria
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: "UPDATE_SHIFT_CONFIGS",
-          entity: "ShiftConfig",
-          details: { updatedConfigs: newConfigs },
-        },
-      });
+      try {
+        await tx.auditLog.create({
+          data: {
+            userId: validUserId,
+            action: "UPDATE_SHIFT_CONFIGS",
+            entity: "ShiftConfig",
+            details: { updatedConfigs: newConfigs },
+          },
+        });
+      } catch (logErr) {
+        console.warn("Falha ao registrar auditLog em updateShiftConfigs:", logErr);
+      }
 
       // Sincronizar o turno de todas as solicitações cadastradas de acordo com as novas faixas
       const allReqs = await tx.request.findMany({

@@ -4,11 +4,11 @@ from app.database import Base
 
 
 class EventParticipant(Base):
-    __tablename__ = "event_participants"
+    __tablename__ = "EventParticipant"
 
     id = Column(String(50), primary_key=True, index=True)
-    eventId = Column(String(50), ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
-    personId = Column(String(50), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True)
+    eventId = Column(String(50), ForeignKey("Event.id", ondelete="CASCADE"), nullable=False, index=True)
+    personId = Column(String(50), ForeignKey("Person.id", ondelete="CASCADE"), nullable=False, index=True)
     ticketNumber = Column(Integer, nullable=False)
     category = Column(String(50), nullable=True)
     status = Column(String(50), default="ACTIVE", nullable=False)

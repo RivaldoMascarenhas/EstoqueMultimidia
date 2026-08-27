@@ -57,7 +57,7 @@ export async function GET(
               where: { eventId },
               select: { method: true, capturedAt: true, confidence: true },
             },
-            winners: {
+            drawsWon: {
               where: { eventId },
               include: {
                 prize: {
@@ -88,7 +88,7 @@ export async function GET(
     const rows = participants.map((p) => {
       const presence = p.person.presences?.[0];
       const hasPresence = Boolean(presence);
-      const winner = p.person.winners?.[0];
+      const winner = p.person.drawsWon?.[0];
 
       let formattedDate = "";
       if (presence?.capturedAt) {
@@ -98,7 +98,7 @@ export async function GET(
 
       let methodLabel = "Nenhum";
       if (hasPresence) {
-        methodLabel = presence?.method === "FACIAL" ? "Biometria Facial" : "Manual / Operador";
+        methodLabel = presence?.method === "FACE" ? "Biometria Facial" : "Manual / Operador";
       }
 
       const drawStatus = winner ? "CONTEMPLADO" : "NÃO SORTEADO";

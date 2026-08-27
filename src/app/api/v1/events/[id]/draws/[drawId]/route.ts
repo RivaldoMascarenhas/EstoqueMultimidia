@@ -41,9 +41,9 @@ export async function DELETE(
     });
 
     return NextResponse.json({
-      success: true,
       message: "Sorteio anulado e prêmio devolvido para a fila com sucesso!",
       ...result,
+      success: true,
     });
   } catch (err: any) {
     return NextResponse.json(

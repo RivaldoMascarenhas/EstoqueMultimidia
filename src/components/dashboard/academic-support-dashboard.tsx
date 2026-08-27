@@ -28,18 +28,21 @@ interface AcademicSupportDashboardProps {
 export function AcademicSupportDashboard({ userName, userRole }: AcademicSupportDashboardProps) {
   const [requests, setRequests] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [shiftConfigs, setShiftConfigs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAcademicData = async () => {
     try {
       setIsLoading(true);
-      const [reqRes, roomRes] = await Promise.all([
+      const [reqRes, roomRes, shiftRes] = await Promise.all([
         fetch("/api/v1/requests"),
         fetch("/api/v1/rooms?activeOnly=true"),
+        fetch("/api/v1/shift-config"),
       ]);
 
       const reqJson = await reqRes.json();
       const roomJson = await roomRes.json();
+      const shiftJson = await shiftRes.json();
 
       if (reqJson && reqJson.success && Array.isArray(reqJson.data)) {
         setRequests(reqJson.data);
@@ -51,6 +54,10 @@ export function AcademicSupportDashboard({ userName, userRole }: AcademicSupport
         setRooms(roomJson.data);
       } else {
         setRooms([]);
+      }
+
+      if (shiftJson && shiftJson.success && shiftJson.data?.configs) {
+        setShiftConfigs(shiftJson.data.configs);
       }
     } catch (e) {
       console.error("Erro ao carregar dados do painel acadêmico:", e);
@@ -388,9 +395,19 @@ export function AcademicSupportDashboard({ userName, userRole }: AcademicSupport
                 <span>Horários dos Turnos</span>
               </div>
               <ul className="text-[11px] text-muted-foreground space-y-1">
-                <li>🌅 <strong>Manhã:</strong> 07:00 às 12:00</li>
-                <li>☀️ <strong>Tarde:</strong> 12:00 às 18:00</li>
-                <li>🌙 <strong>Noite:</strong> 18:00 às 22:30</li>
+                {shiftConfigs.length > 0 ? (
+                  shiftConfigs.map((sc) => (
+                    <li key={sc.shift}>
+                      {sc.emoji || "📅"} <strong>{sc.label}:</strong> {sc.startTime} às {sc.endTime}
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li>🌅 <strong>Manhã:</strong> 07:00 às 12:00</li>
+                    <li>☀️ <strong>Tarde:</strong> 12:00 às 18:00</li>
+                    <li>🌙 <strong>Noite:</strong> 18:00 às 22:30</li>
+                  </>
+                )}
               </ul>
             </Card>
 

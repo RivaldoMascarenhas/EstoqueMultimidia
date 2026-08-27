@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class AuditLog(Base):
-    __tablename__ = "audit_logs"
+    __tablename__ = "AuditLog"
 
     id = Column(String(50), primary_key=True, index=True)
     userId = Column(String(50), nullable=True, index=True)

@@ -300,6 +300,8 @@ export class DrawService {
     operatorUserId?: string | null;
     ipAddress?: string | null;
   }) {
+    const { winnerId, delivered = true, notes, operatorUserId, ipAddress } = params;
+
     let validOperatorUserId: string | null = null;
     if (operatorUserId) {
       const userExists = await prisma.user.findUnique({

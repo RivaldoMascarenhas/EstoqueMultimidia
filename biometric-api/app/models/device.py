@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class Device(Base):
-    __tablename__ = "devices"
+    __tablename__ = "Device"
 
     id = Column(String(50), primary_key=True, index=True)
     identifier = Column(String(100), unique=True, index=True, nullable=False)

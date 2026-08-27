@@ -12,8 +12,9 @@ export const createPersonSchema = z.object({
   email: z.string().email("E-mail inválido").optional().nullable().or(z.literal("")),
   phone: z.string().max(50).optional().nullable(),
   category: z.string().max(50).optional().nullable(),
+  affiliation: z.string().max(100).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
-  active: z.boolean().default(true),
+  active: z.boolean().default(true).optional(),
 });
 
 export const updatePersonSchema = createPersonSchema.partial();

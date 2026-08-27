@@ -4,7 +4,7 @@ from app.database import Base
 
 
 class Event(Base):
-    __tablename__ = "events"
+    __tablename__ = "Event"
 
     id = Column(String(50), primary_key=True, index=True)
     name = Column(String(255), nullable=False)

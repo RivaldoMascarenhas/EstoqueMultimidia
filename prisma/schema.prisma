@@ -216,6 +216,7 @@ model Person {
   phone        String?
   photoUrl     String?
   category     String?   // Aluno, Professor, Técnico, Convidado, etc.
+  affiliation  String?   // Curso / Departamento / Filiação institucional
   active       Boolean   @default(true)
   notes        String?
   createdAt    DateTime  @default(now())
@@ -241,10 +242,11 @@ model FaceEmbedding {
   id        String   @id @default(cuid())
   personId  String
   person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
-  model     String   @default("dlib_face_recognition")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  model     String                          @default("dlib_face_recognition")
+  embedding Unsupported("vector(128)")?
+  active    Boolean                         @default(true)
+  createdAt DateTime                        @default(now())
+  updatedAt DateTime                        @updatedAt
 
   @@index([personId])
   @@index([active])

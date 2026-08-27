@@ -68,7 +68,7 @@ class RecognitionService:
 
         if is_postgres:
             insert_sql = text("""
-                INSERT INTO face_embeddings (id, "personId", embedding, model, active, "createdAt", "updatedAt")
+                INSERT INTO "FaceEmbedding" (id, "personId", embedding, model, active, "createdAt", "updatedAt")
                 VALUES (:id, :person_id, (:vec)::vector, 'dlib_face_recognition', true, :now, :now);
             """)
             db.execute(insert_sql, {
@@ -166,9 +166,9 @@ class RecognitionService:
                 SELECT
                     fe."personId",
                     fe.embedding <-> (:vec)::vector AS distance
-                FROM face_embeddings fe
-                INNER JOIN event_participants ep ON ep."personId" = fe."personId"
-                INNER JOIN persons p ON p.id = fe."personId"
+                FROM "FaceEmbedding" fe
+                INNER JOIN "EventParticipant" ep ON ep."personId" = fe."personId"
+                INNER JOIN "Person" p ON p.id = fe."personId"
                 WHERE ep."eventId" = :event_id
                   AND ep.status = 'ACTIVE'
                   AND fe.active = true
@@ -259,23 +259,66 @@ class RecognitionService:
                 )
 
             now = datetime.now(timezone.utc)
-            presence = Presence(
-                id=str(uuid.uuid4()),
-                eventId=event_id,
-                personId=person.id,
-                method="FACE",
-                confidence=confidence,
-                distance=round(min_distance, 4),
-                capturedAt=now,
-                deviceId=device_id,
-                operatorUserId=operator_user_id,
-                status="REGISTERED",
-            )
-            db.add(presence)
+            presence_id = str(uuid.uuid4())
+
+            # Validate foreign keys
+            valid_operator_id = None
+            if operator_user_id:
+                try:
+                    if is_postgres:
+                        u = db.execute(text('SELECT id FROM "User" WHERE id = :uid'), {"uid": operator_user_id}).first()
+                        if u:
+                            valid_operator_id = operator_user_id
+                    else:
+                        valid_operator_id = operator_user_id
+                except Exception:
+                    valid_operator_id = None
+
+            valid_device_id = None
+            if device_id:
+                try:
+                    if is_postgres:
+                        d = db.execute(text('SELECT id FROM "Device" WHERE id = :did'), {"did": device_id}).first()
+                        if d:
+                            valid_device_id = device_id
+                    else:
+                        valid_device_id = device_id
+                except Exception:
+                    valid_device_id = None
 
             try:
+                if is_postgres:
+                    insert_presence_sql = text("""
+                        INSERT INTO "Presence" (id, "eventId", "personId", method, confidence, distance, "capturedAt", "deviceId", "operatorUserId", status, "createdAt")
+                        VALUES (:id, :event_id, :person_id, 'FACE'::"PresenceMethod", :confidence, :distance, :captured_at, :device_id, :operator_id, 'REGISTERED', :now);
+                    """)
+                    db.execute(insert_presence_sql, {
+                        "id": presence_id,
+                        "event_id": event_id,
+                        "person_id": person.id,
+                        "confidence": confidence,
+                        "distance": round(min_distance, 4),
+                        "captured_at": now,
+                        "device_id": valid_device_id,
+                        "operator_id": valid_operator_id,
+                        "now": now,
+                    })
+                else:
+                    presence = Presence(
+                        id=presence_id,
+                        eventId=event_id,
+                        personId=person.id,
+                        method="FACE",
+                        confidence=confidence,
+                        distance=round(min_distance, 4),
+                        capturedAt=now,
+                        deviceId=valid_device_id,
+                        operatorUserId=valid_operator_id,
+                        status="REGISTERED",
+                    )
+                    db.add(presence)
+
                 db.commit()
-                db.refresh(presence)
             except IntegrityError:
                 db.rollback()
                 return RecognizeResponse(
@@ -301,7 +344,7 @@ class RecognitionService:
                 db=db,
                 action="PRESENCE_REGISTERED",
                 entity="Presence",
-                entity_id=presence.id,
+                entity_id=presence_id,
                 user_id=operator_user_id,
                 ip_address=ip,
                 details={
@@ -338,8 +381,8 @@ class RecognitionService:
         if is_postgres:
             global_sql = text("""
                 SELECT fe."personId", fe.embedding <-> (:vec)::vector AS distance
-                FROM face_embeddings fe
-                INNER JOIN persons p ON p.id = fe."personId"
+                FROM "FaceEmbedding" fe
+                INNER JOIN "Person" p ON p.id = fe."personId"
                 WHERE fe.active = true AND p.active = true
                 ORDER BY fe.embedding <-> (:vec)::vector ASC
                 LIMIT 1;
@@ -423,7 +466,7 @@ class RecognitionService:
             if is_postgres:
                 q = text("""
                     SELECT fe.embedding <-> (:vec)::vector AS distance
-                    FROM face_embeddings fe
+                    FROM "FaceEmbedding" fe
                     WHERE fe."personId" = :person_id AND fe.active = true
                     LIMIT 1;
                 """)
@@ -489,8 +532,8 @@ class RecognitionService:
                 SELECT
                     p.id, p.name, p.registration, p.cpf, p.email, p."photoUrl", p.category,
                     fe.embedding <-> (:vec)::vector AS distance
-                FROM face_embeddings fe
-                INNER JOIN persons p ON p.id = fe."personId"
+                FROM "FaceEmbedding" fe
+                INNER JOIN "Person" p ON p.id = fe."personId"
                 WHERE fe.active = true AND p.active = true
                 ORDER BY fe.embedding <-> (:vec)::vector ASC
                 LIMIT 1;

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requireSession } from "@/lib/api-guard";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const { error } = await requireSession();

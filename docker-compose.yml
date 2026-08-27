@@ -40,9 +40,8 @@ services:
       BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:-unifap_biometric_secret_token_2026_internal_only}
       RECOGNITION_TOLERANCE: ${RECOGNITION_TOLERANCE:-0.60}
       PORT: 8000
-    depends_on:
-      postgres:
-        condition: service_healthy
+    ports:
+      - "8000:8000"
     networks:
       - unifap-network
 

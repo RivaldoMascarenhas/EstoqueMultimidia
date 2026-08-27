@@ -213,12 +213,18 @@
   animation: hudPulse 3s ease-in-out infinite;
 }
 
-@keyframes progress {
-  0% {
-    width: 0%;
+@keyframes laserSweepVertical {
+  0%, 100% {
+    transform: translateY(-90px);
+    opacity: 0.3;
   }
-  100% {
-    width: 100%;
+  50% {
+    transform: translateY(90px);
+    opacity: 1;
   }
+}
+
+.animate-laser-sweep {
+  animation: laserSweepVertical 2.2s ease-in-out infinite;
 }
 

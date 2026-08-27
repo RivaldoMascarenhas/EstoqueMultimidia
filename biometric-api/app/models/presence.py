@@ -4,16 +4,16 @@ from app.database import Base
 
 
 class Presence(Base):
-    __tablename__ = "presences"
+    __tablename__ = "Presence"
 
     id = Column(String(50), primary_key=True, index=True)
-    eventId = Column(String(50), ForeignKey("events.id", ondelete="CASCADE"), nullable=False, index=True)
-    personId = Column(String(50), ForeignKey("persons.id", ondelete="CASCADE"), nullable=False, index=True)
+    eventId = Column(String(50), ForeignKey("Event.id", ondelete="CASCADE"), nullable=False, index=True)
+    personId = Column(String(50), ForeignKey("Person.id", ondelete="CASCADE"), nullable=False, index=True)
     method = Column(String(20), default="FACE", nullable=False)  # FACE, MANUAL
     confidence = Column(Float, nullable=True)
     distance = Column(Float, nullable=True)
     capturedAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
-    deviceId = Column(String(50), ForeignKey("devices.id", ondelete="SET NULL"), nullable=True)
+    deviceId = Column(String(50), ForeignKey("Device.id", ondelete="SET NULL"), nullable=True)
     operatorUserId = Column(String(50), nullable=True)
     status = Column(String(20), default="REGISTERED", nullable=False)  # REGISTERED, VALIDATED, REVOKED
     createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

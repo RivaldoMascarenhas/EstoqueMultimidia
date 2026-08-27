@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
+    git \
     libopenblas-dev \
     liblapack-dev \
     libx11-dev \
@@ -19,7 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -U pip setuptools wheel && \
+RUN pip install --no-cache-dir setuptools==69.5.1 wheel && \
+    pip install --no-cache-dir git+https://github.com/ageitgey/face_recognition_models.git && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . .

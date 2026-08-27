@@ -17,6 +17,7 @@ import {
   RefreshCw,
   X,
   Sparkles,
+  SwitchCamera,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +44,7 @@ export function BiometricEnrollModal({
   const faceDetectorRef = useRef<FaceDetector | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const isMountedRef = useRef<boolean>(true);
+  const currentStreamRef = useRef<MediaStream | null>(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
@@ -51,16 +53,21 @@ export function BiometricEnrollModal({
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [statusText, setStatusText] = useState("Iniciando câmera...");
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
 
-  // Generate crop blob
+  // Crop face blob from video
   const cropFaceFromVideo = useCallback(
-    (video: HTMLVideoElement, box: { originX: number; originY: number; width: number; height: number }): Promise<Blob | null> => {
+    (
+      video: HTMLVideoElement,
+      box: { originX: number; originY: number; width: number; height: number }
+    ): Promise<Blob | null> => {
       const vWidth = video.videoWidth;
       const vHeight = video.videoHeight;
       if (!vWidth || !vHeight) return Promise.resolve(null);
 
-      const marginH = box.width * 0.2;
-      const marginV = box.height * 0.25;
+      const marginH = box.width * 0.25;
+      const marginV = box.height * 0.3;
 
       const cropX = Math.max(0, box.originX - marginH);
       const cropY = Math.max(0, box.originY - marginV);
@@ -83,11 +90,59 @@ export function BiometricEnrollModal({
     []
   );
 
-  // Initialize camera and MediaPipe
+  // Start Camera Stream
+  const startCamera = useCallback(async (deviceId?: string) => {
+    if (currentStreamRef.current) {
+      currentStreamRef.current.getTracks().forEach((t) => t.stop());
+      currentStreamRef.current = null;
+    }
+
+    try {
+      setCameraReady(false);
+      setStatusText("Conectando à câmera...");
+
+      const constraints: MediaStreamConstraints = {
+        video: deviceId
+          ? { deviceId: { exact: deviceId } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+        audio: false,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (!isMountedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      currentStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current && isMountedRef.current) {
+            videoRef.current.play().catch(() => {});
+            setCameraReady(true);
+            setStatusText("Posicione o rosto no centro do visor");
+          }
+        };
+      }
+
+      // Enumerate devices for switcher
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevs = devices.filter((d) => d.kind === "videoinput");
+        setAvailableDevices(videoDevs);
+      } catch {}
+    } catch (err: any) {
+      if (!isMountedRef.current) return;
+      setStatusText(`Erro ao abrir câmera: ${err.message}`);
+      toast.error("Não foi possível acessar a câmera selecionada.");
+    }
+  }, []);
+
+  // Initialize MediaPipe & start default camera on open
   useEffect(() => {
     if (!isOpen || !person) return;
     isMountedRef.current = true;
-    let localStream: MediaStream | null = null;
 
     async function init() {
       try {
@@ -104,7 +159,8 @@ export function BiometricEnrollModal({
             delegate: "GPU",
           },
           runningMode: "VIDEO",
-          minDetectionConfidence: 0.5,
+          minDetectionConfidence: 0.35,
+          minSuppressionThreshold: 0.3,
         });
 
         if (!isMountedRef.current) {
@@ -113,33 +169,10 @@ export function BiometricEnrollModal({
         }
 
         faceDetectorRef.current = detector;
-        setStatusText("Iniciando câmera...");
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
-          audio: false,
-        });
-
-        if (!isMountedRef.current) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        localStream = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            if (videoRef.current && isMountedRef.current) {
-              videoRef.current.play();
-              setCameraReady(true);
-              setStatusText("Posicione o rosto no centro do visor");
-            }
-          };
-        }
+        await startCamera(selectedDeviceId || undefined);
       } catch (err: any) {
         if (!isMountedRef.current) return;
-        setStatusText(`Erro ao iniciar câmera: ${err.message}`);
-        toast.error("Não foi possível acessar a câmera do dispositivo.");
+        setStatusText(`Erro ao iniciar detector: ${err.message}`);
       }
     }
 
@@ -148,7 +181,10 @@ export function BiometricEnrollModal({
     return () => {
       isMountedRef.current = false;
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
-      if (localStream) localStream.getTracks().forEach((t) => t.stop());
+      if (currentStreamRef.current) {
+        currentStreamRef.current.getTracks().forEach((t) => t.stop());
+        currentStreamRef.current = null;
+      }
       if (videoRef.current && videoRef.current.srcObject) {
         (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
         videoRef.current.srcObject = null;
@@ -165,7 +201,7 @@ export function BiometricEnrollModal({
       setCapturedBlob(null);
       setCapturedPreview(null);
     };
-  }, [isOpen, person]);
+  }, [isOpen, person, selectedDeviceId, startCamera]);
 
   // Detection loop
   useEffect(() => {
@@ -187,7 +223,7 @@ export function BiometricEnrollModal({
         }
 
         const ctx = canvas.getContext("2d");
-        if (ctx && now - lastTime >= 100) {
+        if (ctx && now - lastTime >= 66) {
           lastTime = now;
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -208,18 +244,56 @@ export function BiometricEnrollModal({
               const cX = video.videoWidth / 2;
               const cY = video.videoHeight / 2;
               const centered =
-                Math.abs(fX - cX) <= video.videoWidth * 0.22 &&
-                Math.abs(fY - cY) <= video.videoHeight * 0.22 &&
-                box.width >= video.videoWidth * 0.16;
+                Math.abs(fX - cX) <= video.videoWidth * 0.24 &&
+                Math.abs(fY - cY) <= video.videoHeight * 0.24 &&
+                box.width >= video.videoWidth * 0.15;
 
               setIsCentered(centered);
-              setStatusText(centered ? "Rosto perfeito! Clique em Capturar." : "Aproxime e centralize o rosto.");
+              setStatusText(
+                centered ? "✓ Rosto perfeito! Clique em Capturar." : "Aproxime e centralize o rosto no visor."
+              );
 
-              // Draw green HUD
+              // Draw High-Tech Green / Amber HUD Frame
               ctx.save();
               ctx.strokeStyle = centered ? "#22c55e" : "#f59e0b";
-              ctx.lineWidth = 4;
+              ctx.lineWidth = 3.5;
               ctx.strokeRect(box.originX, box.originY, box.width, box.height);
+
+              // Corner brackets
+              const cornerLen = Math.min(24, box.width * 0.25);
+              ctx.strokeStyle = centered ? "#4ade80" : "#fbbf24";
+              ctx.lineWidth = 4.5;
+              ctx.shadowColor = centered ? "rgba(34, 197, 94, 0.7)" : "rgba(245, 158, 11, 0.7)";
+              ctx.shadowBlur = 8;
+
+              // Top-Left
+              ctx.beginPath();
+              ctx.moveTo(box.originX, box.originY + cornerLen);
+              ctx.lineTo(box.originX, box.originY);
+              ctx.lineTo(box.originX + cornerLen, box.originY);
+              ctx.stroke();
+
+              // Top-Right
+              ctx.beginPath();
+              ctx.moveTo(box.originX + box.width - cornerLen, box.originY);
+              ctx.lineTo(box.originX + box.width, box.originY);
+              ctx.lineTo(box.originX + box.width, box.originY + cornerLen);
+              ctx.stroke();
+
+              // Bottom-Left
+              ctx.beginPath();
+              ctx.moveTo(box.originX, box.originY + box.height - cornerLen);
+              ctx.lineTo(box.originX, box.originY + box.height);
+              ctx.lineTo(box.originX + cornerLen, box.originY + box.height);
+              ctx.stroke();
+
+              // Bottom-Right
+              ctx.beginPath();
+              ctx.moveTo(box.originX + box.width - cornerLen, box.originY + box.height);
+              ctx.lineTo(box.originX + box.width, box.originY + box.height);
+              ctx.lineTo(box.originX + box.width, box.originY + box.height - cornerLen);
+              ctx.stroke();
+
               ctx.restore();
             } else {
               setFaceDetected(false);
@@ -262,10 +336,24 @@ export function BiometricEnrollModal({
       if (blob) {
         setCapturedBlob(blob);
         setCapturedPreview(URL.createObjectURL(blob));
+        setStatusText("Foto capturada com sucesso! Revise antes de salvar.");
       }
     } catch (err: any) {
       toast.error(`Falha ao capturar imagem: ${err.message}`);
     }
+  };
+
+  // Switch camera device
+  const handleSwitchCamera = () => {
+    if (availableDevices.length <= 1) {
+      toast.info("Apenas uma câmera detectada neste dispositivo.");
+      return;
+    }
+    const currentIndex = availableDevices.findIndex((d) => d.deviceId === selectedDeviceId);
+    const nextIndex = (currentIndex + 1) % availableDevices.length;
+    const nextDev = availableDevices[nextIndex];
+    setSelectedDeviceId(nextDev.deviceId);
+    startCamera(nextDev.deviceId);
   };
 
   // Submit enrollment
@@ -286,7 +374,7 @@ export function BiometricEnrollModal({
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Erro ao salvar biometria.");
+        throw new Error(data.error || data.message || "Erro ao salvar biometria.");
       }
 
       toast.success(`Biometria cadastrada com sucesso para ${person.name}!`);
@@ -301,13 +389,28 @@ export function BiometricEnrollModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden">
+      <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden shadow-2xl">
         <DialogHeader className="p-5 border-b border-border/80 bg-muted/20">
-          <DialogTitle className="text-base font-bold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            Cadastro de Biometria Facial
-          </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-emerald-500" />
+              Cadastro de Biometria Facial
+            </DialogTitle>
+
+            {availableDevices.length > 1 && (
+              <button
+                type="button"
+                onClick={handleSwitchCamera}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-muted hover:bg-accent border border-border text-foreground transition-colors cursor-pointer"
+                title="Trocar Câmera"
+              >
+                <SwitchCamera className="w-3.5 h-3.5" />
+                <span>Trocar Câmera</span>
+              </button>
+            )}
+          </div>
+
+          <DialogDescription className="text-xs text-muted-foreground mt-1">
             Cadastrando biometria para:{" "}
             <strong className="text-foreground font-semibold">{person?.name}</strong>{" "}
             {person?.registration && `(Matrícula: ${person.registration})`}
@@ -315,22 +418,40 @@ export function BiometricEnrollModal({
         </DialogHeader>
 
         <div className="p-5 space-y-4">
-          <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-black flex items-center justify-center">
-            {capturedPreview ? (
-              <img src={capturedPreview} alt="Recorte Facial" className="h-full w-full object-contain" />
-            ) : (
-              <>
-                <video ref={videoRef} className="h-full w-full object-cover -scale-x-100" playsInline muted />
-                <canvas ref={canvasRef} className="absolute inset-0 h-full w-full object-cover -scale-x-100 pointer-events-none" />
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <div className="h-44 w-36 rounded-3xl border-2 border-dashed border-white/20" />
-                </div>
-              </>
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black flex items-center justify-center">
+            {/* Live Video & Canvas (Always in DOM to avoid black screens) */}
+            <video
+              ref={videoRef}
+              className="h-full w-full object-cover -scale-x-100"
+              playsInline
+              muted
+            />
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 h-full w-full object-cover -scale-x-100 pointer-events-none"
+            />
+
+            {/* Target Outline Guide */}
+            {!capturedPreview && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="h-[68%] max-h-[300px] min-w-[170px] aspect-[3/4] rounded-3xl border-2 border-dashed border-white/85 shadow-[0_0_25px_rgba(255,255,255,0.25)]" />
+              </div>
+            )}
+
+            {/* Captured Preview Overlay (Shows on top of video, never unmounting video) */}
+            {capturedPreview && (
+              <div className="absolute inset-0 z-20 bg-black flex items-center justify-center animate-in fade-in duration-200">
+                <img
+                  src={capturedPreview}
+                  alt="Recorte Facial"
+                  className="h-full w-full object-contain"
+                />
+              </div>
             )}
 
             {/* Status bar */}
-            <div className="absolute bottom-2 inset-x-2 flex items-center justify-center">
-              <div className="rounded-full bg-black/70 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-sm border border-white/10">
+            <div className="absolute bottom-3 inset-x-3 z-30 flex items-center justify-center">
+              <div className="rounded-full bg-black/80 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/20 shadow-lg">
                 {statusText}
               </div>
             </div>
@@ -341,7 +462,7 @@ export function BiometricEnrollModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent rounded-xl transition-colors"
+              className="px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent rounded-xl transition-colors cursor-pointer"
             >
               Cancelar
             </button>
@@ -354,8 +475,12 @@ export function BiometricEnrollModal({
                     onClick={() => {
                       setCapturedBlob(null);
                       setCapturedPreview(null);
+                      setStatusText("Posicione o rosto no centro do visor");
+                      if (videoRef.current) {
+                        videoRef.current.play().catch(() => {});
+                      }
                     }}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-muted hover:bg-muted/80 rounded-xl transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-muted hover:bg-muted/80 rounded-xl transition-colors cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Capturar Novamente
@@ -364,9 +489,13 @@ export function BiometricEnrollModal({
                     type="button"
                     onClick={handleSubmitEnroll}
                     disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4" />
+                    )}
                     Salvar Biometria
                   </button>
                 </>
@@ -375,7 +504,7 @@ export function BiometricEnrollModal({
                   type="button"
                   onClick={handleCapture}
                   disabled={!isCentered}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Camera className="h-4 w-4" />
                   Capturar Foto

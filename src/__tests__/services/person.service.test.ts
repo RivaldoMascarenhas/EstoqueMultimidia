@@ -32,6 +32,7 @@ describe("PersonService", () => {
       email: "gabriel@unifap.br",
       phone: null,
       category: "Aluno",
+      affiliation: null,
       photoUrl: null,
       active: true,
       notes: null,

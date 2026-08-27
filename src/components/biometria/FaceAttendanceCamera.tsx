@@ -11,10 +11,14 @@ import {
   Loader2,
   RefreshCw,
   Maximize2,
+  Minimize2,
   Volume2,
   VolumeX,
+  SwitchCamera,
+  Sparkles,
 } from "lucide-react";
 import { BiometricRecognizeResult } from "@/services/biometric-api.service";
+import { toast } from "sonner";
 
 export type RecognitionState =
   | "IDLE"
@@ -51,30 +55,30 @@ export const RECOGNITION_STATE_CONFIG: Record<
   DETECTING: {
     title: "Procurando Rostos",
     description: "Posicione seu rosto em frente à câmera...",
-    color: "text-slate-300",
-    borderColor: "border-slate-600/60",
-    badgeBg: "bg-slate-800/80 text-slate-300",
-    iconColor: "text-slate-400",
-  },
-  FACE_FOUND: {
-    title: "Rosto Detectado",
-    description: "Ajustando enquadramento...",
     color: "text-emerald-400",
-    borderColor: "border-emerald-500/80",
+    borderColor: "border-emerald-500/60",
     badgeBg: "bg-emerald-950/80 text-emerald-300",
     iconColor: "text-emerald-400",
   },
+  FACE_FOUND: {
+    title: "Rosto Alinhado",
+    description: "Identificando biometria...",
+    color: "text-emerald-300",
+    borderColor: "border-emerald-400",
+    badgeBg: "bg-emerald-950 text-emerald-200",
+    iconColor: "text-emerald-300",
+  },
   FACE_CENTERING: {
     title: "Centralize seu Rosto",
-    description: "Aproxime-se e alinhe seu rosto no centro da tela.",
+    description: "Aproxime-se e alinhe seu rosto dentro da moldura.",
     color: "text-amber-400",
     borderColor: "border-amber-500/80",
     badgeBg: "bg-amber-950/80 text-amber-300",
     iconColor: "text-amber-400",
   },
   PROCESSING: {
-    title: "Identificando Biometria...",
-    description: "Consultando banco vetorial pgvector...",
+    title: "Consultando Banco...",
+    description: "Pesquisando vetores faciais no pgvector...",
     color: "text-indigo-400",
     borderColor: "border-indigo-500/80",
     badgeBg: "bg-indigo-950/80 text-indigo-300",
@@ -82,7 +86,7 @@ export const RECOGNITION_STATE_CONFIG: Record<
   },
   REGISTERED: {
     title: "Presença Confirmada!",
-    description: "Identidade confirmada e presença registrada com sucesso.",
+    description: "Identidade validada e presença registrada com sucesso.",
     color: "text-emerald-400",
     borderColor: "border-emerald-500",
     badgeBg: "bg-emerald-900 text-emerald-200",
@@ -98,7 +102,7 @@ export const RECOGNITION_STATE_CONFIG: Record<
   },
   NOT_PARTICIPANT: {
     title: "Não Inscrito no Evento",
-    description: "Pessoa identificada, mas não está inscrita neste evento.",
+    description: "Rosto cadastrado no sistema, mas não há inscrição para este evento.",
     color: "text-orange-400",
     borderColor: "border-orange-500",
     badgeBg: "bg-orange-950 text-orange-200",
@@ -106,7 +110,7 @@ export const RECOGNITION_STATE_CONFIG: Record<
   },
   NOT_RECOGNIZED: {
     title: "Rosto Não Reconhecido",
-    description: "Não foi possível identificar seu cadastro biométrico.",
+    description: "Nenhum cadastro biométrico correspondente encontrado.",
     color: "text-rose-400",
     borderColor: "border-rose-500",
     badgeBg: "bg-rose-950 text-rose-200",
@@ -151,6 +155,7 @@ export function FaceAttendanceCamera({
   const lastRecognitionTimeRef = useRef<number>(0);
   const recognizingRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
+  const currentStreamRef = useRef<MediaStream | null>(null);
 
   const [recognitionState, setRecognitionState] = useState<RecognitionState>("IDLE");
   const [statusMessage, setStatusMessage] = useState<string>("Iniciando câmera...");
@@ -159,7 +164,33 @@ export function FaceAttendanceCamera({
   const [cameraReady, setCameraReady] = useState<boolean>(false);
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Stop camera tracks cleanly so hardware LED turns off immediately
+  const stopCameraStream = useCallback(() => {
+    if (currentStreamRef.current) {
+      try {
+        currentStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      } catch {}
+      currentStreamRef.current = null;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      try {
+        const s = videoRef.current.srcObject as MediaStream;
+        s.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      } catch {}
+      videoRef.current.srcObject = null;
+    }
+    setCameraReady(false);
+  }, []);
 
   // Web Audio API feedback tones
   const playFeedbackSound = useCallback(
@@ -177,33 +208,33 @@ export function FaceAttendanceCamera({
         if (type === "success") {
           osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
           osc.frequency.setValueAtTime(880.0, ctx.currentTime + 0.1); // A5
-          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
           gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
           osc.start();
           osc.stop(ctx.currentTime + 0.35);
         } else if (type === "warning") {
           osc.frequency.setValueAtTime(440, ctx.currentTime);
           osc.frequency.setValueAtTime(370, ctx.currentTime + 0.12);
-          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.setValueAtTime(0.15, ctx.currentTime);
           gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
           osc.start();
           osc.stop(ctx.currentTime + 0.3);
         } else {
           osc.frequency.setValueAtTime(300, ctx.currentTime);
           osc.frequency.setValueAtTime(200, ctx.currentTime + 0.15);
-          gain.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
           gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
           osc.start();
           osc.stop(ctx.currentTime + 0.35);
         }
       } catch {
-        // restricted before user interaction
+        // audio policy fallback
       }
     },
     [soundMuted]
   );
 
-  // Crop face from video frame with 20% horizontal and 25% vertical margins
+  // Crop face from video frame
   const generateFaceCropBlob = useCallback(
     async (
       video: HTMLVideoElement,
@@ -213,8 +244,8 @@ export function FaceAttendanceCamera({
       const vHeight = video.videoHeight;
       if (!vWidth || !vHeight) return null;
 
-      const marginH = box.width * 0.2;
-      const marginV = box.height * 0.25;
+      const marginH = box.width * 0.25;
+      const marginV = box.height * 0.3;
 
       const cropX = Math.max(0, box.originX - marginH);
       const cropY = Math.max(0, box.originY - marginV);
@@ -231,11 +262,98 @@ export function FaceAttendanceCamera({
       ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, offCanvas.width, offCanvas.height);
 
       return new Promise<Blob | null>((resolve) => {
-        offCanvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.9);
+        offCanvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);
       });
     },
     []
   );
+
+  // Start Camera Stream with device enumeration
+  const startCamera = useCallback(
+    async (deviceId?: string) => {
+      stopCameraStream();
+
+      try {
+        setStatusMessage("Conectando à câmera...");
+
+        const targetId =
+          deviceId ||
+          (typeof window !== "undefined"
+            ? localStorage.getItem("unifap_selected_camera_id") || ""
+            : "");
+
+        const constraints: MediaStreamConstraints = {
+          video: targetId
+            ? { deviceId: { exact: targetId } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+          audio: false,
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (!isMountedRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        currentStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            if (videoRef.current && isMountedRef.current) {
+              videoRef.current.play().catch(() => {});
+              setCameraReady(true);
+              setRecognitionState("DETECTING");
+              setStatusMessage("Aguardando participante...");
+            }
+          };
+        }
+
+        // List video input devices
+        try {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const videoDevs = devs.filter((d) => d.kind === "videoinput");
+          setAvailableDevices(videoDevs);
+          if (targetId) setSelectedDeviceId(targetId);
+          else if (videoDevs.length > 0) setSelectedDeviceId(videoDevs[0].deviceId);
+        } catch {}
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        setRecognitionState("ERROR");
+        setStatusMessage(
+          err.name === "NotAllowedError"
+            ? "Permissão da webcam negada no navegador. Permita o acesso."
+            : `Erro ao iniciar câmera: ${err.message}`
+        );
+      }
+    },
+    [stopCameraStream]
+  );
+
+  // Switch camera device
+  const handleSwitchCamera = async () => {
+    try {
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      const videoDevs = devs.filter((d) => d.kind === "videoinput");
+      setAvailableDevices(videoDevs);
+
+      if (videoDevs.length <= 1) {
+        toast.info("Apenas uma câmera física detectada.");
+        return;
+      }
+
+      const currentIndex = videoDevs.findIndex((d) => d.deviceId === selectedDeviceId);
+      const nextIndex = (currentIndex + 1) % videoDevs.length;
+      const nextDev = videoDevs[nextIndex];
+      setSelectedDeviceId(nextDev.deviceId);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("unifap_selected_camera_id", nextDev.deviceId);
+      }
+      toast.success(`Câmera alterada para: ${nextDev.label || `Câmera ${nextIndex + 1}`}`);
+      await startCamera(nextDev.deviceId);
+    } catch {
+      toast.error("Erro ao alternar câmera.");
+    }
+  };
 
   // Send crop to recognize endpoint
   const performRecognition = useCallback(
@@ -265,7 +383,7 @@ export function FaceAttendanceCamera({
         setRecognitionState(stateKey);
 
         if (result.status === "REGISTERED") {
-          setStatusMessage(`Presença confirmada: ${result.person?.name} (${result.person?.registration || "Inscrito"})`);
+          setStatusMessage(`Presença confirmada: ${result.person?.name}`);
           playFeedbackSound("success");
           if (onPresenceRecorded) onPresenceRecorded(result);
         } else if (result.status === "ALREADY_REGISTERED") {
@@ -275,7 +393,7 @@ export function FaceAttendanceCamera({
           setStatusMessage(result.message || "Pessoa identificada, mas não está inscrita neste evento.");
           playFeedbackSound("error");
         } else if (result.status === "NOT_RECOGNIZED") {
-          setStatusMessage("Rosto não reconhecido no evento.");
+          setStatusMessage("Rosto não reconhecido no sistema.");
           playFeedbackSound("error");
         } else {
           setStatusMessage(result.message || "Não foi possível registrar a presença.");
@@ -308,10 +426,9 @@ export function FaceAttendanceCamera({
     [eventId, deviceIdentifier, onPresenceRecorded, playFeedbackSound]
   );
 
-  // Initialize MediaPipe FaceDetector & Webcam
+  // Initialize MediaPipe FaceDetector & start camera
   useEffect(() => {
     isMountedRef.current = true;
-    let localStream: MediaStream | null = null;
 
     async function initialize() {
       try {
@@ -330,7 +447,8 @@ export function FaceAttendanceCamera({
             delegate: "GPU",
           },
           runningMode: "VIDEO",
-          minDetectionConfidence: 0.5,
+          minDetectionConfidence: 0.3,
+          minSuppressionThreshold: 0.3,
         });
 
         if (!isMountedRef.current) {
@@ -339,42 +457,11 @@ export function FaceAttendanceCamera({
         }
 
         faceDetectorRef.current = detector;
-        setStatusMessage("Iniciando câmera...");
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user",
-          },
-          audio: false,
-        });
-
-        if (!isMountedRef.current) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        localStream = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            if (videoRef.current && isMountedRef.current) {
-              videoRef.current.play();
-              setCameraReady(true);
-              setRecognitionState("DETECTING");
-              setStatusMessage("Aguardando participante...");
-            }
-          };
-        }
+        await startCamera();
       } catch (err: any) {
         if (!isMountedRef.current) return;
         setRecognitionState("ERROR");
-        setStatusMessage(
-          err.name === "NotAllowedError"
-            ? "Permissão da webcam negada no navegador. Permita o acesso."
-            : `Erro ao iniciar câmera: ${err.message}`
-        );
+        setStatusMessage(`Erro ao carregar detector: ${err.message}`);
       }
     }
 
@@ -385,13 +472,7 @@ export function FaceAttendanceCamera({
       if (animationFrameIdRef.current) {
         cancelAnimationFrame(animationFrameIdRef.current);
       }
-      if (localStream) {
-        localStream.getTracks().forEach((t) => t.stop());
-      }
-      if (videoRef.current && videoRef.current.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-        videoRef.current.srcObject = null;
-      }
+      stopCameraStream();
       if (faceDetectorRef.current) {
         try {
           faceDetectorRef.current.close();
@@ -399,9 +480,9 @@ export function FaceAttendanceCamera({
         faceDetectorRef.current = null;
       }
     };
-  }, []);
+  }, [startCamera, stopCameraStream]);
 
-  // Main Detection Loop with ~10 FPS throttle
+  // Main Detection Loop with ~15 FPS
   useEffect(() => {
     if (!cameraReady) return;
     let isRunning = true;
@@ -426,7 +507,7 @@ export function FaceAttendanceCamera({
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          if (now - lastDetectionTimeRef.current >= 100) {
+          if (now - lastDetectionTimeRef.current >= 66) {
             lastDetectionTimeRef.current = now;
 
             try {
@@ -435,7 +516,7 @@ export function FaceAttendanceCamera({
               setDetectedFacesCount(detections.length);
 
               if (detections.length > 0) {
-                // Sort by area to identify largest face
+                // Map bounding boxes and calculate area to prioritize closest person
                 const facesWithArea = detections.map((det) => {
                   const b = det.boundingBox;
                   const box = b
@@ -450,30 +531,47 @@ export function FaceAttendanceCamera({
                 });
 
                 facesWithArea.sort((a, b) => b.area - a.area);
-                const largest = facesWithArea[0];
+                const primaryFace = facesWithArea[0];
                 const secondaryFaces = facesWithArea.slice(1);
 
-                // Draw secondary faces in dashed gray
+                // Draw secondary faces in cyan/slate HUD tags
                 secondaryFaces.forEach(({ box }) => {
                   ctx.save();
-                  ctx.strokeStyle = "#9ca3af";
+                  ctx.strokeStyle = "rgba(56, 189, 248, 0.6)"; // Sky blue
                   ctx.lineWidth = 2;
-                  ctx.setLineDash([4, 4]);
+                  ctx.setLineDash([6, 6]);
                   ctx.strokeRect(box.originX, box.originY, box.width, box.height);
                   ctx.restore();
                 });
 
-                // Draw largest main face in green with high-tech corner brackets
-                const { box } = largest;
+                // Primary Face (Center / Closest)
+                const { box } = primaryFace;
+                const faceCenterX = box.originX + box.width / 2;
+                const faceCenterY = box.originY + box.height / 2;
+                const frameCenterX = vWidth / 2;
+                const frameCenterY = vHeight / 2;
+
+                const toleranceX = vWidth * 0.26;
+                const toleranceY = vHeight * 0.26;
+                const isCentered =
+                  Math.abs(faceCenterX - frameCenterX) <= toleranceX &&
+                  Math.abs(faceCenterY - frameCenterY) <= toleranceY;
+                const isAdequateSize = box.width >= vWidth * 0.14 && box.height >= vHeight * 0.16;
+
+                const isWellFramed = isCentered && isAdequateSize;
+
+                // Draw primary bounding box
                 ctx.save();
-                ctx.strokeStyle = "#22c55e";
-                ctx.lineWidth = 4;
+                ctx.strokeStyle = isWellFramed ? "#22c55e" : "#f59e0b";
+                ctx.lineWidth = 3.5;
                 ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 
-                // Corner brackets
-                const cornerLen = Math.min(24, box.width * 0.25);
-                ctx.strokeStyle = "#4ade80";
-                ctx.lineWidth = 4;
+                // High-Tech Glowing Corner Brackets
+                const cornerLen = Math.min(28, box.width * 0.28);
+                ctx.strokeStyle = isWellFramed ? "#4ade80" : "#fbbf24";
+                ctx.lineWidth = 5;
+                ctx.shadowColor = isWellFramed ? "rgba(34, 197, 94, 0.8)" : "rgba(245, 158, 11, 0.8)";
+                ctx.shadowBlur = 10;
 
                 // Top-Left
                 ctx.beginPath();
@@ -505,29 +603,17 @@ export function FaceAttendanceCamera({
 
                 ctx.restore();
 
-                // Check centering and size
-                const faceCenterX = box.originX + box.width / 2;
-                const faceCenterY = box.originY + box.height / 2;
-                const frameCenterX = vWidth / 2;
-                const frameCenterY = vHeight / 2;
-
-                const toleranceX = vWidth * 0.25;
-                const toleranceY = vHeight * 0.25;
-                const isCentered =
-                  Math.abs(faceCenterX - frameCenterX) <= toleranceX &&
-                  Math.abs(faceCenterY - frameCenterY) <= toleranceY;
-                const isAdequateSize = box.width >= vWidth * 0.15 && box.height >= vHeight * 0.18;
-
+                // Trigger Recognition
                 if (!recognizingRef.current) {
-                  if (!isCentered || !isAdequateSize) {
+                  if (!isWellFramed) {
                     setRecognitionState("FACE_CENTERING");
-                    setStatusMessage("Centralize e aproxime seu rosto no visor");
+                    setStatusMessage("Aproxime-se e alinhe o rosto na moldura");
                   } else {
                     setRecognitionState("FACE_FOUND");
-                    setStatusMessage("Rosto identificado. Processando...");
+                    setStatusMessage("Rosto identificado. Processando presença...");
 
                     const timeSinceLastRecognize = now - lastRecognitionTimeRef.current;
-                    if (timeSinceLastRecognize >= 3000) {
+                    if (timeSinceLastRecognize >= 2800) {
                       lastRecognitionTimeRef.current = now;
                       generateFaceCropBlob(video, box).then((cropBlob) => {
                         if (cropBlob) {
@@ -574,12 +660,12 @@ export function FaceAttendanceCamera({
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-border bg-slate-950 shadow-2xl ${
-        isFullscreen ? "h-screen w-screen rounded-none" : "min-h-[480px] w-full"
+      className={`relative flex flex-col items-center justify-center overflow-hidden rounded-3xl bg-black border border-slate-800 shadow-2xl transition-all duration-300 ${
+        isFullscreen ? "h-screen w-screen rounded-none border-none" : "h-[540px] w-full max-w-4xl"
       }`}
     >
       {/* Top Header Bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent p-4">
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between bg-gradient-to-b from-black/90 via-black/50 to-transparent p-4">
         <div className="flex items-center gap-2.5">
           <div className="flex h-3 w-3 items-center justify-center">
             <span className="relative flex h-3 w-3">
@@ -587,7 +673,7 @@ export function FaceAttendanceCamera({
               <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
             </span>
           </div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-white">
+          <span className="text-xs font-bold uppercase tracking-wider text-white">
             {eventName}
           </span>
           {deviceIdentifier && (
@@ -599,20 +685,36 @@ export function FaceAttendanceCamera({
 
         <div className="flex items-center gap-2">
           {/* Detected Face Counter Badge */}
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 border border-slate-700/60 text-xs text-slate-200">
+          <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 text-xs text-slate-200 shadow-md">
             <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                detectedFacesCount > 0 ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-slate-500"
+              className={`inline-block w-2.5 h-2.5 rounded-full ${
+                detectedFacesCount > 0
+                  ? "bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]"
+                  : "bg-slate-500"
               }`}
             />
-            <span className="font-mono font-medium">
-              {detectedFacesCount} {detectedFacesCount === 1 ? "rosto detectado" : "rostos"}
+            <span className="font-mono font-bold">
+              {detectedFacesCount} {detectedFacesCount === 1 ? "rosto na cena" : "rostos na cena"}
             </span>
           </div>
 
+          {/* Switch Camera Button (Always visible) */}
+          <button
+            onClick={handleSwitchCamera}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600/60 text-xs font-bold text-zinc-100 hover:text-white transition-all shadow-sm cursor-pointer"
+            title="Trocar entre câmeras conectadas"
+          >
+            <SwitchCamera className="h-4 w-4 text-emerald-400" />
+            <span className="hidden sm:inline">
+              {availableDevices.length > 1
+                ? `Trocar Câmera (${availableDevices.findIndex((d) => d.deviceId === selectedDeviceId) + 1}/${availableDevices.length})`
+                : "Trocar Câmera"}
+            </span>
+          </button>
+
           <button
             onClick={() => setSoundMuted(!soundMuted)}
-            className="rounded-lg bg-black/40 p-2 text-white/80 hover:bg-black/60 hover:text-white transition-colors"
+            className="rounded-xl bg-black/50 border border-white/10 p-2 text-white hover:bg-black/70 transition-colors cursor-pointer"
             title={soundMuted ? "Ativar som" : "Silenciar som"}
           >
             {soundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
@@ -620,10 +722,10 @@ export function FaceAttendanceCamera({
 
           <button
             onClick={toggleFullscreen}
-            className="rounded-lg bg-black/40 p-2 text-white/80 hover:bg-black/60 hover:text-white transition-colors"
+            className="rounded-xl bg-black/50 border border-white/10 p-2 text-white hover:bg-black/70 transition-colors cursor-pointer"
             title="Tela cheia"
           >
-            <Maximize2 className="h-4 w-4" />
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
         </div>
       </div>
@@ -641,61 +743,71 @@ export function FaceAttendanceCamera({
           className="absolute inset-0 h-full w-full object-cover -scale-x-100 pointer-events-none"
         />
 
-        {/* HUD Center Target Outline */}
+        {/* HUD Center Target Outline - Proporcional, Limpo e Elegante */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-64 w-52 rounded-3xl border-2 border-dashed border-white/20" />
+          <div
+            className={`rounded-3xl border-[2.5px] border-dashed border-white/85 shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all duration-300 ${
+              isFullscreen
+                ? "h-[62vh] w-[26vw] min-w-[340px] max-w-[500px] min-h-[440px] max-h-[640px]"
+                : "h-[68%] max-h-[350px] aspect-[3/4] min-w-[220px]"
+            }`}
+          />
         </div>
       </div>
 
       {/* Dynamic Bottom Status Card / Recognition Result Banner */}
       <div className="absolute bottom-6 inset-x-6 z-30 flex flex-col items-center pointer-events-none">
-        {latestResult && (latestResult.status === "REGISTERED" || latestResult.status === "ALREADY_REGISTERED" || latestResult.status === "NOT_PARTICIPANT" || latestResult.status === "NOT_RECOGNIZED") ? (
+        {latestResult &&
+        (latestResult.status === "REGISTERED" ||
+          latestResult.status === "ALREADY_REGISTERED" ||
+          latestResult.status === "NOT_PARTICIPANT" ||
+          latestResult.status === "NOT_RECOGNIZED") ? (
           /* RESULT BANNER CARD */
           <div
-            className={`w-full max-w-lg p-5 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl border-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200 ${
+            className={`w-full max-w-lg p-5 rounded-3xl bg-slate-900/95 backdrop-blur-md shadow-2xl border-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200 ${
               latestResult.status === "REGISTERED"
-                ? "border-emerald-500/80 shadow-[0_0_30px_rgba(16,185,129,0.35)]"
+                ? "border-emerald-500/90 shadow-[0_0_40px_rgba(16,185,129,0.45)]"
                 : latestResult.status === "ALREADY_REGISTERED"
-                ? "border-amber-500/80 shadow-[0_0_30px_rgba(245,158,11,0.35)]"
+                ? "border-amber-500/90 shadow-[0_0_40px_rgba(245,158,11,0.45)]"
                 : latestResult.status === "NOT_PARTICIPANT"
-                ? "border-orange-500/80 shadow-[0_0_30px_rgba(249,115,22,0.35)]"
-                : "border-rose-500/80 shadow-[0_0_30px_rgba(244,63,94,0.35)]"
+                ? "border-orange-500/90 shadow-[0_0_40px_rgba(249,115,22,0.45)]"
+                : "border-rose-500/90 shadow-[0_0_40px_rgba(244,63,94,0.45)]"
             }`}
           >
             <div className="flex items-center space-x-4">
               <div
-                className={`flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center border ${
+                className={`flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center border ${
                   latestResult.status === "REGISTERED"
-                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.5)]"
                     : latestResult.status === "ALREADY_REGISTERED"
-                    ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                    ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.5)]"
                     : latestResult.status === "NOT_PARTICIPANT"
                     ? "bg-orange-500/20 border-orange-500 text-orange-400"
                     : "bg-rose-500/20 border-rose-500 text-rose-400"
                 }`}
               >
                 {latestResult.status === "REGISTERED" ? (
-                  <CheckCircle2 className="w-8 h-8" />
+                  <CheckCircle2 className="w-9 h-9" />
                 ) : latestResult.status === "ALREADY_REGISTERED" ? (
-                  <AlertTriangle className="w-8 h-8" />
+                  <AlertTriangle className="w-9 h-9" />
                 ) : latestResult.status === "NOT_PARTICIPANT" ? (
-                  <XCircle className="w-8 h-8" />
+                  <XCircle className="w-9 h-9" />
                 ) : (
-                  <HelpCircle className="w-8 h-8" />
+                  <HelpCircle className="w-9 h-9" />
                 )}
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
                       latestResult.status === "REGISTERED"
-                        ? "bg-emerald-950 text-emerald-300 border-emerald-800"
+                        ? "bg-emerald-950 text-emerald-300 border-emerald-700 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
                         : latestResult.status === "ALREADY_REGISTERED"
-                        ? "bg-amber-950 text-amber-300 border-amber-800"
+                        ? "bg-amber-950 text-amber-300 border-amber-700"
                         : latestResult.status === "NOT_PARTICIPANT"
-                        ? "bg-orange-950 text-orange-300 border-orange-800"
-                        : "bg-rose-950 text-rose-300 border-rose-800"
+                        ? "bg-orange-950 text-orange-300 border-orange-700"
+                        : "bg-rose-950 text-rose-300 border-rose-700"
                     }`}
                   >
                     {latestResult.status === "REGISTERED"
@@ -706,45 +818,54 @@ export function FaceAttendanceCamera({
                       ? "NÃO INSCRITO NO EVENTO"
                       : "ROSTO NÃO RECONHECIDO"}
                   </span>
-                  <span className="text-xs font-mono text-slate-400">
-                    {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  <span className="text-xs font-mono text-slate-400 font-semibold">
+                    {new Date().toLocaleTimeString("pt-BR", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
                   </span>
                 </div>
 
-                <h3 className="mt-1 text-lg font-bold text-white truncate">
+                <h3 className="mt-1.5 text-xl font-extrabold text-white truncate">
                   {latestResult.person?.name || "Participante"}
                 </h3>
 
-                <div className="mt-1 flex items-center space-x-3 text-xs text-slate-300">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300">
                   {latestResult.person?.registration && (
                     <span>
-                      Matrícula: <strong className="text-emerald-400 font-mono">{latestResult.person.registration}</strong>
+                      Matrícula:{" "}
+                      <strong className="text-emerald-400 font-mono">
+                        {latestResult.person.registration}
+                      </strong>
                     </span>
                   )}
                   {latestResult.person?.category && (
-                    <span className="text-slate-400">
-                      • {latestResult.person.category}
-                    </span>
+                    <span className="text-slate-400">• {latestResult.person.category}</span>
                   )}
                   {latestResult.confidence !== undefined && (
-                    <span>
-                      • Confiança: <strong className="text-white">{Math.round(latestResult.confidence * 100)}%</strong>
+                    <span className="text-slate-400">
+                      • Confiança:{" "}
+                      <strong className="text-emerald-400">
+                        {Math.round(latestResult.confidence * 100)}%
+                      </strong>
                     </span>
                   )}
                 </div>
 
                 {latestResult.status === "ALREADY_REGISTERED" && (
-                  <p className="mt-1 text-[11px] text-amber-300/90">
+                  <p className="mt-1 text-xs text-amber-300/90">
                     A presença deste participante já havia sido confirmada anteriormente neste evento.
                   </p>
                 )}
                 {latestResult.status === "NOT_PARTICIPANT" && (
-                  <p className="mt-1 text-[11px] text-orange-300/90">
-                    {latestResult.message || "Pessoa identificada no cadastro geral, mas não está vinculada a este evento."}
+                  <p className="mt-1 text-xs text-orange-300/90">
+                    {latestResult.message ||
+                      "Pessoa identificada no cadastro geral, mas não está vinculada a este evento."}
                   </p>
                 )}
                 {latestResult.status === "NOT_RECOGNIZED" && (
-                  <p className="mt-1 text-[11px] text-rose-300/90">
+                  <p className="mt-1 text-xs text-rose-300/90">
                     Não foi possível identificar a biometria facial. Aproxime-se e verifique o cadastro.
                   </p>
                 )}
@@ -754,27 +875,33 @@ export function FaceAttendanceCamera({
         ) : (
           /* STANDARD REAL-TIME HUD STATUS PILL */
           <div
-            className={`px-6 py-2.5 rounded-full bg-slate-900/90 border shadow-lg backdrop-blur-md flex items-center space-x-3 animate-in fade-in duration-150 ${
+            className={`px-6 py-2.5 rounded-full bg-slate-900/95 border-2 shadow-2xl backdrop-blur-md flex items-center space-x-3 animate-in fade-in duration-150 ${
               RECOGNITION_STATE_CONFIG[recognitionState]?.borderColor || "border-slate-700/60"
             }`}
           >
             {recognitionState === "PROCESSING" ? (
               <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
             ) : recognitionState === "FACE_FOUND" ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" />
             ) : recognitionState === "FACE_CENTERING" ? (
               <AlertTriangle className="w-5 h-5 text-amber-400" />
-            ) : recognitionState === "NOT_RECOGNIZED" || recognitionState === "NOT_PARTICIPANT" || recognitionState === "ERROR" ? (
+            ) : recognitionState === "NOT_RECOGNIZED" ||
+              recognitionState === "NOT_PARTICIPANT" ||
+              recognitionState === "ERROR" ? (
               <XCircle className="w-5 h-5 text-rose-400" />
             ) : (
-              <Camera className="w-5 h-5 text-slate-400" />
+              <Camera className="w-5 h-5 text-emerald-400" />
             )}
 
             <div>
-              <p className={`text-xs font-bold ${RECOGNITION_STATE_CONFIG[recognitionState]?.color || "text-white"}`}>
+              <p
+                className={`text-xs font-extrabold tracking-wide ${
+                  RECOGNITION_STATE_CONFIG[recognitionState]?.color || "text-white"
+                }`}
+              >
                 {RECOGNITION_STATE_CONFIG[recognitionState]?.title || "Câmera Ativa"}
               </p>
-              <p className="text-[11px] text-slate-400">{statusMessage}</p>
+              <p className="text-[11px] text-slate-300 font-medium">{statusMessage}</p>
             </div>
           </div>
         )}

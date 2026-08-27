@@ -129,15 +129,15 @@ export function ShiftConfigManager() {
                         <span className="text-2xl">{c.emoji}</span>
                         <div>
                           <span className="text-xs font-bold text-foreground">
-                            {c.shift}
+                            {c.label || (c.shift === "MORNING" ? "Manhã" : c.shift === "AFTERNOON" ? "Tarde" : "Noite")}
                           </span>
                           <p className="text-[10px] text-muted-foreground">
                             Turno {index + 1}
                           </p>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-[10px]">
-                        {c.shift}
+                      <Badge variant="outline" className="text-[10px] font-semibold">
+                        {c.shift === "MORNING" ? "Matutino" : c.shift === "AFTERNOON" ? "Vespertino" : "Noturno"}
                       </Badge>
                     </div>
 

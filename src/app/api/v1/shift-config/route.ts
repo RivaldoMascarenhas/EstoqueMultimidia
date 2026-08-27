@@ -4,6 +4,9 @@ import { updateShiftConfigsSchema } from "@/schemas/shift.schema";
 import { requireSession } from "@/lib/api-guard";
 import { Role } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const { error } = await requireSession();
