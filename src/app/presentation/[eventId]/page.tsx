@@ -183,6 +183,9 @@ function PresentationContent({ eventId }: { eventId: string }) {
     isAnimatingRef.current = true;
 
     setSafeState("DRAWING");
+    setCurrentWinner(null);
+    setRollingNumber("000");
+    setRollingName("Sorteando...");
     if (winnerData?.prize) setCurrentPrize(winnerData.prize);
     soundEngine.play("DRAW_START");
 
@@ -279,11 +282,14 @@ function PresentationContent({ eventId }: { eventId: string }) {
       if (payload.prize) setCurrentPrize(payload.prize);
       setCurrentWinner(null);
     } else if (payload.type === "draw:start") {
-      if (!isAnimatingRef.current) {
-        setSafeState("DRAWING");
-        if (payload.prize) setCurrentPrize(payload.prize);
-        soundEngine.play("DRAW_START");
-      }
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      isAnimatingRef.current = false;
+      setRollingNumber("000");
+      setRollingName("Sorteando...");
+      setCurrentWinner(null);
+      setSafeState("DRAWING");
+      if (payload.prize) setCurrentPrize(payload.prize);
+      soundEngine.play("DRAW_START");
     } else if (payload.type === "draw:result") {
       if (payload.winner) {
         const isAlreadyProcessed = drawKey && lastAnimatedDrawIdRef.current === drawKey;
@@ -302,8 +308,11 @@ function PresentationContent({ eventId }: { eventId: string }) {
     } else if (payload.type === "draw:cancel") {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       isAnimatingRef.current = false;
-      setSafeState("IDLE");
+      setRollingNumber("000");
+      setRollingName("");
       setCurrentWinner(null);
+      lastAnimatedDrawIdRef.current = null;
+      setSafeState("IDLE");
     } else if (payload.type === "sponsors:show" || payload.state === "SPONSORS_SLIDESHOW") {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       isAnimatingRef.current = false;
@@ -398,13 +407,44 @@ function PresentationContent({ eventId }: { eventId: string }) {
     soundEngine.setEnabled(next);
   };
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isCurrentlyFullscreen);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, []);
+
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
+    const isCurrentlyFullscreen = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+
+    if (!isCurrentlyFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
   };
 

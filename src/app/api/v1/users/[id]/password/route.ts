@@ -86,15 +86,6 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    if (isSamePassword) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: "A nova senha não pode ser igual à senha anterior. Por favor, escolha uma senha diferente." 
-        },
-        { status: 400 }
-      );
-    }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { realtimeService, RealtimePayload } from "@/services/realtime.service";
 
@@ -15,9 +17,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   // Validate presentation access via token OR session
   let isAuthorized = false;
 
-  if (token) {
+  if (token && token.trim().length > 0) {
     const event = await prisma.event.findFirst({
-      where: { id: eventId, presentationToken: token },
+      where: { id: eventId, presentationToken: token.trim() },
     });
     if (event) isAuthorized = true;
   }
@@ -80,10 +82,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
-    }
+    const { session, error } = await requireSession([
+      Role.ADMIN,
+      Role.GESTOR,
+      Role.OPERADOR,
+    ]);
+    if (error) return error;
 
     const eventId = params.id;
     const body = await req.json();

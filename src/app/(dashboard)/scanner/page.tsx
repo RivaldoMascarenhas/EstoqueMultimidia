@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
 import { 
@@ -18,7 +18,10 @@ import {
   VolumeX, 
   Keyboard, 
   ArrowRight, 
-  SwitchCamera
+  SwitchCamera,
+  Flashlight,
+  FlashlightOff,
+  Maximize2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +43,8 @@ export default function ScannerPage() {
   const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
   const [activeCameraLabel, setActiveCameraLabel] = useState<string>("");
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
+  const [hasTorchSupport, setHasTorchSupport] = useState(false);
+  const [isTorchOn, setIsTorchOn] = useState(false);
   const [selectedMode, setSelectedMode] = useState<ScanMode>("LOOKUP");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [manualCode, setManualCode] = useState("");
@@ -55,8 +60,10 @@ export default function ScannerPage() {
   const [sessionHistory, setSessionHistory] = useState<any[]>([]);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isSwitchingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   // Tocar beep suave usando Web Audio API nativo
   const playBeep = () => {
@@ -72,16 +79,14 @@ export default function ScannerPage() {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime); // Tom A5 agradável
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.12);
-    } catch (e) {
-      // Audio não suportado ou bloqueado
-    }
+    } catch {}
   };
 
   // Disparar vibração háptica no celular
@@ -91,12 +96,65 @@ export default function ScannerPage() {
     }
   };
 
+  // Encerra imediatamente todas as faixas e libera a webcam no Windows/Android/iOS (LED desliga na hora)
+  const killAllVideoHardware = useCallback(() => {
+    if (activeStreamRef.current) {
+      try {
+        activeStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+          track.enabled = false;
+        });
+      } catch {}
+      activeStreamRef.current = null;
+    }
+
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("video").forEach((video) => {
+        try {
+          if (video.srcObject) {
+            const stream = video.srcObject as MediaStream;
+            stream.getTracks().forEach((t) => {
+              t.stop();
+              t.enabled = false;
+            });
+            video.srcObject = null;
+          }
+        } catch {}
+      });
+    }
+
+    setIsTorchOn(false);
+    setHasTorchSupport(false);
+  }, []);
+
+  // Parar câmera e limpar Html5Qrcode
+  const stopCamera = useCallback(async () => {
+    killAllVideoHardware();
+
+    if (scannerRef.current) {
+      try {
+        if (scannerRef.current.isScanning) {
+          await scannerRef.current.stop();
+        }
+        await scannerRef.current.clear();
+      } catch (e) {
+        console.warn("Aviso ao parar scanner:", e);
+      }
+      scannerRef.current = null;
+    }
+
+    killAllVideoHardware();
+    if (isMountedRef.current) {
+      setIsScanning(false);
+    }
+  }, [killAllVideoHardware]);
+
   // Atualizar lista de dispositivos de câmera
   const refreshCameraList = async (): Promise<Array<{ id: string; label: string }>> => {
     try {
       const devices = await Html5Qrcode.getCameras();
       if (devices && devices.length > 0) {
-        setCameras(devices);
+        if (isMountedRef.current) setCameras(devices);
         return devices;
       }
     } catch (e) {
@@ -105,43 +163,41 @@ export default function ScannerPage() {
     return [];
   };
 
-  // Parar câmera e liberar faixas de hardware
-  const stopCamera = async () => {
-    if (scannerRef.current) {
+  // Alternar Lanterna / Flash (Torch) em dispositivos móveis compatíveis
+  const handleToggleTorch = async () => {
+    if (!activeStreamRef.current) return;
+    const track = activeStreamRef.current.getVideoTracks()[0];
+    if (track) {
       try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
+        const capabilities = (track.getCapabilities && track.getCapabilities()) as any;
+        if (capabilities && capabilities.torch) {
+          const nextState = !isTorchOn;
+          await track.applyConstraints({
+            advanced: [{ torch: nextState } as any],
+          });
+          setIsTorchOn(nextState);
+          toast.success(nextState ? "Lanterna ligada" : "Lanterna desligada");
+        } else {
+          toast.info("Lanterna não suportada nesta câmera.");
         }
-        await scannerRef.current.clear();
       } catch (e) {
-        console.warn("Erro ao parar scanner:", e);
+        toast.error("Não foi possível acionar a lanterna.");
       }
     }
-
-    // Parar todos os tracks residuais para liberar o hardware da câmera no SO
-    const existingVideo = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
-    if (existingVideo && existingVideo.srcObject) {
-      try {
-        const stream = existingVideo.srcObject as MediaStream;
-        stream.getTracks().forEach((t) => t.stop());
-        existingVideo.srcObject = null;
-      } catch (e) {}
-    }
-
-    setIsScanning(false);
   };
 
   // Iniciar Leitura da Câmera com suporte total a PC (deviceId) e Mobile (facingMode)
-  const startCamera = async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
+  const startCamera = useCallback(async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
     try {
+      if (!isMountedRef.current) return;
       setCameraError(null);
-      setIsScanning(true);
 
-      // Parar qualquer instância e faixas anteriores
+      // Parar qualquer instância e faixas anteriores para liberar o hardware
       await stopCamera();
 
-      // Buffer de 150ms para o hardware liberar a lente no PC/Android/iOS
+      // Buffer de 150ms para liberação de hardware
       await new Promise((resolve) => setTimeout(resolve, 150));
+      if (!isMountedRef.current) return;
 
       const html5QrCode = new Html5Qrcode("scanner-viewfinder");
       scannerRef.current = html5QrCode;
@@ -172,8 +228,14 @@ export default function ScannerPage() {
       let configToUse: any = targetCameraIdOrMode;
 
       if (!configToUse) {
-        if (availableCams.length > 0) {
-          // Tentar preferencialmente a câmera traseira se for mobile
+        // Verificar se há preferência salva no localStorage
+        const savedCamId = typeof window !== "undefined" ? localStorage.getItem("unifap_scanner_cam_id") : null;
+        if (savedCamId && availableCams.some((c) => c.id === savedCamId)) {
+          configToUse = savedCamId;
+          const idx = availableCams.findIndex((c) => c.id === savedCamId);
+          setSelectedCameraIndex(idx !== -1 ? idx : 0);
+          setActiveCameraLabel(availableCams[idx]?.label || `Câmera ${idx + 1}`);
+        } else if (availableCams.length > 0) {
           let idx = typeof cameraIndex === "number" ? cameraIndex : selectedCameraIndex;
           if (idx >= availableCams.length) idx = 0;
 
@@ -196,7 +258,7 @@ export default function ScannerPage() {
       try {
         await html5QrCode.start(configToUse, scanConfig, handleSuccess, () => {});
       } catch (firstErr) {
-        console.warn("Tentativa 1 falhou, tentando fallback com ideal/deviceId...", firstErr);
+        console.warn("Tentativa 1 falhou, tentando fallback ideal...", firstErr);
         try {
           if (typeof configToUse === "string") {
             await html5QrCode.start({ deviceId: { exact: configToUse } }, scanConfig, handleSuccess, () => {});
@@ -208,17 +270,36 @@ export default function ScannerPage() {
           const devs = await Html5Qrcode.getCameras().catch(() => []);
           if (devs.length > 0) {
             await html5QrCode.start(devs[0].id, scanConfig, handleSuccess, () => {});
-            setSelectedCameraIndex(0);
-            setActiveCameraLabel(devs[0].label || "Câmera 1");
+            if (isMountedRef.current) {
+              setSelectedCameraIndex(0);
+              setActiveCameraLabel(devs[0].label || "Câmera 1");
+            }
           } else {
             await html5QrCode.start({ facingMode: "user" }, scanConfig, handleSuccess, () => {});
           }
         }
       }
 
-      // Atualizar lista de câmeras agora que a permissão foi concedida
+      if (!isMountedRef.current) {
+        killAllVideoHardware();
+        return;
+      }
+
+      // Rastrear MediaStream ativo para suporte a lanterna e desligamento seguro
+      const videoEl = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
+      if (videoEl && videoEl.srcObject) {
+        const stream = videoEl.srcObject as MediaStream;
+        activeStreamRef.current = stream;
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          const cap = (track.getCapabilities && track.getCapabilities()) as any;
+          setHasTorchSupport(!!(cap && cap.torch));
+        }
+      }
+
+      // Atualizar lista de câmeras com rótulos concedidos
       const updatedDevices = await refreshCameraList();
-      if (updatedDevices.length > 0) {
+      if (updatedDevices.length > 0 && isMountedRef.current) {
         const currentIdx = typeof cameraIndex === "number" ? cameraIndex : selectedCameraIndex;
         if (updatedDevices[currentIdx]) {
           setActiveCameraLabel(updatedDevices[currentIdx].label);
@@ -228,63 +309,61 @@ export default function ScannerPage() {
       setIsScanning(true);
     } catch (err: any) {
       console.warn("Erro câmera:", err);
-      setCameraError(
-        "Não foi possível acessar a câmera. Verifique as permissões do navegador ou digite o código no campo abaixo."
-      );
-      setIsScanning(false);
+      if (isMountedRef.current) {
+        setCameraError(
+          "Não foi possível acessar a câmera. Verifique as permissões do navegador ou digite o código no campo abaixo."
+        );
+        setIsScanning(false);
+      }
     }
-  };
+  }, [stopCamera, killAllVideoHardware, cameras, selectedCameraIndex]);
 
-  // Alternar entre câmeras disponíveis (suporta PC multi-webcam e Mobile frontal/traseira)
+  // Alternar entre câmeras disponíveis (PC multi-webcam e Mobile frontal/traseira)
   const handleToggleFacingMode = async () => {
     if (isSwitchingRef.current) return;
     isSwitchingRef.current = true;
     setIsSwitchingCamera(true);
 
     try {
-      // 1. Garantir lista atualizada de câmeras físicas/virtuais
       let availableCams = cameras;
       if (availableCams.length === 0) {
         availableCams = await refreshCameraList();
       }
 
-      // Caso A: Dispositivo com 2 ou mais câmeras detectadas (ex: PC com 2 webcams ou celular com frontal + traseira)
       if (availableCams.length > 1) {
         const nextIndex = (selectedCameraIndex + 1) % availableCams.length;
         const nextCam = availableCams[nextIndex];
         setSelectedCameraIndex(nextIndex);
         setActiveCameraLabel(nextCam.label || `Câmera ${nextIndex + 1}`);
 
+        if (typeof window !== "undefined") {
+          localStorage.setItem("unifap_scanner_cam_id", nextCam.id);
+        }
+
         await startCamera(nextCam.id, nextIndex);
 
         toast.info(
-          `Câmera alterada para: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`
+          `Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`
         );
-      } 
-      // Caso B: Apenas 1 câmera detectada
-      else if (availableCams.length === 1) {
-        // No celular, alguns navegadores não listam todas de início, então tentamos alternar o facingMode
+      } else if (availableCams.length === 1) {
         const isCurrentlyFront = /front|user|frontal/i.test(availableCams[0].label);
         const targetMode = isCurrentlyFront ? "environment" : "user";
 
         try {
           await startCamera({ facingMode: targetMode });
-          toast.info(`Alternando modo para ${targetMode === "environment" ? "Traseira" : "Frontal"}...`);
-        } catch (e) {
-          // Se for PC com apenas 1 webcam, informamos claramente
+          toast.info(`Alternando para modo ${targetMode === "environment" ? "Traseira" : "Frontal"}...`);
+        } catch {
           toast.info(
-            `Apenas 1 câmera detectada neste computador (${availableCams[0].label || "Webcam Principal"}). Conecte outra webcam ou teste no celular com câmera frontal e traseira.`,
-            { duration: 5000 }
+            `Apenas 1 câmera detectada (${availableCams[0].label || "Webcam Principal"}). Conecte outra webcam ou use no celular para alternar câmeras.`,
+            { duration: 4000 }
           );
         }
-      } 
-      // Caso C: Câmeras não enumeradas (fallback geral)
-      else {
+      } else {
         const nextMode = activeCameraLabel.includes("Frontal") ? "environment" : "user";
         await startCamera({ facingMode: nextMode });
         toast.info(`Alternado para modo ${nextMode === "environment" ? "Traseira" : "Frontal"}`);
       }
-    } catch (e) {
+    } catch {
       toast.error("Não foi possível alternar a câmera.");
     } finally {
       isSwitchingRef.current = false;
@@ -292,9 +371,32 @@ export default function ScannerPage() {
     }
   };
 
+  // Ciclo de Vida: Desligamento instantâneo do hardware ao mudar de página
   useEffect(() => {
+    isMountedRef.current = true;
     startCamera();
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        killAllVideoHardware();
+      } else if (isMountedRef.current && !scanResult) {
+        startCamera();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      killAllVideoHardware();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
+      isMountedRef.current = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Desligamento instantâneo síncrono e assíncrono
+      killAllVideoHardware();
       stopCamera();
     };
   }, []);
@@ -335,7 +437,7 @@ export default function ScannerPage() {
             data: json.data,
             timestamp: new Date(),
           },
-          ...prev.slice(0, 9), // Limitar a 10 itens
+          ...prev.slice(0, 9),
         ]);
 
         toast.success("Código identificado com sucesso!");
@@ -351,7 +453,7 @@ export default function ScannerPage() {
       } else {
         toast.error(json.error || "Item não encontrado no sistema.");
       }
-    } catch (err) {
+    } catch {
       toast.error("Erro ao consultar o banco de dados.");
     } finally {
       setIsLoadingLookup(false);
@@ -382,8 +484,8 @@ export default function ScannerPage() {
               <Camera className="w-6 h-6 text-primary" />
               Scanner Mobile & QR Code
             </h1>
-            <Badge variant="normal" className="text-xs">
-              Câmera Ativa
+            <Badge variant={isScanning ? "default" : "secondary"} className="text-xs">
+              {isScanning ? "Câmera Ativa" : "Câmera Pausada"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -398,7 +500,7 @@ export default function ScannerPage() {
             size="sm"
             onClick={handleToggleFacingMode}
             disabled={isSwitchingCamera}
-            className="rounded-xl text-xs h-9 gap-2 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-semibold"
+            className="rounded-xl text-xs h-9 gap-2 border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary font-semibold cursor-pointer shadow-xs"
             title="Alternar entre câmeras disponíveis"
           >
             <SwitchCamera className={cn("w-4 h-4 text-primary transition-transform duration-300", isSwitchingCamera && "animate-spin text-amber-400")} />
@@ -413,12 +515,26 @@ export default function ScannerPage() {
             </span>
           </Button>
 
+          {/* Lanterna / Flash (Se suportado pelo dispositivo) */}
+          {hasTorchSupport && (
+            <Button
+              variant={isTorchOn ? "default" : "outline"}
+              size="sm"
+              onClick={handleToggleTorch}
+              className={cn("rounded-xl text-xs h-9 gap-1.5 cursor-pointer", isTorchOn && "bg-amber-500 text-amber-950 font-bold hover:bg-amber-400")}
+              title={isTorchOn ? "Desligar lanterna" : "Ligar lanterna (iluminação do código)"}
+            >
+              {isTorchOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
+              <span className="hidden sm:inline">{isTorchOn ? "Lanterna Ligada" : "Lanterna"}</span>
+            </Button>
+          )}
+
           {/* Som Ativar/Desativar */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="rounded-xl text-xs h-9 gap-1.5"
+            className="rounded-xl text-xs h-9 gap-1.5 cursor-pointer"
             title={soundEnabled ? "Desativar som do beep" : "Ativar som do beep"}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
@@ -433,11 +549,11 @@ export default function ScannerPage() {
               toast.info("Reiniciando leitor da câmera...");
               startCamera();
             }}
-            className="rounded-xl text-xs h-9 gap-1.5 text-muted-foreground hover:text-foreground"
+            className="rounded-xl text-xs h-9 gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
             title="Recarregar/Resetar o leitor da câmera"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Resetar Leitor</span>
+            <span className="hidden sm:inline">Resetar</span>
           </Button>
         </div>
       </div>
@@ -457,7 +573,7 @@ export default function ScannerPage() {
             <button
               key={mode.id}
               onClick={() => setSelectedMode(mode.id as ScanMode)}
-              className={`px-3 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 isSelected
                   ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 font-bold"
                   : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -480,31 +596,49 @@ export default function ScannerPage() {
             {/* Elemento de Leitura Html5Qrcode */}
             <div id="scanner-viewfinder" className="w-full h-full" />
 
-            {/* Botão Flutuante de Troca de Câmera (Sobreposto ao visor - Máxima Intuitividade) */}
-            <button
-              type="button"
-              onClick={handleToggleFacingMode}
-              disabled={isSwitchingCamera}
-              className="absolute top-3 right-3 z-30 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/75 hover:bg-black/90 text-white border border-white/20 backdrop-blur-md shadow-xl active:scale-95 transition-all cursor-pointer group"
-              title="Alternar entre câmeras disponíveis"
-            >
-              <SwitchCamera className={cn("w-4 h-4 text-primary transition-transform duration-300 group-hover:rotate-180", isSwitchingCamera && "animate-spin text-amber-400")} />
-              <span className="text-[11px] font-semibold tracking-wide">
-                {isSwitchingCamera 
-                  ? "Trocando..." 
-                  : cameras.length > 1 
-                    ? `Câmera ${selectedCameraIndex + 1}/${cameras.length}` 
-                    : activeCameraLabel 
-                      ? (activeCameraLabel.length > 15 ? `${activeCameraLabel.slice(0, 15)}...` : activeCameraLabel)
-                      : "Trocar Câmera"}
-              </span>
-            </button>
+            {/* Controles Flutuantes Sobrepostos ao Visor */}
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+              {hasTorchSupport && (
+                <button
+                  type="button"
+                  onClick={handleToggleTorch}
+                  className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-full border backdrop-blur-md transition-all cursor-pointer",
+                    isTorchOn 
+                      ? "bg-amber-500 text-black border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.5)]" 
+                      : "bg-black/75 hover:bg-black/90 text-white border-white/20"
+                  )}
+                  title="Lanterna"
+                >
+                  <Flashlight className="w-4 h-4" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleToggleFacingMode}
+                disabled={isSwitchingCamera}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/75 hover:bg-black/90 text-white border border-white/20 backdrop-blur-md shadow-xl active:scale-95 transition-all cursor-pointer group"
+                title="Alternar entre câmeras disponíveis"
+              >
+                <SwitchCamera className={cn("w-4 h-4 text-primary transition-transform duration-300 group-hover:rotate-180", isSwitchingCamera && "animate-spin text-amber-400")} />
+                <span className="text-[11px] font-semibold tracking-wide">
+                  {isSwitchingCamera 
+                    ? "Trocando..." 
+                    : cameras.length > 1 
+                      ? `Câmera ${selectedCameraIndex + 1}/${cameras.length}` 
+                      : activeCameraLabel 
+                        ? (activeCameraLabel.length > 15 ? `${activeCameraLabel.slice(0, 15)}...` : activeCameraLabel)
+                        : "Trocar Câmera"}
+                </span>
+              </button>
+            </div>
 
             {/* Laser e Mira Holográfica se estiver escaneando */}
             {isScanning && !scanResult && (
-              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 {/* Moldura de Foco com Cantoneiras & Laser Animado */}
-                <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-3xl overflow-hidden flex items-center justify-center">
+                <div className="relative h-[68%] max-h-[320px] min-w-[220px] aspect-square rounded-3xl overflow-hidden flex items-center justify-center">
                   
                   {/* Borda HUD com brilho pulsante */}
                   <div className="absolute inset-0 rounded-3xl border-2 border-primary/60 scanner-frame-hud" />
@@ -543,7 +677,7 @@ export default function ScannerPage() {
                 <Button
                   size="sm"
                   onClick={() => startCamera()}
-                  className="rounded-xl text-xs gap-1.5 bg-primary text-primary-foreground"
+                  className="rounded-xl text-xs gap-1.5 bg-primary text-primary-foreground cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Tentar Novamente</span>
@@ -572,7 +706,7 @@ export default function ScannerPage() {
                   className="pl-9 h-10 rounded-xl text-xs bg-background"
                 />
               </div>
-              <Button type="submit" size="sm" className="h-10 px-4 rounded-xl text-xs font-semibold">
+              <Button type="submit" size="sm" className="h-10 px-4 rounded-xl text-xs font-semibold cursor-pointer">
                 Buscar
               </Button>
             </form>
@@ -621,7 +755,7 @@ export default function ScannerPage() {
                       <button
                         key={item.id}
                         onClick={() => processCodeLookup(item.code)}
-                        className="w-full text-left p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between group transition-colors"
+                        className="w-full text-left p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between group transition-colors cursor-pointer"
                       >
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-2">

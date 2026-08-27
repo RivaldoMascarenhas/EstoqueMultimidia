@@ -4,6 +4,29 @@ import { EventService } from "@/services/event.service";
 import { manualPresenceSchema } from "@/schemas/event.schema";
 import { Role } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const limit = parseInt(searchParams.get("limit") || "15", 10);
+
+    const result = await EventService.getRecentPresences(params.id, limit);
+    return NextResponse.json({
+      success: true,
+      ...result,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message || "Erro ao listar presenças recentes." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

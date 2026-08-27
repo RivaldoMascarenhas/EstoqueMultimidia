@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { DrawService } from "@/services/draw.service";
+import { realtimeService } from "@/services/realtime.service";
 import { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,13 @@ export async function DELETE(
       disqualifyParticipant,
       operatorUserId: session?.user?.id,
       ipAddress,
+    });
+
+    // Notificar telões e operadores imediatamente em tempo real
+    await realtimeService.publish(params.id, {
+      type: "draw:cancel",
+      state: "IDLE",
+      winner: null,
     });
 
     return NextResponse.json({

@@ -302,4 +302,42 @@ export class PersonService {
 
     return Array.from(categoryMap.values());
   }
+
+  /**
+   * Deletes and revokes facial biometrics for a person (LGPD Art. 18, VI e IX)
+   */
+  public static async deleteBiometrics(
+    personId: string,
+    operatorUserId?: string,
+    ipAddress?: string
+  ) {
+    const person = await prisma.person.findUnique({ where: { id: personId } });
+    if (!person) {
+      throw new Error("Pessoa não encontrada.");
+    }
+
+    const deleted = await prisma.faceEmbedding.deleteMany({
+      where: { personId },
+    });
+
+    await safeAuditLog({
+      userId: operatorUserId,
+      action: "BIOMETRIC_DATA_DELETED",
+      entity: "Person",
+      entityId: person.id,
+      details: {
+        personName: person.name,
+        registration: person.registration,
+        deletedCount: deleted.count,
+        legalBasis: "LGPD_ART_18_REVOCATION",
+      },
+      ipAddress,
+    });
+
+    return {
+      success: true,
+      message: `Biometria facial de ${person.name} revogada e excluída com sucesso.`,
+      deletedCount: deleted.count,
+    };
+  }
 }

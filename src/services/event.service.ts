@@ -53,6 +53,7 @@ export class EventService {
         secondaryColor: data.secondaryColor || "#EAA023",
         allowRepeatWinners: data.allowRepeatWinners ?? false,
         maxParticipants: data.maxParticipants || null,
+        checkinOpenMinutesBefore: data.checkinOpenMinutesBefore ?? 60,
         presentationToken: `${finalSlug}-${Date.now().toString(36)}`,
       },
     });
@@ -98,6 +99,7 @@ export class EventService {
         secondaryColor: data.secondaryColor ?? undefined,
         allowRepeatWinners: data.allowRepeatWinners ?? undefined,
         maxParticipants: data.maxParticipants !== undefined ? data.maxParticipants : undefined,
+        checkinOpenMinutesBefore: data.checkinOpenMinutesBefore !== undefined ? data.checkinOpenMinutesBefore : undefined,
       },
     });
 
@@ -111,6 +113,94 @@ export class EventService {
     });
 
     return updated;
+  }
+
+  /**
+   * Evaluates if check-in / biometrics is currently open according to event status, date, time and checkinOpenMinutesBefore
+   */
+  public static isCheckinAllowed(event: {
+    status: EventStatus;
+    date?: Date | string | null;
+    time?: string | null;
+    checkinOpenMinutesBefore?: number | null;
+  }): { isAllowed: boolean; reason?: string; message?: string; openAt?: Date | null } {
+    if (event.status === EventStatus.DRAFT) {
+      return {
+        isAllowed: false,
+        reason: "DRAFT",
+        message: "O evento está em modo Rascunho. O check-in e registro de presença não estão ativos.",
+      };
+    }
+    if (event.status === EventStatus.CANCELLED) {
+      return {
+        isAllowed: false,
+        reason: "CANCELLED",
+        message: "Este evento foi cancelado.",
+      };
+    }
+    if (event.status === EventStatus.COMPLETED) {
+      return {
+        isAllowed: false,
+        reason: "COMPLETED",
+        message: "Este evento já foi encerrado.",
+      };
+    }
+
+    // Se status for OPEN ou IN_PROGRESS, liberação imediata ao vivo
+    if (event.status === EventStatus.OPEN || event.status === EventStatus.IN_PROGRESS) {
+      return { isAllowed: true };
+    }
+
+    // Se status for PUBLISHED (Agendado):
+    const minutesBefore = event.checkinOpenMinutesBefore ?? 60;
+    if (minutesBefore < 0 || !event.date) {
+      return { isAllowed: true };
+    }
+
+    // Extrair partes da data (YYYY, MM, DD) com segurança independente de timezone UTC/Local
+    let year = 0, month = 0, day = 0;
+    if (typeof event.date === "string") {
+      const parts = event.date.split("T")[0].split("-").map(Number);
+      year = parts[0];
+      month = parts[1];
+      day = parts[2];
+    } else if (event.date instanceof Date) {
+      const iso = event.date.toISOString().split("T")[0].split("-").map(Number);
+      year = iso[0];
+      month = iso[1];
+      day = iso[2];
+    }
+
+    if (!year || !month || !day) {
+      return { isAllowed: true };
+    }
+
+    const timeStr = event.time || "19:00";
+    const [hours, minutes] = timeStr.split(":").map((v) => parseInt(v, 10));
+
+    // Construir datetime exato do evento
+    const eventDateTime = new Date(year, month - 1, day, isNaN(hours) ? 19 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+    const openAt = new Date(eventDateTime.getTime() - minutesBefore * 60 * 1000);
+    const now = new Date();
+
+    if (now.getTime() < openAt.getTime()) {
+      const timeFormatted = openAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const dateFormatted = openAt.toLocaleDateString("pt-BR");
+      
+      let windowDesc = `${minutesBefore} min antes`;
+      if (minutesBefore === 60) windowDesc = "1 hora antes";
+      else if (minutesBefore === 120) windowDesc = "2 horas antes";
+      else if (minutesBefore === 0) windowDesc = "no horário de início";
+
+      return {
+        isAllowed: false,
+        reason: "CHECKIN_NOT_OPEN_YET",
+        openAt,
+        message: `Check-in agendado: a presença facial será liberada em ${dateFormatted} às ${timeFormatted} (${windowDesc} do evento).`,
+      };
+    }
+
+    return { isAllowed: true, openAt };
   }
 
   /**
@@ -142,8 +232,11 @@ export class EventService {
       prisma.presence.count({ where: { eventId: id, method: PresenceMethod.MANUAL } }),
     ]);
 
+    const checkinStatus = EventService.isCheckinAllowed(event);
+
     return {
       ...event,
+      checkinStatus,
       stats: {
         participantsCount: event._count.participants,
         presencesTotal: event._count.presences,
@@ -469,18 +562,78 @@ export class EventService {
   }
 
   /**
-   * Removes participant from event
+   * Removes participant from event and deletes associated event presence
    */
   public static async removeParticipant(
     eventId: string,
     personId: string,
     operatorUserId?: string
   ) {
-    return await prisma.eventParticipant.delete({
-      where: {
-        eventId_personId: { eventId, personId },
+    const deleted = await prisma.$transaction(async (tx) => {
+      // 1. Delete presence in this event if exists
+      await tx.presence.deleteMany({
+        where: { eventId, personId },
+      });
+
+      // 2. Delete participant registration
+      return await tx.eventParticipant.delete({
+        where: {
+          eventId_personId: { eventId, personId },
+        },
+        include: { person: true },
+      });
+    });
+
+    await safeAuditLog({
+      userId: operatorUserId,
+      action: "REMOVE_PARTICIPANT",
+      entity: "EventParticipant",
+      entityId: `${eventId}_${personId}`,
+      details: { eventId, personId, personName: deleted?.person?.name },
+    });
+
+    return deleted;
+  }
+
+  /**
+   * Returns the most recent confirmed presences of an event
+   */
+  public static async getRecentPresences(eventId: string, limit: number = 15) {
+    const presences = await prisma.presence.findMany({
+      where: { eventId },
+      orderBy: { capturedAt: "desc" },
+      take: Math.min(limit, 50),
+      include: {
+        person: {
+          select: {
+            id: true,
+            name: true,
+            registration: true,
+            category: true,
+            photoUrl: true,
+          },
+        },
       },
     });
+
+    const totalCount = await prisma.presence.count({
+      where: { eventId },
+    });
+
+    return {
+      total: totalCount,
+      items: presences.map((p) => ({
+        id: p.id,
+        personId: p.personId,
+        name: p.person.name,
+        registration: p.person.registration,
+        category: p.person.category,
+        photoUrl: p.person.photoUrl,
+        method: p.method,
+        confidence: p.confidence ? Number(p.confidence) : 1.0,
+        capturedAt: p.capturedAt,
+      })),
+    };
   }
 
   /**
@@ -601,6 +754,21 @@ export class EventService {
     operatorUserId?: string,
     ipAddress?: string
   ) {
+    // 0. Check if event is open for check-in
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { status: true, date: true, time: true, checkinOpenMinutesBefore: true },
+    });
+
+    if (!event) {
+      throw new Error("Evento não encontrado.");
+    }
+
+    const checkinStatus = EventService.isCheckinAllowed(event);
+    if (!checkinStatus.isAllowed) {
+      throw new Error(checkinStatus.message || "Check-in não liberado para este evento.");
+    }
+
     // 1. Check if person is participant in this event
     const participant = await prisma.eventParticipant.findUnique({
       where: { eventId_personId: { eventId, personId } },

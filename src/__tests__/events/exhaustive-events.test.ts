@@ -329,13 +329,81 @@ describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
       expect(list.items[0].presenceMethod).toBe(PresenceMethod.FACE);
       expect(list.items[0].registration).toBe("486519");
     });
+
+    it("deve remover participante do evento e limpar registros de presença associados", async () => {
+      const mockTx = {
+        presence: {
+          deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        eventParticipant: {
+          delete: vi.fn().mockResolvedValue({
+            id: "part-1",
+            eventId: "ev-1",
+            personId: "p-1",
+            person: { name: "Rivaldo Mascarenhas" },
+          }),
+        },
+      };
+
+      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
+        return await cb(mockTx);
+      });
+
+      const deleted = await EventService.removeParticipant("ev-1", "p-1", "user-admin");
+
+      expect(deleted.id).toBe("part-1");
+      expect(mockTx.presence.deleteMany).toHaveBeenCalledWith({
+        where: { eventId: "ev-1", personId: "p-1" },
+      });
+      expect(mockTx.eventParticipant.delete).toHaveBeenCalledWith({
+        where: { eventId_personId: { eventId: "ev-1", personId: "p-1" } },
+        include: { person: true },
+      });
+    });
   });
 
   // =========================================================================
-  // 3. CHECK-IN & REGISTRO DE PRESENÇAS
+  // 3. CHECK-IN & REGISTRO DE PRESENÇAS E JANELA DE AGENDAMENTO
   // =========================================================================
   describe("3. Confirmação de Presença e Check-in (EventService)", () => {
-    it("deve registrar presença manual com sucesso para participante inscrito", async () => {
+    it("deve validar corretamente a regra de liberação de horário (isCheckinAllowed)", () => {
+      // 1. Rascunho / Cancelado / Finalizado
+      expect(EventService.isCheckinAllowed({ status: EventStatus.DRAFT }).isAllowed).toBe(false);
+      expect(EventService.isCheckinAllowed({ status: EventStatus.CANCELLED }).isAllowed).toBe(false);
+      expect(EventService.isCheckinAllowed({ status: EventStatus.COMPLETED }).isAllowed).toBe(false);
+
+      // 2. Aberto / Em Andamento (liberação imediata)
+      expect(EventService.isCheckinAllowed({ status: EventStatus.OPEN }).isAllowed).toBe(true);
+      expect(EventService.isCheckinAllowed({ status: EventStatus.IN_PROGRESS }).isAllowed).toBe(true);
+
+      // 3. Agendado (PUBLISHED) - Futuro (fora da janela de 1h)
+      const futureDate = new Date(Date.now() + 5 * 3600 * 1000); // Daqui a 5 horas
+      const futureRes = EventService.isCheckinAllowed({
+        status: EventStatus.PUBLISHED,
+        date: futureDate,
+        time: `${String(futureDate.getHours()).padStart(2, "0")}:${String(futureDate.getMinutes()).padStart(2, "0")}`,
+        checkinOpenMinutesBefore: 60,
+      });
+      expect(futureRes.isAllowed).toBe(false);
+      expect(futureRes.reason).toBe("CHECKIN_NOT_OPEN_YET");
+
+      // 4. Agendado (PUBLISHED) - Dentro da janela de 1h (ex: daqui a 30 min)
+      const nearFuture = new Date(Date.now() + 30 * 60 * 1000); // Daqui a 30 min
+      const nearRes = EventService.isCheckinAllowed({
+        status: EventStatus.PUBLISHED,
+        date: nearFuture,
+        time: `${String(nearFuture.getHours()).padStart(2, "0")}:${String(nearFuture.getMinutes()).padStart(2, "0")}`,
+        checkinOpenMinutesBefore: 60,
+      });
+      expect(nearRes.isAllowed).toBe(true);
+    });
+
+    it("deve registrar presença manual com sucesso para participante inscrito quando o evento estiver liberado", async () => {
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        status: EventStatus.OPEN,
+      } as any);
+
       vi.mocked(prisma.eventParticipant.findUnique).mockResolvedValue({
         id: "part-1",
         person: { id: "p-1", name: "Fernanda Costa" },
@@ -366,6 +434,11 @@ describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
     });
 
     it("deve retornar confirmação idempotente se presença já foi registrada anteriormente", async () => {
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        status: EventStatus.OPEN,
+      } as any);
+
       vi.mocked(prisma.eventParticipant.findUnique).mockResolvedValue({
         id: "part-1",
         person: { id: "p-1", name: "Fernanda Costa" },
@@ -384,6 +457,11 @@ describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
     });
 
     it("deve rejeitar presença de pessoa não inscrita no evento", async () => {
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        status: EventStatus.OPEN,
+      } as any);
+
       vi.mocked(prisma.eventParticipant.findUnique).mockResolvedValue(null);
 
       await expect(EventService.registerManualPresence("ev-1", "p-unregistered")).rejects.toThrow(

@@ -26,7 +26,8 @@ import {
   Trophy,
   ScanFace,
   Gauge,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -161,16 +162,6 @@ export function Sidebar({
           badge: "Novo",
         },
         {
-          title: "Sorteios ao Vivo",
-          href: "/sorteios",
-          icon: Trophy,
-        },
-        {
-          title: "Presença Facial",
-          href: "/presenca",
-          icon: ScanFace,
-        },
-        {
           title: "Pessoas & Biometria",
           href: "/biometria/pessoas",
           icon: Users,
@@ -204,6 +195,11 @@ export function Sidebar({
           href: "/configuracoes",
           icon: Settings,
           roles: ["ADMIN"],
+        },
+        {
+          title: "Privacidade & LGPD",
+          href: "/privacidade",
+          icon: ShieldCheck,
         },
       ],
     },

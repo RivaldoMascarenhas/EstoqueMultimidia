@@ -18,7 +18,11 @@ import {
   X,
   Sparkles,
   SwitchCamera,
+  ShieldCheck,
+  Trash2,
+  Lock,
 } from "lucide-react";
+import { PrivacyPolicyModal } from "@/components/legal/PrivacyPolicyModal";
 import { toast } from "sonner";
 
 interface BiometricEnrollModalProps {
@@ -29,6 +33,7 @@ interface BiometricEnrollModalProps {
     name: string;
     registration?: string | null;
     cpf?: string | null;
+    hasFaceEnrolled?: boolean;
   } | null;
   onSuccess?: () => void;
 }
@@ -50,6 +55,9 @@ export function BiometricEnrollModal({
   const [faceDetected, setFaceDetected] = useState(false);
   const [isCentered, setIsCentered] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeletingBiometrics, setIsDeletingBiometrics] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
   const [capturedPreview, setCapturedPreview] = useState<string | null>(null);
   const [statusText, setStatusText] = useState("Iniciando câmera...");
@@ -356,9 +364,45 @@ export function BiometricEnrollModal({
     startCamera(nextDev.deviceId);
   };
 
+  // Revoke / Delete Biometrics (LGPD Right to Erasure)
+  const handleRevokeBiometrics = async () => {
+    if (!person) return;
+    if (!confirm(`Tem certeza que deseja revogar e excluir a biometria facial de "${person.name}"? Esta ação removerá os dados biométricos conforme a LGPD.`)) {
+      return;
+    }
+
+    setIsDeletingBiometrics(true);
+    try {
+      const res = await fetch("/api/v1/biometrics/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personId: person.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erro ao revogar biometria.");
+      }
+
+      toast.success("Biometria facial revogada e excluída com sucesso!");
+      if (onSuccess) onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Falha ao excluir biometria.");
+    } finally {
+      setIsDeletingBiometrics(false);
+    }
+  };
+
   // Submit enrollment
   const handleSubmitEnroll = async () => {
     if (!person || !capturedBlob) return;
+
+    if (!consentAccepted) {
+      toast.error("É obrigatório assinalar o Termo de Consentimento LGPD para salvar a biometria.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -388,132 +432,191 @@ export function BiometricEnrollModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden shadow-2xl">
-        <DialogHeader className="p-5 border-b border-border/80 bg-muted/20">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-emerald-500" />
-              Cadastro de Biometria Facial
-            </DialogTitle>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden shadow-2xl rounded-3xl">
+          <DialogHeader className="p-5 pr-14 border-b border-border/80 bg-muted/20">
+            <div className="flex items-center justify-between gap-3">
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-emerald-500" />
+                Cadastro de Biometria Facial
+              </DialogTitle>
 
-            {availableDevices.length > 1 && (
-              <button
-                type="button"
-                onClick={handleSwitchCamera}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-muted hover:bg-accent border border-border text-foreground transition-colors cursor-pointer"
-                title="Trocar Câmera"
-              >
-                <SwitchCamera className="w-3.5 h-3.5" />
-                <span>Trocar Câmera</span>
-              </button>
-            )}
-          </div>
-
-          <DialogDescription className="text-xs text-muted-foreground mt-1">
-            Cadastrando biometria para:{" "}
-            <strong className="text-foreground font-semibold">{person?.name}</strong>{" "}
-            {person?.registration && `(Matrícula: ${person.registration})`}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="p-5 space-y-4">
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black flex items-center justify-center">
-            {/* Live Video & Canvas (Always in DOM to avoid black screens) */}
-            <video
-              ref={videoRef}
-              className="h-full w-full object-cover -scale-x-100"
-              playsInline
-              muted
-            />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 h-full w-full object-cover -scale-x-100 pointer-events-none"
-            />
-
-            {/* Target Outline Guide */}
-            {!capturedPreview && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <div className="h-[68%] max-h-[300px] min-w-[170px] aspect-[3/4] rounded-3xl border-2 border-dashed border-white/85 shadow-[0_0_25px_rgba(255,255,255,0.25)]" />
-              </div>
-            )}
-
-            {/* Captured Preview Overlay (Shows on top of video, never unmounting video) */}
-            {capturedPreview && (
-              <div className="absolute inset-0 z-20 bg-black flex items-center justify-center animate-in fade-in duration-200">
-                <img
-                  src={capturedPreview}
-                  alt="Recorte Facial"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-            )}
-
-            {/* Status bar */}
-            <div className="absolute bottom-3 inset-x-3 z-30 flex items-center justify-center">
-              <div className="rounded-full bg-black/80 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/20 shadow-lg">
-                {statusText}
-              </div>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent rounded-xl transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-
-            <div className="flex items-center gap-2">
-              {capturedBlob ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCapturedBlob(null);
-                      setCapturedPreview(null);
-                      setStatusText("Posicione o rosto no centro do visor");
-                      if (videoRef.current) {
-                        videoRef.current.play().catch(() => {});
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-muted hover:bg-muted/80 rounded-xl transition-colors cursor-pointer"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Capturar Novamente
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmitEnroll}
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4" />
-                    )}
-                    Salvar Biometria
-                  </button>
-                </>
-              ) : (
+              {availableDevices.length > 1 && (
                 <button
                   type="button"
-                  onClick={handleCapture}
-                  disabled={!isCentered}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  onClick={handleSwitchCamera}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-background/80 hover:bg-accent border border-border text-foreground transition-all cursor-pointer mr-4 shadow-sm"
+                  title="Trocar entre câmeras conectadas"
                 >
-                  <Camera className="h-4 w-4" />
-                  Capturar Foto
+                  <SwitchCamera className="w-3.5 h-3.5 text-primary" />
+                  <span>Trocar Câmera</span>
                 </button>
               )}
             </div>
+
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Cadastrando biometria para:{" "}
+              <strong className="text-foreground font-semibold">{person?.name}</strong>{" "}
+              {person?.registration && `(Matrícula: ${person.registration})`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-5 space-y-4">
+            <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black flex items-center justify-center">
+              {/* Live Video & Canvas (Always in DOM to avoid black screens) */}
+              <video
+                ref={videoRef}
+                className="h-full w-full object-cover -scale-x-100"
+                playsInline
+                muted
+              />
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 h-full w-full object-cover -scale-x-100 pointer-events-none"
+              />
+
+              {/* Target Outline Guide */}
+              {!capturedPreview && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <div className="h-[68%] max-h-[300px] min-w-[170px] aspect-[3/4] rounded-3xl border-2 border-dashed border-white/85 shadow-[0_0_25px_rgba(255,255,255,0.25)]" />
+                </div>
+              )}
+
+              {/* Captured Preview Overlay (Shows on top of video, never unmounting video) */}
+              {capturedPreview && (
+                <div className="absolute inset-0 z-20 bg-black flex items-center justify-center animate-in fade-in duration-200">
+                  <img
+                    src={capturedPreview}
+                    alt="Recorte Facial"
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+              )}
+
+              {/* Status bar */}
+              <div className="absolute bottom-3 inset-x-3 z-30 flex items-center justify-center">
+                <div className="rounded-full bg-black/80 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur-md border border-white/20 shadow-lg">
+                  {statusText}
+                </div>
+              </div>
+            </div>
+
+            {/* LGPD Biometric Consent Box (Displayed when photo is captured) */}
+            {capturedBlob && (
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2 animate-in fade-in duration-200">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={consentAccepted}
+                    onChange={(e) => setConsentAccepted(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-amber-400 text-primary focus:ring-primary accent-[#002B49]"
+                  />
+                  <span className="text-[11px] leading-relaxed text-muted-foreground">
+                    <strong className="text-foreground font-semibold">Consentimento LGPD (Art. 11, I):</strong>{" "}
+                    Declaro que o titular autorizou a coleta e processamento de sua biometria facial exclusivamente para identificação e presença em eventos da UniFAP, ciente do direito de revogação a qualquer momento.
+                  </span>
+                </label>
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t border-amber-500/20">
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Criptografia & Armazenamento Seguro
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsPrivacyModalOpen(true)}
+                    className="text-primary hover:underline font-bold cursor-pointer"
+                  >
+                    Ler Termos de Privacidade
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent rounded-xl transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+
+                {person?.hasFaceEnrolled && (
+                  <button
+                    type="button"
+                    onClick={handleRevokeBiometrics}
+                    disabled={isDeletingBiometrics}
+                    className="flex items-center gap-1 px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors border border-rose-500/20 cursor-pointer"
+                    title="Revogar e excluir biometria cadastrada (LGPD)"
+                  >
+                    {isDeletingBiometrics ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    <span>Revogar Biometria</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {capturedBlob ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCapturedBlob(null);
+                        setCapturedPreview(null);
+                        setConsentAccepted(false);
+                        setStatusText("Posicione o rosto no centro do visor");
+                        if (videoRef.current) {
+                          videoRef.current.play().catch(() => {});
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-muted hover:bg-muted/80 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Capturar Novamente
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitEnroll}
+                      disabled={isSubmitting || !consentAccepted}
+                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      Salvar Biometria
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleCapture}
+                    disabled={!isCentered}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Capturar Foto
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Privacy Policy Modal */}
+      <PrivacyPolicyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+      />
+    </>
   );
 }

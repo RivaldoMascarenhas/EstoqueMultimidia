@@ -15,11 +15,12 @@ export const createEventSchema = z.object({
   location: z.string().max(255).optional().nullable(),
   logoUrl: z.string().optional().nullable().or(z.literal("")),
   coverUrl: z.string().optional().nullable().or(z.literal("")),
-  status: z.nativeEnum(EventStatus).default(EventStatus.DRAFT),
-  primaryColor: z.string().default("#002B49"),
-  secondaryColor: z.string().default("#EAA023"),
-  allowRepeatWinners: z.boolean().default(false),
+  status: z.nativeEnum(EventStatus).optional().default(EventStatus.DRAFT),
+  primaryColor: z.string().optional().default("#002B49"),
+  secondaryColor: z.string().optional().default("#EAA023"),
+  allowRepeatWinners: z.boolean().optional().default(false),
   maxParticipants: z.number().int().positive().optional().nullable(),
+  checkinOpenMinutesBefore: z.number().int().optional().default(60),
 });
 
 export const updateEventSchema = createEventSchema.partial();
@@ -34,6 +35,6 @@ export const manualPresenceSchema = z.object({
   personId: z.string().min(1, "ID da pessoa é obrigatório"),
 });
 
-export type CreateEventInput = z.infer<typeof createEventSchema>;
-export type UpdateEventInput = z.infer<typeof updateEventSchema>;
-export type AddParticipantInput = z.infer<typeof addParticipantSchema>;
+export type CreateEventInput = z.input<typeof createEventSchema>;
+export type UpdateEventInput = z.input<typeof updateEventSchema>;
+export type AddParticipantInput = z.input<typeof addParticipantSchema>;

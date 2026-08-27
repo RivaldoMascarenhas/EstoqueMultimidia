@@ -129,7 +129,14 @@ class RealtimeService {
     if (event.state && event.type !== "audio:config") {
       channel.state = event.state;
     }
-    if (event.type === "qr:show" || event.type === "logo:show" || event.type === "idle:show" || event.type === "sponsors:show") {
+    if (
+      event.type === "qr:show" ||
+      event.type === "logo:show" ||
+      event.type === "idle:show" ||
+      event.type === "sponsors:show" ||
+      event.type === "draw:cancel" ||
+      event.type === "draw:start"
+    ) {
       channel.currentWinner = null;
     }
     if (event.prize !== undefined) channel.currentPrize = event.prize;

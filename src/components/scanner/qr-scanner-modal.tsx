@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
 import { 
@@ -37,14 +37,45 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
   const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
   const [activeCameraLabel, setActiveCameraLabel] = useState<string>("");
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const isSwitchingRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  // Terminação imediata de faixas de vídeo e liberação do LED da câmera
+  const killAllVideoHardware = useCallback(() => {
+    if (activeStreamRef.current) {
+      try {
+        activeStreamRef.current.getTracks().forEach((t) => {
+          t.stop();
+          t.enabled = false;
+        });
+      } catch {}
+      activeStreamRef.current = null;
+    }
+
+    if (typeof document !== "undefined") {
+      document.querySelectorAll("#qr-reader-container video").forEach((video) => {
+        try {
+          if ((video as HTMLVideoElement).srcObject) {
+            const stream = (video as HTMLVideoElement).srcObject as MediaStream;
+            stream.getTracks().forEach((t) => {
+              t.stop();
+              t.enabled = false;
+            });
+            (video as HTMLVideoElement).srcObject = null;
+          }
+        } catch {}
+      });
+    }
+  }, []);
 
   const refreshCameraList = async (): Promise<Array<{ id: string; label: string }>> => {
     try {
       const devices = await Html5Qrcode.getCameras();
       if (devices && devices.length > 0) {
-        setCameras(devices);
+        if (isMountedRef.current) setCameras(devices);
         return devices;
       }
     } catch (e) {
@@ -53,7 +84,9 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     return [];
   };
 
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
+    killAllVideoHardware();
+
     if (scannerRef.current) {
       try {
         if (scannerRef.current.isScanning) {
@@ -63,31 +96,26 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
       } catch (e) {
         console.warn("Erro ao parar scanner no modal:", e);
       }
+      scannerRef.current = null;
     }
 
-    // Parar todos os tracks residuais do hardware
-    const existingVideo = document.querySelector("#qr-reader-container video") as HTMLVideoElement;
-    if (existingVideo && existingVideo.srcObject) {
-      try {
-        const stream = existingVideo.srcObject as MediaStream;
-        stream.getTracks().forEach((t) => t.stop());
-        existingVideo.srcObject = null;
-      } catch (e) {}
+    killAllVideoHardware();
+    if (isMountedRef.current) {
+      setIsScanning(false);
     }
+  }, [killAllVideoHardware]);
 
-    setIsScanning(false);
-  };
-
-  const startScanner = async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
+  const startScanner = useCallback(async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
     try {
+      if (!isMountedRef.current) return;
       setCameraError(null);
-      setIsScanning(true);
 
       // Parar instâncias anteriores e liberar hardware
       await stopScanner();
 
       // Buffer de 150ms para liberação pelo SO móvel/desktop
       await new Promise((resolve) => setTimeout(resolve, 150));
+      if (!isMountedRef.current) return;
 
       const html5QrCode = new Html5Qrcode("qr-reader-container");
       scannerRef.current = html5QrCode;
@@ -149,16 +177,29 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
           const devs = await Html5Qrcode.getCameras().catch(() => []);
           if (devs.length > 0) {
             await html5QrCode.start(devs[0].id, scanConfig, handleSuccess, () => {});
-            setSelectedCameraIndex(0);
-            setActiveCameraLabel(devs[0].label || "Câmera 1");
+            if (isMountedRef.current) {
+              setSelectedCameraIndex(0);
+              setActiveCameraLabel(devs[0].label || "Câmera 1");
+            }
           } else {
             await html5QrCode.start({ facingMode: "user" }, scanConfig, handleSuccess, () => {});
           }
         }
       }
 
+      if (!isMountedRef.current) {
+        killAllVideoHardware();
+        return;
+      }
+
+      // Capturar MediaStream para teardown garantido
+      const videoEl = document.querySelector("#qr-reader-container video") as HTMLVideoElement;
+      if (videoEl && videoEl.srcObject) {
+        activeStreamRef.current = videoEl.srcObject as MediaStream;
+      }
+
       const updatedDevices = await refreshCameraList();
-      if (updatedDevices.length > 0) {
+      if (updatedDevices.length > 0 && isMountedRef.current) {
         const currentIdx = typeof cameraIndex === "number" ? cameraIndex : selectedCameraIndex;
         if (updatedDevices[currentIdx]) {
           setActiveCameraLabel(updatedDevices[currentIdx].label);
@@ -168,12 +209,14 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
       setIsScanning(true);
     } catch (err: any) {
       console.warn("Erro ao iniciar câmera no modal:", err);
-      setCameraError(
-        "Não foi possível acessar a câmera do dispositivo. Verifique as permissões do navegador ou digite o código da caixa abaixo."
-      );
-      setIsScanning(false);
+      if (isMountedRef.current) {
+        setCameraError(
+          "Não foi possível acessar a câmera do dispositivo. Verifique as permissões do navegador ou digite o código da caixa abaixo."
+        );
+        setIsScanning(false);
+      }
     }
-  };
+  }, [stopScanner, killAllVideoHardware, cameras, selectedCameraIndex]);
 
   const handleToggleCamera = async () => {
     if (isSwitchingRef.current) return;
@@ -201,10 +244,10 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
         try {
           await startScanner({ facingMode: targetMode });
           toast.info(`Alternando para modo ${targetMode === "environment" ? "Traseira" : "Frontal"}...`);
-        } catch (e) {
+        } catch {
           toast.info(
-            `Apenas 1 câmera detectada neste computador (${availableCams[0].label || "Webcam Principal"}). Conecte outra webcam ou teste no celular para alternar entre frontal e traseira.`,
-            { duration: 5000 }
+            `Apenas 1 câmera detectada (${availableCams[0].label || "Webcam Principal"}). Conecte outra webcam ou teste no celular para alternar entre frontal e traseira.`,
+            { duration: 4000 }
           );
         }
       } else {
@@ -212,7 +255,7 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
         await startScanner({ facingMode: nextMode });
         toast.info(`Alternado para modo ${nextMode === "environment" ? "Traseira" : "Frontal"}`);
       }
-    } catch (e) {
+    } catch {
       toast.error("Erro ao alternar câmera.");
     } finally {
       isSwitchingRef.current = false;
@@ -221,18 +264,27 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
   };
 
   useEffect(() => {
+    isMountedRef.current = true;
     if (isOpen) {
       const timer = setTimeout(() => {
         startScanner();
-      }, 300);
+      }, 250);
       return () => {
         clearTimeout(timer);
+        killAllVideoHardware();
         stopScanner();
       };
     } else {
+      killAllVideoHardware();
       stopScanner();
     }
-  }, [isOpen]);
+
+    return () => {
+      isMountedRef.current = false;
+      killAllVideoHardware();
+      stopScanner();
+    };
+  }, [isOpen, startScanner, stopScanner, killAllVideoHardware]);
 
   const triggerHaptic = () => {
     if (typeof window !== "undefined" && "navigator" in window && navigator.vibrate) {
@@ -242,6 +294,7 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
 
   const handleScanSuccess = (rawText: string) => {
     triggerHaptic();
+    killAllVideoHardware();
     stopScanner();
     onClose();
 
@@ -260,13 +313,20 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
     if (!manualCode.trim()) return;
 
     const code = manualCode.trim().toUpperCase();
+    killAllVideoHardware();
     stopScanner();
     onClose();
     router.push(`/caixas/${code}`);
   };
 
+  const handleCloseModal = () => {
+    killAllVideoHardware();
+    stopScanner();
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseModal()}>
       <DialogContent className="sm:max-w-md p-6">
         <DialogHeader>
           <div className="flex items-center justify-between">
@@ -282,7 +342,7 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
               size="sm"
               onClick={handleToggleCamera}
               disabled={isSwitchingCamera}
-              className="h-8 px-2.5 text-xs rounded-xl gap-1.5 border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary shrink-0"
+              className="h-8 px-2.5 text-xs rounded-xl gap-1.5 border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary shrink-0 cursor-pointer"
               title="Alternar entre câmeras disponíveis"
             >
               <SwitchCamera className={cn("w-3.5 h-3.5 text-primary transition-transform duration-300", isSwitchingCamera && "animate-spin text-amber-400")} />
@@ -337,7 +397,7 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
                   size="sm"
                   variant="outline"
                   onClick={() => startScanner()}
-                  className="text-xs rounded-xl gap-1.5"
+                  className="text-xs rounded-xl gap-1.5 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Tentar Novamente</span>
@@ -359,9 +419,8 @@ export function QrScannerModal({ isOpen, onClose }: QrScannerModalProps) {
                 onChange={(e) => setManualCode(e.target.value)}
                 placeholder="Ex: C017"
                 className="font-mono uppercase font-bold text-sm"
-                icon={<Search className="w-4 h-4" />}
               />
-              <Button type="submit" size="sm" className="gap-1.5 rounded-xl shrink-0">
+              <Button type="submit" size="sm" className="gap-1.5 rounded-xl shrink-0 cursor-pointer">
                 <span>Abrir</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>

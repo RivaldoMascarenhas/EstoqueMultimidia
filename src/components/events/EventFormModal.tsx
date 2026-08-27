@@ -58,6 +58,7 @@ export function EventFormModal({
   const [coverUrl, setCoverUrl] = useState("");
   const [allowRepeatWinners, setAllowRepeatWinners] = useState(false);
   const [maxParticipants, setMaxParticipants] = useState<number | "">("");
+  const [checkinOpenMinutesBefore, setCheckinOpenMinutesBefore] = useState<number>(60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imgHasError, setImgHasError] = useState(false);
 
@@ -93,19 +94,21 @@ export function EventFormModal({
       setCoverUrl(event.coverUrl || "");
       setAllowRepeatWinners(event.allowRepeatWinners ?? false);
       setMaxParticipants(event.maxParticipants || "");
+      setCheckinOpenMinutesBefore(event.checkinOpenMinutesBefore ?? 60);
     } else {
       setName("");
       setDescription("");
       setDate(new Date().toISOString().split("T")[0]);
       setTime("19:00");
       setLocation("Auditório Principal — UniFAP");
-      setStatus("OPEN");
+      setStatus("PUBLISHED");
       setPrimaryColor("#002B49");
       setSecondaryColor("#EAA023");
       setLogoUrl("/brand/logo-unifap-negativa.png");
       setCoverUrl("");
       setAllowRepeatWinners(false);
       setMaxParticipants("");
+      setCheckinOpenMinutesBefore(60);
     }
     setImgHasError(false);
     setActiveTab("general");
@@ -186,6 +189,7 @@ export function EventFormModal({
           coverUrl: finalCoverUrl,
           allowRepeatWinners,
           maxParticipants: maxParticipants ? Number(maxParticipants) : null,
+          checkinOpenMinutesBefore: Number(checkinOpenMinutesBefore),
         }),
       });
 
@@ -206,9 +210,9 @@ export function EventFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden shadow-2xl rounded-3xl">
+      <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden shadow-2xl rounded-3xl max-h-[90vh] flex flex-col">
         {/* Header com Abas Integradas */}
-        <div className="border-b border-border/80 bg-muted/20">
+        <div className="border-b border-border/80 bg-muted/20 shrink-0">
           <div className="p-5 pb-3">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
@@ -253,8 +257,9 @@ export function EventFormModal({
           </div>
         </div>
 
-        {/* Formulário com Abas */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        {/* Formulário com Abas e Scroll Interno */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
+          <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {/* ========================================================================= */}
           {/* ABA 1: DADOS GERAIS DO EVENTO */}
           {/* ========================================================================= */}
@@ -324,13 +329,73 @@ export function EventFormModal({
                     onChange={(e) => setStatus(e.target.value)}
                     className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
                   >
-                    <option value="DRAFT">Rascunho</option>
-                    <option value="OPEN">Aberto (Check-in & Sorteios)</option>
+                    <option value="PUBLISHED">Agendado (Inscrições Abertas)</option>
+                    <option value="OPEN">Aberto (Check-in & Sorteios Ao Vivo)</option>
                     <option value="IN_PROGRESS">Em Andamento</option>
-                    <option value="PAUSED">Pausado</option>
-                    <option value="FINISHED">Finalizado</option>
+                    <option value="DRAFT">Rascunho (Inscrições Pausadas)</option>
+                    <option value="COMPLETED">Finalizado</option>
                     <option value="CANCELLED">Cancelado</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Regra de Liberação da Biometria / Check-in */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span>Janela de Abertura da Biometria Facial & Check-in</span>
+                  </label>
+                  <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                    Controle de Presença
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <select
+                    value={checkinOpenMinutesBefore}
+                    onChange={(e) => setCheckinOpenMinutesBefore(Number(e.target.value))}
+                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
+                  >
+                    <option value={60}>1 hora antes do horário (Recomendado)</option>
+                    <option value={30}>30 minutos antes do horário</option>
+                    <option value={120}>2 horas antes do horário</option>
+                    <option value={0}>No horário exato de início</option>
+                    <option value={-1}>Livre (A qualquer momento)</option>
+                  </select>
+
+                  {/* Card Informativo com Cálculo em Tempo Real */}
+                  <div className="rounded-xl border border-border/60 bg-background/60 p-2.5 flex items-center gap-2 text-xs">
+                    <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span className="text-[11px] text-muted-foreground leading-tight">
+                      {status === "OPEN" || status === "IN_PROGRESS" ? (
+                        <strong className="text-emerald-500">
+                          Status Aberto: Totem e check-in liberados imediatamente ao vivo.
+                        </strong>
+                      ) : status === "DRAFT" ? (
+                        <span>Status Rascunho: Check-in bloqueado.</span>
+                      ) : checkinOpenMinutesBefore < 0 || !date ? (
+                        <span>Check-in livre em qualquer horário.</span>
+                      ) : (
+                        <span>
+                          Presença liberada{" "}
+                          <strong className="text-foreground">
+                            {checkinOpenMinutesBefore === 0
+                              ? `a partir das ${time || "19:00"}`
+                              : `${checkinOpenMinutesBefore === 60 ? "1h antes" : `${checkinOpenMinutesBefore}m antes`} (às ${(() => {
+                                  try {
+                                    const d = new Date(`${date}T${time || "19:00"}:00`);
+                                    const op = new Date(d.getTime() - checkinOpenMinutesBefore * 60 * 1000);
+                                    return op.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                                  } catch {
+                                    return "18:00";
+                                  }
+                                })()})`}
+                          </strong>
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -561,9 +626,10 @@ export function EventFormModal({
               </div>
             </div>
           )}
+          </div>
 
-          {/* Footer de Ações */}
-          <div className="flex items-center justify-between pt-3 border-t border-border/80">
+          {/* Footer de Ações Fixado */}
+          <div className="flex items-center justify-between p-4 border-t border-border/80 bg-muted/20 shrink-0">
             <button
               type="button"
               onClick={onClose}
@@ -575,7 +641,7 @@ export function EventFormModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

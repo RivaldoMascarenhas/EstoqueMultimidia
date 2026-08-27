@@ -122,12 +122,39 @@ class RecognitionService:
         if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evento não encontrado.")
 
-        if event.status not in ["OPEN", "DRAFT", "IN_PROGRESS"]:
+        if event.status in ["DRAFT", "CANCELLED", "COMPLETED"]:
             return RecognizeResponse(
                 success=False,
                 status="EVENT_NOT_OPEN",
                 message=f"O evento está com status '{event.status}'. O registro de presença não está ativo.",
             )
+
+        if event.status == "PUBLISHED":
+            minutes_before = getattr(event, "checkinOpenMinutesBefore", 60)
+            if minutes_before is None:
+                minutes_before = 60
+            if minutes_before >= 0 and event.date:
+                d = event.date
+                h, m = 19, 0
+                if event.time:
+                    try:
+                        parts = str(event.time).split(":")
+                        h, m = int(parts[0]), int(parts[1])
+                    except Exception:
+                        pass
+                
+                event_dt = datetime(d.year, d.month, d.day, h, m, 0)
+                open_at = event_dt - timedelta(minutes=minutes_before)
+                now = datetime.now()
+                if now < open_at:
+                    time_str = open_at.strftime("%H:%M")
+                    date_str = open_at.strftime("%d/%m")
+                    window_desc = f"{minutes_before} min antes" if minutes_before != 60 else "1 hora antes"
+                    return RecognizeResponse(
+                        success=False,
+                        status="EVENT_NOT_OPEN",
+                        message=f"Check-in agendado: a presença facial será liberada em {date_str} às {time_str} ({window_desc} do evento).",
+                    )
 
         # 2. Extract 128D embedding
         try:

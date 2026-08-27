@@ -139,6 +139,8 @@ interface FaceAttendanceCameraProps {
   eventName: string;
   deviceIdentifier?: string;
   onPresenceRecorded?: (result: BiometricRecognizeResult) => void;
+  className?: string;
+  isKioskMode?: boolean;
 }
 
 export function FaceAttendanceCamera({
@@ -146,6 +148,8 @@ export function FaceAttendanceCamera({
   eventName,
   deviceIdentifier,
   onPresenceRecorded,
+  className = "",
+  isKioskMode = false,
 }: FaceAttendanceCameraProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -179,15 +183,20 @@ export function FaceAttendanceCamera({
       } catch {}
       currentStreamRef.current = null;
     }
-    if (videoRef.current && videoRef.current.srcObject) {
+    if (videoRef.current) {
+      if (videoRef.current.srcObject) {
+        try {
+          const s = videoRef.current.srcObject as MediaStream;
+          s.getTracks().forEach((track) => {
+            track.stop();
+            track.enabled = false;
+          });
+        } catch {}
+        videoRef.current.srcObject = null;
+      }
       try {
-        const s = videoRef.current.srcObject as MediaStream;
-        s.getTracks().forEach((track) => {
-          track.stop();
-          track.enabled = false;
-        });
+        videoRef.current.pause();
       } catch {}
-      videoRef.current.srcObject = null;
     }
     setCameraReady(false);
   }, []);
@@ -291,7 +300,10 @@ export function FaceAttendanceCamera({
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (!isMountedRef.current) {
-          stream.getTracks().forEach((t) => t.stop());
+          stream.getTracks().forEach((t) => {
+            t.stop();
+            t.enabled = false;
+          });
           return;
         }
 
@@ -299,7 +311,14 @@ export function FaceAttendanceCamera({
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
-            if (videoRef.current && isMountedRef.current) {
+            if (!isMountedRef.current) {
+              stream.getTracks().forEach((t) => {
+                t.stop();
+                t.enabled = false;
+              });
+              return;
+            }
+            if (videoRef.current) {
               videoRef.current.play().catch(() => {});
               setCameraReady(true);
               setRecognitionState("DETECTING");
@@ -482,6 +501,20 @@ export function FaceAttendanceCamera({
     };
   }, [startCamera, stopCameraStream]);
 
+  // Listener para desligamento forçado ao sair da página ou ocultar
+  useEffect(() => {
+    const handleUnload = () => {
+      stopCameraStream();
+    };
+    window.addEventListener("pagehide", handleUnload);
+    window.addEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("pagehide", handleUnload);
+      window.removeEventListener("beforeunload", handleUnload);
+      stopCameraStream();
+    };
+  }, [stopCameraStream]);
+
   // Main Detection Loop with ~15 FPS
   useEffect(() => {
     if (!cameraReady) return;
@@ -647,13 +680,46 @@ export function FaceAttendanceCamera({
     };
   }, [cameraReady, generateFaceCropBlob, performRecognition]);
 
+  // Sincronização em tempo real de Fullscreen (corrige tecla ESC e botão sair)
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      // isFullscreen no componente só é ativo se o próprio container foi colocado em fullscreen
+      const isCurrentlyFullscreen = document.fullscreenElement === containerRef.current;
+      setIsFullscreen(isCurrentlyFullscreen);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "f" && !isKioskMode) {
+        toggleFullscreen();
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isKioskMode]);
+
   // Fullscreen toggle
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    const isCurrentlyFullscreen = document.fullscreenElement === containerRef.current;
+
+    if (!isCurrentlyFullscreen) {
+      containerRef.current.requestFullscreen().catch(() => {});
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
   };
 
@@ -661,29 +727,37 @@ export function FaceAttendanceCamera({
     <div
       ref={containerRef}
       className={`relative flex flex-col items-center justify-center overflow-hidden rounded-3xl bg-black border border-slate-800 shadow-2xl transition-all duration-300 ${
-        isFullscreen ? "h-screen w-screen rounded-none border-none" : "h-[540px] w-full max-w-4xl"
-      }`}
+        isFullscreen
+          ? "fixed inset-0 z-50 h-screen w-screen rounded-none border-none"
+          : isKioskMode
+          ? "h-full w-full max-h-full"
+          : "h-[540px] w-full max-w-4xl"
+      } ${className}`}
     >
       {/* Top Header Bar */}
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between bg-gradient-to-b from-black/90 via-black/50 to-transparent p-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-3 w-3 items-center justify-center">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-            </span>
-          </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-white">
-            {eventName}
-          </span>
-          {deviceIdentifier && (
-            <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white/80 font-mono">
-              {deviceIdentifier}
-            </span>
+          {!isKioskMode && (
+            <>
+              <div className="flex h-3 w-3 items-center justify-center">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-white">
+                {eventName}
+              </span>
+              {deviceIdentifier && (
+                <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white/80 font-mono">
+                  {deviceIdentifier}
+                </span>
+              )}
+            </>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {/* Detected Face Counter Badge */}
           <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 text-xs text-slate-200 shadow-md">
             <span
@@ -720,13 +794,15 @@ export function FaceAttendanceCamera({
             {soundMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
 
-          <button
-            onClick={toggleFullscreen}
-            className="rounded-xl bg-black/50 border border-white/10 p-2 text-white hover:bg-black/70 transition-colors cursor-pointer"
-            title="Tela cheia"
-          >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-          </button>
+          {!isKioskMode && (
+            <button
+              onClick={toggleFullscreen}
+              className="rounded-xl bg-black/50 border border-white/10 p-2 text-white hover:bg-black/70 transition-colors cursor-pointer"
+              title="Tela cheia"
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
+          )}
         </div>
       </div>
 

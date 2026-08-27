@@ -24,6 +24,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validação de tamanho máximo (10 MB) para mitigação de DoS / Memory Exhaustion
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: "O arquivo excede o limite máximo permitido de 10 MB." },
+        { status: 400 }
+      );
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 

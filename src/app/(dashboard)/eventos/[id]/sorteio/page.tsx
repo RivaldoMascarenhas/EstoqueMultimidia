@@ -33,6 +33,7 @@ import {
   Loader2,
   Smartphone,
   MessageSquare,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WinnerShareModal } from "@/components/events/WinnerShareModal";
@@ -206,28 +207,40 @@ export default function OperatorDrawPage() {
   // Stage Projections
   const handleSelectPrize = async (prize: any) => {
     setSelectedPrizeId(prize.id);
+    setLatestWinner(null);
+    setRollingNumber("---");
+    setRollingName("");
     await broadcastRealtime({
       type: "prize:show",
       state: "SHOWING_PRIZE",
       prizeId: prize.id,
       prize,
+      winner: null,
     });
     toast.info(`Apresentando no Telão: ${prize.name}`);
   };
 
   const handleShowEventLogo = async () => {
+    setLatestWinner(null);
+    setRollingNumber("---");
+    setRollingName("");
     await broadcastRealtime({
       type: "logo:show",
       state: "SHOWING_EVENT_LOGO",
       event,
+      winner: null,
     });
     toast.success("Logo do Evento projetada no Telão!");
   };
 
   const handleShowIdle = async () => {
+    setLatestWinner(null);
+    setRollingNumber("---");
+    setRollingName("");
     await broadcastRealtime({
       type: "idle:show",
       state: "IDLE",
+      winner: null,
     });
     toast.info("Tela Inicial / Palco ativado no Telão.");
   };
@@ -318,11 +331,14 @@ export default function OperatorDrawPage() {
       await broadcastRealtime({
         type: "draw:cancel",
         state: "IDLE",
+        winner: null,
       });
 
       toast.success("Sorteio anulado! O prêmio voltou para a fila de disponíveis.");
       setIsCancelModalOpen(false);
       setLatestWinner(null);
+      setRollingNumber("---");
+      setRollingName("");
       setCancelReason("");
       setCancelMarkIneligible(false);
       await fetchEventData(true);
@@ -350,6 +366,8 @@ export default function OperatorDrawPage() {
     setIsConfirmModalOpen(false);
     setIsDrawing(true);
     setLatestWinner(null);
+    setRollingNumber("000");
+    setRollingName("Sorteando...");
 
     soundEngine.play("DRAW_START");
 
@@ -359,6 +377,7 @@ export default function OperatorDrawPage() {
       state: "DRAWING",
       prizeId: selectedPrizeId,
       prize: selectedPrize,
+      winner: null,
     });
 
     let apiResult: any = null;
@@ -784,6 +803,7 @@ export default function OperatorDrawPage() {
                       type="button"
                       onClick={() => {
                         setSingleShareWinner({
+                          drawnNumber: latestWinner.drawnNumber,
                           person: {
                             name: latestWinner.drawnName || latestWinner.winner?.name || "Participante",
                             registration: latestWinner.winner?.registration,
@@ -920,17 +940,38 @@ export default function OperatorDrawPage() {
                     {new Date(w.drawDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSingleShareWinner(w);
-                      setIsShareModalOpen(true);
-                    }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition"
-                  >
-                    <Smartphone className="w-3 h-3" />
-                    <span>Notificar WhatsApp</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLatestWinner({
+                          id: w.drawId || w.id,
+                          drawId: w.drawId || w.id,
+                          drawnName: w.person.name,
+                          drawnNumber: w.draw?.drawnNumber || 1,
+                          winner: w.person,
+                          prize: w.prize,
+                        });
+                        setIsCancelModalOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition cursor-pointer"
+                      title="Anular premiação e devolver prêmio"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSingleShareWinner(w);
+                        setIsShareModalOpen(true);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20 transition cursor-pointer"
+                    >
+                      <Smartphone className="w-3 h-3" />
+                      <span>Notificar WhatsApp</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

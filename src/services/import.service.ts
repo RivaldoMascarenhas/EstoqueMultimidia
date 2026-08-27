@@ -36,6 +36,19 @@ export class ImportService {
   }
 
   /**
+   * Sanitizes string fields to prevent CSV / Formula Injection (CWE-1236)
+   */
+  public static sanitizeField(value: any): string {
+    if (value === null || value === undefined) return "";
+    let str = String(value).trim();
+    if (/^[=+\-@\t\r]/.test(str)) {
+      // Remove or neutralize the dangerous prefix
+      str = str.replace(/^[=+\-@\t\r]+/, "");
+    }
+    return str;
+  }
+
+  /**
    * Parses file buffer (CSV or XLSX) into standardized objects
    */
   public static parseFile(buffer: Buffer, filename: string): ParsedPersonRow[] {
@@ -122,15 +135,22 @@ export class ImportService {
         normalizedRow["ticketnumber"] ||
         undefined;
 
-      if (String(name).trim()) {
+      const cleanName = this.sanitizeField(name);
+      const cleanReg = this.sanitizeField(registration);
+      const cleanEmail = this.sanitizeField(email);
+      const cleanPhone = this.sanitizeField(phone);
+      const cleanCat = this.sanitizeField(category);
+      const cleanNotes = this.sanitizeField(notes);
+
+      if (cleanName) {
         rows.push({
-          name: String(name).trim(),
+          name: cleanName,
           cpf: cpf.length === 11 ? cpf : undefined,
-          registration: registration ? String(registration).trim() : undefined,
-          email: email ? String(email).trim() : undefined,
-          phone: phone ? String(phone).trim() : undefined,
-          category: category ? String(category).trim() : undefined,
-          notes: notes ? String(notes).trim() : undefined,
+          registration: cleanReg || undefined,
+          email: cleanEmail || undefined,
+          phone: cleanPhone || undefined,
+          category: cleanCat || undefined,
+          notes: cleanNotes || undefined,
           ticketNumber: typeof ticketNumber === "number" ? ticketNumber : undefined,
         });
       }

@@ -26,6 +26,11 @@ import { toast } from "sonner";
 export interface WinnerItem {
   id?: string;
   drawId?: string;
+  drawnNumber?: number;
+  drawnName?: string;
+  draw?: {
+    drawnNumber?: number;
+  };
   drawDate?: string | Date;
   person: {
     id?: string;
@@ -62,44 +67,77 @@ export function WinnerShareModal({
   winners,
   singleWinner,
 }: WinnerShareModalProps) {
-  const [activeTab, setActiveTab] = useState<"whatsapp" | "visual">("visual");
+  const [activeTab, setActiveTab] = useState<"whatsapp" | "visual">(
+    singleWinner ? "whatsapp" : "visual"
+  );
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   const displayWinners = singleWinner ? [singleWinner] : winners;
 
-  // Generate WhatsApp Bulk Text
-  const generateWhatsAppText = () => {
+  // Format Date String helper
+  const formattedDate = (() => {
+    if (!eventDate) return "";
+    if (typeof eventDate === "string" && eventDate.includes("-")) {
+      return eventDate.split("T")[0].split("-").reverse().join("/");
+    }
+    return new Date(eventDate).toLocaleDateString("pt-BR");
+  })();
+
+  // 1. Template para Ganhador Individual (Notificação Direta)
+  const generateIndividualWhatsAppText = (w: WinnerItem) => {
+    const sponsorName = w.prize.sponsor?.name || "UniFAP (Institucional)";
+
+    let text = `🎓 *CENTRO UNIVERSITÁRIO PARAÍSO — UNIFAP*\n`;
+    text += `🎉 *PARABÉNS! VOCÊ FOI CONTEMPLADO NO SORTEIO!* 🏆\n\n`;
+    text += `Olá, *${w.person.name}*!\n`;
+    text += `Temos uma excelente notícia para você:\n\n`;
+    text += `📍 *Evento:* ${eventName}\n`;
+    text += `🎁 *Prêmio Conquistado:* ${w.prize.name}\n`;
+    text += `🤝 *Oferecimento:* ${sponsorName}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `📍 *Como retirar seu prêmio:*\n`;
+    text += `Apresente seu documento com foto ou comprovante de matrícula na coordenação/palco do evento para retirar seu brinde.\n\n`;
+    text += `✨ *Parabéns pela sua conquista!*\n`;
+    text += `🌐 _Sistema Institucional UniFAP Sorteios • unifapce.edu.br_`;
+
+    return text;
+  };
+
+  // 2. Template Oficial Geral (Relação Completa dos Ganhadores)
+  const generateBulkWhatsAppText = () => {
     let text = `🎓 *CENTRO UNIVERSITÁRIO PARAÍSO — UNIFAP*\n`;
     text += `🏆 *RESULTADOS OFICIAIS DOS SORTEIOS*\n\n`;
     text += `📍 *Evento:* ${eventName}\n`;
-    if (eventDate) {
-      text += `📅 *Data:* ${new Date(eventDate).toLocaleDateString("pt-BR")}\n`;
+    if (formattedDate) {
+      text += `📅 *Data:* ${formattedDate}\n`;
     }
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    text += `🎉 *RELAÇÃO DOS CONTEMPLADOS:*\n\n`;
+    text += `🎉 *RELAÇÃO DOS GANHADORES:*\n\n`;
 
-    if (displayWinners.length === 0) {
+    if (winners.length === 0) {
       text += `Nenhum sorteio foi realizado ainda para este evento.\n\n`;
     } else {
-      displayWinners.forEach((w, idx) => {
-        const reg = w.person.registration ? ` (${w.person.registration})` : "";
-        const cat = w.person.category ? ` • _${w.person.category}_` : "";
-        const sponsor = w.prize.sponsor?.name ? ` | 🤝 Parceria: ${w.prize.sponsor.name}` : "";
+      winners.forEach((w, idx) => {
+        const ticketNum = w.drawnNumber || w.draw?.drawnNumber || idx + 1;
+        const numStr = String(ticketNum).padStart(3, "0");
+        const sponsorName = w.prize.sponsor?.name || "UniFAP (Institucional)";
 
-        text += `🎁 *${idx + 1}º Prêmio:* ${w.prize.name}${sponsor}\n`;
-        text += `👤 *Ganhador(a):* ${w.person.name}${reg}${cat}\n\n`;
+        text += `🎟️ *Bilhete #${numStr}* — ${w.person.name}\n`;
+        text += `🎁 *Prêmio:* ${w.prize.name}\n`;
+        text += `🤝 *Parceria:* ${sponsorName}\n\n`;
       });
     }
 
     text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `✨ *Parabéns a todos os contemplados!*\n`;
-    text += `📍 _Favor apresentar documento com foto para retirada do brinde._\n`;
-    text += `🌐 _Sistema Integrado UniFAP • unifapce.edu.br_`;
+    text += `🌐 _Sistema Institucional UniFAP Sorteios • unifapce.edu.br_`;
 
     return text;
   };
 
-  const fullText = generateWhatsAppText();
+  const fullText = singleWinner
+    ? generateIndividualWhatsAppText(singleWinner)
+    : generateBulkWhatsAppText();
 
   const handleCopyText = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -480,11 +518,11 @@ export function WinnerShareModal({
 
                 <button
                   type="button"
-                  onClick={() => handleOpenWhatsApp(fullText)}
+                  onClick={() => handleOpenWhatsApp(fullText, singleWinner?.person?.phone)}
                   className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-md cursor-pointer"
                 >
                   <Smartphone className="w-4 h-4" />
-                  <span>Abrir no WhatsApp</span>
+                  <span>{singleWinner?.person?.phone ? "Enviar Mensagem no WhatsApp" : "Abrir no WhatsApp"}</span>
                 </button>
               </div>
             </div>

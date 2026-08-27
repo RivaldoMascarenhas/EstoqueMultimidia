@@ -65,11 +65,18 @@ export default function EventosPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case "PUBLISHED":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 border border-blue-500/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+            Agendado
+          </span>
+        );
       case "OPEN":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Aberto • Presença Ativa
+            Aberto • Ao Vivo
           </span>
         );
       case "IN_PROGRESS":
@@ -81,7 +88,7 @@ export default function EventosPage() {
       case "COMPLETED":
         return (
           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground border border-border">
-            Encerrado
+            Finalizado
           </span>
         );
       case "CANCELLED":
@@ -118,7 +125,7 @@ export default function EventosPage() {
             setSelectedEvent(null);
             setIsFormOpen(true);
           }}
-          className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors"
+          className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Novo Evento
@@ -149,10 +156,12 @@ export default function EventosPage() {
               className="rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
             >
               <option value="all">Todos os Status</option>
-              <option value="OPEN">Abertos (Presença Ativa)</option>
+              <option value="PUBLISHED">Agendados</option>
+              <option value="OPEN">Abertos (Ao Vivo)</option>
               <option value="IN_PROGRESS">Em Andamento</option>
               <option value="DRAFT">Rascunhos</option>
-              <option value="COMPLETED">Encerrados</option>
+              <option value="COMPLETED">Finalizados</option>
+              <option value="CANCELLED">Cancelados</option>
             </select>
 
             <button

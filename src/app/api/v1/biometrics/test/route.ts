@@ -24,6 +24,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (crop.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: "A imagem excede o limite máximo permitido de 10 MB." },
+        { status: 400 }
+      );
+    }
+
     const result = await BiometricApiService.testBiometrics({
       cropBlob: crop,
       targetPersonId: targetPersonId || null,

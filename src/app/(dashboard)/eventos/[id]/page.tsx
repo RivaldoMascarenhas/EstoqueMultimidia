@@ -181,7 +181,24 @@ export default function EventHubPage() {
     } catch {}
   };
 
-
+  // Fetch Recent Presences
+  const fetchRecentPresences = async () => {
+    try {
+      const res = await fetch(`/api/v1/events/${eventId}/presences?limit=15`);
+      const data = await res.json();
+      if (data.success && data.items) {
+        setRecentPresences(
+          data.items.map((it: any) => ({
+            id: it.id,
+            name: it.name,
+            registration: it.registration,
+            confidence: it.confidence,
+            timestamp: new Date(it.capturedAt),
+          }))
+        );
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     fetchEvent();
@@ -196,8 +213,12 @@ export default function EventHubPage() {
       fetchPrizes();
     } else if (activeTab === "winners") {
       fetchWinners();
+    } else if (activeTab === "presence") {
+      fetchRecentPresences();
+      const interval = setInterval(fetchRecentPresences, 3500);
+      return () => clearInterval(interval);
     }
-  }, [activeTab, participantPresenceFilter]);
+  }, [activeTab, participantPresenceFilter, eventId]);
 
   // Handle Manual Presence Toggle
   const handleManualPresence = async (personId: string) => {
@@ -332,6 +353,34 @@ export default function EventHubPage() {
     });
   };
 
+  // Handle Remove Participant with Custom Modal
+  const handleRemoveParticipant = (participant: any) => {
+    setConfirmModalState({
+      isOpen: true,
+      title: "Remover Participante do Evento",
+      description: `Tem certeza que deseja remover "${participant.name}" deste evento? A inscrição será cancelada e qualquer presença ou bilhete #${participant.ticketNumber} associado será removido.`,
+      itemName: `👤 ${participant.name} • Bilhete #${participant.ticketNumber} (${participant.registration || "Sem Matrícula"})`,
+      confirmText: "Remover Participante",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/events/${eventId}/participants?personId=${participant.personId}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || "Erro ao remover participante.");
+          }
+          toast.success(`Participante "${participant.name}" removido do evento.`);
+          fetchParticipants();
+          fetchEvent();
+        } catch (err: any) {
+          toast.error(err.message || "Erro ao remover participante.");
+        }
+      },
+    });
+  };
+
 
 
   if (loading) {
@@ -401,9 +450,34 @@ export default function EventHubPage() {
 
             <div className="space-y-1.5 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  {event.status}
-                </span>
+                {event.status === "PUBLISHED" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-3 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    Agendado
+                  </span>
+                ) : event.status === "OPEN" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Aberto • Ao Vivo
+                  </span>
+                ) : event.status === "IN_PROGRESS" ? (
+                  <span className="inline-flex items-center rounded-full bg-sky-500/10 px-3 py-0.5 text-xs font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                    Em Andamento
+                  </span>
+                ) : event.status === "COMPLETED" ? (
+                  <span className="inline-flex items-center rounded-full bg-muted px-3 py-0.5 text-xs font-bold text-muted-foreground border border-border">
+                    Finalizado
+                  </span>
+                ) : event.status === "CANCELLED" ? (
+                  <span className="inline-flex items-center rounded-full bg-rose-500/10 px-3 py-0.5 text-xs font-bold text-rose-600 border border-rose-500/20">
+                    Cancelado
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-amber-500/10 px-3 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    Rascunho
+                  </span>
+                )}
+
                 {event.date && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
                     <Calendar className="h-3.5 w-3.5" />
@@ -784,16 +858,29 @@ export default function EventHubPage() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        {!p.hasPresence ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {!p.hasPresence ? (
+                            <button
+                              onClick={() => handleManualPresence(p.personId)}
+                              className="px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                              title="Confirmar presença manual"
+                            >
+                              Dar Presença
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-500/10 rounded-md">
+                              Confirmado
+                            </span>
+                          )}
+
                           <button
-                            onClick={() => handleManualPresence(p.personId)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            onClick={() => handleRemoveParticipant(p)}
+                            className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Remover participante deste evento"
                           >
-                            Dar Presença
+                            <Trash2 className="h-4 w-4" />
                           </button>
-                        ) : (
-                          <span className="text-[10px] text-emerald-600 font-semibold">Confirmado</span>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -811,21 +898,10 @@ export default function EventHubPage() {
             <FaceAttendanceCamera
               eventId={event.id}
               eventName={event.name}
-              onPresenceRecorded={(res) => {
+              onPresenceRecorded={() => {
                 fetchEvent();
                 fetchParticipants();
-                if (res.person) {
-                  setRecentPresences((prev) => [
-                    {
-                      id: String(Date.now()),
-                      name: res.person!.name,
-                      registration: res.person!.registration,
-                      confidence: res.confidence,
-                      timestamp: new Date(),
-                    },
-                    ...prev.slice(0, 9),
-                  ]);
-                }
+                fetchRecentPresences();
               }}
             />
           </div>

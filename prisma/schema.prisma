@@ -288,9 +288,10 @@ model Event {
   status             EventStatus  @default(DRAFT)
   primaryColor       String       @default("#002B49")
   secondaryColor     String       @default("#EAA023")
-  allowRepeatWinners Boolean      @default(false)
-  maxParticipants    Int?
-  presentationToken  String?      @unique
+  allowRepeatWinners        Boolean      @default(false)
+  maxParticipants           Int?
+  checkinOpenMinutesBefore  Int          @default(60)
+  presentationToken         String?      @unique
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @default(now()) @updatedAt
 
