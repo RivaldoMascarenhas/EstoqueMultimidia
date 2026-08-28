@@ -112,6 +112,30 @@ export async function GET(
       };
     });
 
+    if (format === "html") {
+      const html = ExportService.generateParticipantsReportHtml({
+        eventName: event.name,
+        eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
+        eventTime: event.time || null,
+        eventLocation: event.location || null,
+        filterLabel: type === "presences" ? "Lista de Presenças Confirmadas" : "Lista Oficial de Inscritos",
+        participants: participants.map((p) => {
+          const pres = p.person.presences[0];
+          return {
+            ticketNumber: p.ticketNumber,
+            name: p.person.name,
+            registration: p.person.registration,
+            category: p.category || p.person.category,
+            isPresent: Boolean(pres),
+            capturedAt: pres?.capturedAt ? pres.capturedAt.toISOString() : null,
+          };
+        }),
+      });
+      return new NextResponse(html, {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
     if (format === "xlsx") {
       const buf = await ExportService.toXlsx(data, "Participantes");
       return new NextResponse(new Uint8Array(buf), {

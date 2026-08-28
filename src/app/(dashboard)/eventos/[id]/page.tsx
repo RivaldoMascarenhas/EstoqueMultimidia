@@ -1233,29 +1233,33 @@ export default function EventHubPage() {
               Lista completa com nomes, matrículas, presenças registradas, método (facial ou manual), horários e status biométrico.
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => handleDownloadAttendance(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-colors"
+              <a
+                href={`/api/v1/events/${event.id}/export?type=participants&format=html`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors"
+                title="Abrir folha oficial pronta para impressão ou PDF"
               >
-                <Download className="h-4 w-4" />
-                <span>Baixar Presentes (.CSV)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDownloadAttendance(false)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-foreground bg-muted hover:bg-accent rounded-xl border border-border transition-colors"
+                <Printer className="h-4 w-4" />
+                <span>Imprimir Lista / PDF</span>
+              </a>
+
+              <a
+                href={`/api/v1/events/${event.id}/export?type=participants&format=xlsx`}
+                download
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-foreground bg-muted hover:bg-accent rounded-xl border border-border transition-colors"
               >
-                <Download className="h-4 w-4" />
-                <span>Todos os Inscritos (.CSV)</span>
-              </button>
+                <Download className="h-4 w-4 text-emerald-600" />
+                <span>Excel (.xlsx)</span>
+              </a>
+
               <button
                 type="button"
                 onClick={() => setIsPrintAttendanceModalOpen(true)}
                 className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-foreground bg-card hover:bg-accent border border-border rounded-xl transition-colors"
               >
-                <Printer className="h-4 w-4 text-primary" />
-                <span>Visualizar / Imprimir Lista</span>
+                <FileText className="h-4 w-4 text-primary" />
+                <span>Prévia com Filtros</span>
               </button>
             </div>
           </div>

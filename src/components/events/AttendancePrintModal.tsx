@@ -29,18 +29,26 @@ export function AttendancePrintModal({
   const [filter, setFilter] = useState<"all" | "present" | "absent">("present");
 
   const filteredList = participants.filter((p) => {
-    const isPresent = Boolean(p.person?.presences && p.person.presences.length > 0);
+    const isPresent = Boolean(
+      p.hasPresence || (p.person?.presences && p.person.presences.length > 0)
+    );
     if (filter === "present") return isPresent;
     if (filter === "absent") return !isPresent;
     return true;
   });
 
   const presentCount = participants.filter(
-    (p) => p.person?.presences && p.person.presences.length > 0
+    (p) => p.hasPresence || (p.person?.presences && p.person.presences.length > 0)
   ).length;
 
   const handlePrint = () => {
-    window.print();
+    const printUrl = `/api/v1/events/${event?.id}/export?type=${filter === "present" ? "presences" : "participants"}&format=html`;
+    const printWindow = window.open(printUrl, "_blank");
+    if (printWindow) {
+      printWindow.focus();
+    } else {
+      window.open(printUrl, "_blank");
+    }
   };
 
   return (
@@ -54,7 +62,7 @@ export function AttendancePrintModal({
               <span>Lista Oficial de Presenças — {event?.name}</span>
             </DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Visualização formatada para impressão institucional ou exportação em PDF.
+              Visualização formatada para impressão institucional e geração de PDF.
             </p>
           </div>
 
@@ -82,17 +90,21 @@ export function AttendancePrintModal({
               className="px-4 py-1.5 text-xs font-bold rounded-xl bg-primary hover:bg-primary/90 text-white shadow-md transition flex items-center gap-1.5 cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5" />
-              <span>Imprimir / PDF</span>
+              <span>Imprimir / Gerar PDF</span>
             </button>
           </div>
         </DialogHeader>
 
         {/* Printable Sheet Body */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible">
+        <div id="attendance-unifap-sheet" className="flex-1 overflow-y-auto p-6 sm:p-8 bg-white text-slate-900 font-sans print:p-0 print:overflow-visible">
           {/* Institutional Header */}
           <div className="border-b-2 border-slate-900 pb-4 mb-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <BrandLogo variant="default" width={160} height={42} />
+              <img
+                src="/brand/logo-unifap.png"
+                alt="UniFAP"
+                className="h-10 w-auto object-contain shrink-0"
+              />
               {event?.logoUrl && (
                 <>
                   <div className="h-8 w-[1px] bg-slate-300 mx-1" />
@@ -148,7 +160,7 @@ export function AttendancePrintModal({
                 <th className="py-2 px-2.5 border-r border-slate-300 w-28">Matrícula</th>
                 <th className="py-2 px-2.5 border-r border-slate-300 w-28">Categoria</th>
                 <th className="py-2 px-2.5 border-r border-slate-300 w-20 text-center">Presença</th>
-                <th className="py-2 px-2.5 border-r border-slate-300 w-28">Horário</th>
+                <th className="py-2 px-2.5 border-r border-slate-300 w-28 text-center">Horário</th>
                 <th className="py-2 px-3 w-40 text-center">Assinatura do Participante</th>
               </tr>
             </thead>
@@ -161,8 +173,14 @@ export function AttendancePrintModal({
                 </tr>
               ) : (
                 filteredList.map((p, idx) => {
-                  const presence = p.person?.presences?.[0];
-                  const isPresent = Boolean(presence);
+                  const name = p.name || p.person?.name || "Participante";
+                  const registration = p.registration || p.person?.registration || "—";
+                  const category = p.category || p.person?.category || "Geral";
+                  const isPresent = Boolean(
+                    p.hasPresence || (p.person?.presences && p.person.presences.length > 0)
+                  );
+                  const rawDate = p.presenceCapturedAt || p.person?.presences?.[0]?.capturedAt;
+                  const ticketNumber = p.ticketNumber || idx + 1;
 
                   return (
                     <tr
@@ -170,16 +188,16 @@ export function AttendancePrintModal({
                       className={`border-b border-slate-200 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/70"}`}
                     >
                       <td className="py-2 px-2.5 border-r border-slate-300 text-center font-mono font-bold text-slate-600">
-                        {p.ticketNumber ? String(p.ticketNumber).padStart(3, "0") : String(idx + 1).padStart(3, "0")}
+                        {String(ticketNumber).padStart(3, "0")}
                       </td>
                       <td className="py-2 px-3 border-r border-slate-300 font-semibold text-slate-900">
-                        {p.person?.name}
+                        {name}
                       </td>
                       <td className="py-2 px-2.5 border-r border-slate-300 font-mono text-slate-600">
-                        {p.person?.registration || "—"}
+                        {registration}
                       </td>
                       <td className="py-2 px-2.5 border-r border-slate-300 text-slate-600">
-                        {p.person?.category || p.category || "Participante"}
+                        {category}
                       </td>
                       <td className="py-2 px-2.5 border-r border-slate-300 text-center font-bold">
                         {isPresent ? (
@@ -188,9 +206,9 @@ export function AttendancePrintModal({
                           <span className="text-slate-400 font-normal">AUSENTE</span>
                         )}
                       </td>
-                      <td className="py-2 px-2.5 border-r border-slate-300 text-[11px] text-slate-600 font-mono">
-                        {presence?.capturedAt
-                          ? new Date(presence.capturedAt).toLocaleTimeString("pt-BR", {
+                      <td className="py-2 px-2.5 border-r border-slate-300 text-[11px] text-slate-600 font-mono text-center">
+                        {rawDate
+                          ? new Date(rawDate).toLocaleTimeString("pt-BR", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
