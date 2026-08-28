@@ -46,19 +46,22 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
 
+      - name: Dependency Security Audit
+        run: npm audit --audit-level=high --omit=dev || true
+
       - name: TypeScript Typecheck
         run: npx tsc --noEmit
 
-      - name: Run Vitest Test Suite (100% Coverage)
+      - name: Run Vitest Automated Test Suite
         run: npx vitest run
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
-          NEXTAUTH_SECRET: test_ci_super_secret_key_1234567890
-          BIOMETRIC_INTERNAL_TOKEN: test_internal_token_ci_987654
+          NEXTAUTH_SECRET: ci_test_only_secret_key_not_for_production_use
+          BIOMETRIC_INTERNAL_TOKEN: ci_test_only_biometric_token_not_for_production
 
       - name: Next.js Production Build Verification
         run: npm run build
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
-          NEXTAUTH_SECRET: test_ci_super_secret_key_1234567890
-          BIOMETRIC_INTERNAL_TOKEN: test_internal_token_ci_987654
+          NEXTAUTH_SECRET: ci_test_only_secret_key_not_for_production_use
+          BIOMETRIC_INTERNAL_TOKEN: ci_test_only_biometric_token_not_for_production

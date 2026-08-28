@@ -339,53 +339,55 @@ export class EventService {
     ticketNumber?: number,
     operatorUserId?: string
   ) {
-    // Check if already in event
-    const existing = await prisma.eventParticipant.findUnique({
-      where: {
-        eventId_personId: { eventId, personId },
-      },
-    });
-
-    if (existing) {
-      throw new Error("Esta pessoa já está inscrita neste evento.");
-    }
-
-    // Allocate next ticket number if not provided
-    let nextTicket = ticketNumber;
-    if (!nextTicket) {
-      const highest = await prisma.eventParticipant.findFirst({
-        where: { eventId },
-        orderBy: { ticketNumber: "desc" },
-        select: { ticketNumber: true },
+    return await prisma.$transaction(async (tx) => {
+      // Check if already in event
+      const existing = await tx.eventParticipant.findUnique({
+        where: {
+          eventId_personId: { eventId, personId },
+        },
       });
-      nextTicket = (highest?.ticketNumber || 0) + 1;
-    }
 
-    const participant = await prisma.eventParticipant.create({
-      data: {
-        eventId,
-        personId,
-        ticketNumber: nextTicket,
-        category: category || null,
-        status: ParticipantStatus.ACTIVE,
-        isEligible: true,
-      },
-      include: {
-        person: {
-          include: {
-            faceEmbeddings: {
-              where: { active: true },
-              select: { id: true },
+      if (existing) {
+        throw new Error("Esta pessoa já está inscrita neste evento.");
+      }
+
+      // Allocate next ticket number atomically if not provided
+      let nextTicket = ticketNumber;
+      if (!nextTicket) {
+        const highest = await tx.eventParticipant.findFirst({
+          where: { eventId },
+          orderBy: { ticketNumber: "desc" },
+          select: { ticketNumber: true },
+        });
+        nextTicket = (highest?.ticketNumber || 0) + 1;
+      }
+
+      const participant = await tx.eventParticipant.create({
+        data: {
+          eventId,
+          personId,
+          ticketNumber: nextTicket,
+          category: category || null,
+          status: ParticipantStatus.ACTIVE,
+          isEligible: true,
+        },
+        include: {
+          person: {
+            include: {
+              faceEmbeddings: {
+                where: { active: true },
+                select: { id: true },
+              },
             },
           },
         },
-      },
-    });
+      });
 
-    return {
-      ...participant,
-      hasFaceEnrolled: participant.person.faceEmbeddings.length > 0,
-    };
+      return {
+        ...participant,
+        hasFaceEnrolled: participant.person.faceEmbeddings.length > 0,
+      };
+    });
   }
 
   /**
@@ -399,94 +401,96 @@ export class EventService {
   }) {
     const { eventId, categories, requireBiometricsOnly, operatorUserId } = params;
 
-    // 1. Fetch people matching the categories
-    const people = await prisma.person.findMany({
-      where: {
-        active: true,
-        ...(categories.length > 0 ? { category: { in: categories } } : {}),
-        ...(requireBiometricsOnly
-          ? {
-              faceEmbeddings: {
-                some: { active: true },
-              },
-            }
-          : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-      },
-    });
+    return await prisma.$transaction(async (tx) => {
+      // 1. Fetch people matching the categories
+      const people = await tx.person.findMany({
+        where: {
+          active: true,
+          ...(categories.length > 0 ? { category: { in: categories } } : {}),
+          ...(requireBiometricsOnly
+            ? {
+                faceEmbeddings: {
+                  some: { active: true },
+                },
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+        },
+      });
 
-    if (people.length === 0) {
-      return {
-        totalFound: 0,
-        enrolledCount: 0,
-        alreadyEnrolledCount: 0,
-      };
-    }
+      if (people.length === 0) {
+        return {
+          totalFound: 0,
+          enrolledCount: 0,
+          alreadyEnrolledCount: 0,
+        };
+      }
 
-    // 2. Fetch already enrolled in this event
-    const alreadyEnrolled = await prisma.eventParticipant.findMany({
-      where: {
+      // 2. Fetch already enrolled in this event
+      const alreadyEnrolled = await tx.eventParticipant.findMany({
+        where: {
+          eventId,
+          personId: { in: people.map((p) => p.id) },
+        },
+        select: { personId: true },
+      });
+
+      const enrolledSet = new Set(alreadyEnrolled.map((a) => a.personId));
+      const toEnroll = people.filter((p) => !enrolledSet.has(p.id));
+
+      if (toEnroll.length === 0) {
+        return {
+          totalFound: people.length,
+          enrolledCount: 0,
+          alreadyEnrolledCount: people.length,
+        };
+      }
+
+      // 3. Get highest ticket number atomically within transaction
+      const highest = await tx.eventParticipant.findFirst({
+        where: { eventId },
+        orderBy: { ticketNumber: "desc" },
+        select: { ticketNumber: true },
+      });
+      let nextTicket = (highest?.ticketNumber || 0) + 1;
+
+      // 4. Batch create EventParticipants
+      const records = toEnroll.map((p) => ({
         eventId,
-        personId: { in: people.map((p) => p.id) },
-      },
-      select: { personId: true },
-    });
+        personId: p.id,
+        ticketNumber: nextTicket++,
+        category: p.category || null,
+        status: ParticipantStatus.ACTIVE,
+        isEligible: true,
+      }));
 
-    const enrolledSet = new Set(alreadyEnrolled.map((a) => a.personId));
-    const toEnroll = people.filter((p) => !enrolledSet.has(p.id));
+      await tx.eventParticipant.createMany({
+        data: records,
+      });
 
-    if (toEnroll.length === 0) {
+      await safeAuditLog({
+        userId: operatorUserId,
+        action: "BATCH_ENROLL_BY_CATEGORY",
+        entity: "Event",
+        entityId: eventId,
+        details: {
+          categories,
+          requireBiometricsOnly,
+          enrolledCount: toEnroll.length,
+          alreadyEnrolledCount: alreadyEnrolled.length,
+        },
+      });
+
       return {
         totalFound: people.length,
-        enrolledCount: 0,
-        alreadyEnrolledCount: people.length,
-      };
-    }
-
-    // 3. Get highest ticket number
-    const highest = await prisma.eventParticipant.findFirst({
-      where: { eventId },
-      orderBy: { ticketNumber: "desc" },
-      select: { ticketNumber: true },
-    });
-    let nextTicket = (highest?.ticketNumber || 0) + 1;
-
-    // 4. Batch create EventParticipants
-    const records = toEnroll.map((p) => ({
-      eventId,
-      personId: p.id,
-      ticketNumber: nextTicket++,
-      category: p.category || null,
-      status: ParticipantStatus.ACTIVE,
-      isEligible: true,
-    }));
-
-    await prisma.eventParticipant.createMany({
-      data: records,
-    });
-
-    await safeAuditLog({
-      userId: operatorUserId,
-      action: "BATCH_ENROLL_BY_CATEGORY",
-      entity: "Event",
-      entityId: eventId,
-      details: {
-        categories,
-        requireBiometricsOnly,
         enrolledCount: toEnroll.length,
         alreadyEnrolledCount: alreadyEnrolled.length,
-      },
+      };
     });
-
-    return {
-      totalFound: people.length,
-      enrolledCount: toEnroll.length,
-      alreadyEnrolledCount: alreadyEnrolled.length,
-    };
   }
 
   /**
@@ -499,67 +503,69 @@ export class EventService {
   }) {
     const { eventId, personIds, operatorUserId } = params;
 
-    const people = await prisma.person.findMany({
-      where: {
-        id: { in: personIds },
-        active: true,
-      },
-      select: { id: true, category: true },
-    });
+    return await prisma.$transaction(async (tx) => {
+      const people = await tx.person.findMany({
+        where: {
+          id: { in: personIds },
+          active: true,
+        },
+        select: { id: true, category: true },
+      });
 
-    const alreadyEnrolled = await prisma.eventParticipant.findMany({
-      where: {
+      const alreadyEnrolled = await tx.eventParticipant.findMany({
+        where: {
+          eventId,
+          personId: { in: personIds },
+        },
+        select: { personId: true },
+      });
+
+      const enrolledSet = new Set(alreadyEnrolled.map((a) => a.personId));
+      const toEnroll = people.filter((p) => !enrolledSet.has(p.id));
+
+      if (toEnroll.length === 0) {
+        return {
+          enrolledCount: 0,
+          alreadyEnrolledCount: alreadyEnrolled.length,
+        };
+      }
+
+      const highest = await tx.eventParticipant.findFirst({
+        where: { eventId },
+        orderBy: { ticketNumber: "desc" },
+        select: { ticketNumber: true },
+      });
+      let nextTicket = (highest?.ticketNumber || 0) + 1;
+
+      const records = toEnroll.map((p) => ({
         eventId,
-        personId: { in: personIds },
-      },
-      select: { personId: true },
-    });
+        personId: p.id,
+        ticketNumber: nextTicket++,
+        category: p.category || null,
+        status: ParticipantStatus.ACTIVE,
+        isEligible: true,
+      }));
 
-    const enrolledSet = new Set(alreadyEnrolled.map((a) => a.personId));
-    const toEnroll = people.filter((p) => !enrolledSet.has(p.id));
+      await tx.eventParticipant.createMany({
+        data: records,
+      });
 
-    if (toEnroll.length === 0) {
+      await safeAuditLog({
+        userId: operatorUserId,
+        action: "BATCH_ENROLL_PERSONS",
+        entity: "Event",
+        entityId: eventId,
+        details: {
+          personIdsCount: personIds.length,
+          enrolledCount: toEnroll.length,
+        },
+      });
+
       return {
-        enrolledCount: 0,
+        enrolledCount: toEnroll.length,
         alreadyEnrolledCount: alreadyEnrolled.length,
       };
-    }
-
-    const highest = await prisma.eventParticipant.findFirst({
-      where: { eventId },
-      orderBy: { ticketNumber: "desc" },
-      select: { ticketNumber: true },
     });
-    let nextTicket = (highest?.ticketNumber || 0) + 1;
-
-    const records = toEnroll.map((p) => ({
-      eventId,
-      personId: p.id,
-      ticketNumber: nextTicket++,
-      category: p.category || null,
-      status: ParticipantStatus.ACTIVE,
-      isEligible: true,
-    }));
-
-    await prisma.eventParticipant.createMany({
-      data: records,
-    });
-
-    await safeAuditLog({
-      userId: operatorUserId,
-      action: "BATCH_ENROLL_PERSONS",
-      entity: "Event",
-      entityId: eventId,
-      details: {
-        personIdsCount: personIds.length,
-        enrolledCount: toEnroll.length,
-      },
-    });
-
-    return {
-      enrolledCount: toEnroll.length,
-      alreadyEnrolledCount: alreadyEnrolled.length,
-    };
   }
 
   /**

@@ -8,6 +8,7 @@
     "start": "node --max-http-header-size=65536 node_modules/next/dist/bin/next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

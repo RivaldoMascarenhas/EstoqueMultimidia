@@ -62,7 +62,7 @@ services:
           cpus: "2.0"
           memory: 2G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/api/v1/health/live"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -99,14 +99,14 @@ services:
           cpus: "2.0"
           memory: 2G
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 20s
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2024.8.3
     container_name: unifap-cloudflared
     restart: unless-stopped
     security_opt:

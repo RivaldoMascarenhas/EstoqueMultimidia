@@ -64,13 +64,16 @@ vi.mock("@/lib/prisma", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
-    $transaction: vi.fn(),
+    $transaction: vi.fn((cb: any) => (typeof cb === "function" ? cb(prisma) : Promise.all(cb))),
   },
 }));
 
 describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.$transaction).mockImplementation((cb: any) =>
+      typeof cb === "function" ? cb(prisma) : Promise.all(cb)
+    );
   });
 
   // =========================================================================
