@@ -1,52 +1,67 @@
 import { describe, it, expect } from "vitest";
 import crypto from "crypto";
+import { isPrivateOrInternalHost, validateSafeUrl } from "@/lib/ssrf";
 
 describe("Security Edge & Offensive Defense Tests", () => {
-  // 1. Função de validação de IP privado contra SSRF (idêntica à de produção)
-  const isPrivateOrLoopback = (ip: string): boolean => {
-    if (ip === "127.0.0.1" || ip === "::1" || ip === "0.0.0.0" || ip === "::") return true;
-    if (ip.startsWith("10.")) return true;
-    if (ip.startsWith("192.168.")) return true;
-    if (ip.startsWith("169.254.")) return true; // Link-local e AWS/GCP Metadata
-    if (ip.startsWith("100.64.")) return true; // CGNAT
-    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return true; // RFC1918 172.16.0.0/12
-    return false;
-  };
-
-  describe("1. Prevenção de SSRF em Webhooks", () => {
-    it("deve bloquear IPs de Loopback (127.0.0.1, ::1)", () => {
-      expect(isPrivateOrLoopback("127.0.0.1")).toBe(true);
-      expect(isPrivateOrLoopback("::1")).toBe(true);
+  describe("1. Prevenção de SSRF Centralizada (lib/ssrf)", () => {
+    it("deve bloquear IPs de Loopback (127.0.0.1, ::1, 0.0.0.0, localhost)", () => {
+      expect(isPrivateOrInternalHost("127.0.0.1")).toBe(true);
+      expect(isPrivateOrInternalHost("localhost")).toBe(true);
+      expect(isPrivateOrInternalHost("0.0.0.0")).toBe(true);
+      expect(isPrivateOrInternalHost("::1")).toBe(true);
+      expect(isPrivateOrInternalHost("test.localhost")).toBe(true);
+      expect(isPrivateOrInternalHost("server.local")).toBe(true);
     });
 
-    it("deve bloquear redes privadas RFC1918 (10.x, 192.168.x, 172.16.x)", () => {
-      expect(isPrivateOrLoopback("10.0.0.1")).toBe(true);
-      expect(isPrivateOrLoopback("10.254.254.254")).toBe(true);
-      expect(isPrivateOrLoopback("192.168.1.1")).toBe(true);
-      expect(isPrivateOrLoopback("192.168.0.100")).toBe(true);
-      expect(isPrivateOrLoopback("172.16.0.1")).toBe(true);
-      expect(isPrivateOrLoopback("172.31.255.255")).toBe(true);
+    it("deve bloquear serviços e redes internas do Docker", () => {
+      expect(isPrivateOrInternalHost("postgres")).toBe(true);
+      expect(isPrivateOrInternalHost("biometric-api")).toBe(true);
+      expect(isPrivateOrInternalHost("unifap-postgres")).toBe(true);
+      expect(isPrivateOrInternalHost("app")).toBe(true);
+    });
+
+    it("deve bloquear redes privadas RFC1918 (10.x, 192.168.x, 172.16-31.x)", () => {
+      expect(isPrivateOrInternalHost("10.0.0.1")).toBe(true);
+      expect(isPrivateOrInternalHost("10.254.254.254")).toBe(true);
+      expect(isPrivateOrInternalHost("192.168.1.1")).toBe(true);
+      expect(isPrivateOrInternalHost("192.168.0.100")).toBe(true);
+      expect(isPrivateOrInternalHost("172.16.0.1")).toBe(true);
+      expect(isPrivateOrInternalHost("172.31.255.255")).toBe(true);
     });
 
     it("deve bloquear o IP de metadados da Nuvem (AWS/GCP: 169.254.169.254)", () => {
-      expect(isPrivateOrLoopback("169.254.169.254")).toBe(true);
-      expect(isPrivateOrLoopback("169.254.1.1")).toBe(true);
+      expect(isPrivateOrInternalHost("169.254.169.254")).toBe(true);
+      expect(isPrivateOrInternalHost("169.254.1.1")).toBe(true);
+      expect(isPrivateOrInternalHost("metadata.google.internal")).toBe(true);
     });
 
-    it("deve permitir IPs públicos legítimos da Internet", () => {
-      expect(isPrivateOrLoopback("8.8.8.8")).toBe(false);
-      expect(isPrivateOrLoopback("1.1.1.1")).toBe(false);
-      expect(isPrivateOrLoopback("142.250.190.46")).toBe(false);
+    it("deve permitir hostnames públicos legítimos da Internet", () => {
+      expect(isPrivateOrInternalHost("drive.google.com")).toBe(false);
+      expect(isPrivateOrInternalHost("google.com")).toBe(false);
+      expect(isPrivateOrInternalHost("fapce.edu.br")).toBe(false);
     });
 
-    it("deve exigir protocolo HTTPS e rejeitar HTTP", () => {
-      const isHttps = (urlStr: string) => {
-        const u = new URL(urlStr);
-        return u.protocol === "https:";
-      };
+    it("deve validar URLs seguras com validateSafeUrl", () => {
+      const safe = validateSafeUrl("https://drive.google.com/thumbnail?id=123", {
+        allowedProtocols: ["http:", "https:"],
+        allowedHostSuffixes: ["google.com"],
+      });
+      expect(safe.isSafe).toBe(true);
 
-      expect(isHttps("https://api.empresa.com/webhook")).toBe(true);
-      expect(isHttps("http://api.empresa.com/webhook")).toBe(false);
+      const ssrfAttack1 = validateSafeUrl("http://127.0.0.1:8000/docs");
+      expect(ssrfAttack1.isSafe).toBe(false);
+
+      const ssrfAttack2 = validateSafeUrl("http://169.254.169.254/latest/meta-data/");
+      expect(ssrfAttack2.isSafe).toBe(false);
+
+      const ssrfAttack3 = validateSafeUrl("http://biometric-api:8000/api/v1/faces");
+      expect(ssrfAttack3.isSafe).toBe(false);
+
+      const unauthorizedDomain = validateSafeUrl("https://malicious-site.com/image.png", {
+        allowedProtocols: ["http:", "https:"],
+        allowedHostSuffixes: ["google.com", "fapce.edu.br"],
+      });
+      expect(unauthorizedDomain.isSafe).toBe(false);
     });
   });
 

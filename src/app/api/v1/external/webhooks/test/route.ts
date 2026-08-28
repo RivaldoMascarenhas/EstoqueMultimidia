@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiRequest } from "@/lib/api-auth";
+import { validateSafeUrl } from "@/lib/ssrf";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,46 +23,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Validação estrita anti-SSRF (bloquear endereços locais e faixas privadas)
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(targetWebhookUrl.trim());
-    } catch {
+    const ssrfCheck = validateSafeUrl(targetWebhookUrl);
+    if (!ssrfCheck.isSafe || !ssrfCheck.parsedUrl) {
       return NextResponse.json(
-        { success: false, error: "URL do Webhook inválida ou malformada." },
+        { success: false, error: ssrfCheck.error || "Endereços locais, privados ou de metadados internos não são permitidos para disparos de webhook por motivos de segurança." },
         { status: 400 }
       );
     }
-
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return NextResponse.json(
-        { success: false, error: "Protocolo de Webhook inválido. Utilize HTTP ou HTTPS." },
-        { status: 400 }
-      );
-    }
-
-    const hostname = parsedUrl.hostname.toLowerCase();
-    const isLocalhost =
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "0.0.0.0" ||
-      hostname === "::1" ||
-      hostname.endsWith(".localhost") ||
-      hostname.endsWith(".local") ||
-      hostname === "metadata.google.internal";
-
-    const isPrivateIp =
-      /^10\./.test(hostname) ||
-      /^192\.168\./.test(hostname) ||
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
-      /^169\.254\./.test(hostname) ||
-      /^127\./.test(hostname);
-
-    if (isLocalhost || isPrivateIp) {
-      return NextResponse.json(
-        { success: false, error: "Endereços locais, privados ou de metadados internos não são permitidos para disparos de webhook por motivos de segurança." },
-        { status: 400 }
-      );
-    }
+    const parsedUrl = ssrfCheck.parsedUrl;
 
     const mockPayloads: Record<string, any> = {
       LOAN_OVERDUE_ALERT: {

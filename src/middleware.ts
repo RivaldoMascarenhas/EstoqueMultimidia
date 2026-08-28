@@ -7,9 +7,12 @@ export default withAuth(
     const pathname = req.nextUrl.pathname;
     const role = token?.role as string;
 
-    // 1. Áreas exclusivas de ADMIN (Usuários e Configurações globais)
+    // 1. Áreas exclusivas de ADMIN (Usuários, Auditoria, Permissões e Configurações globais)
     if (
-      (pathname.startsWith("/usuarios") || pathname.startsWith("/configuracoes")) &&
+      (pathname.startsWith("/usuarios") ||
+        pathname.startsWith("/configuracoes") ||
+        pathname.startsWith("/auditoria") ||
+        pathname.startsWith("/permissoes")) &&
       role !== "ADMIN"
     ) {
       return NextResponse.redirect(new URL("/dashboard?error=unauthorized", req.url));
@@ -42,17 +45,24 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/agenda/:path*",
-    "/salas/:path*",
-    "/scanner/:path*",
-    "/estoque/:path*",
     "/armario/:path*",
+    "/auditoria/:path*",
+    "/biometria/:path*",
     "/caixas/:path*",
-    "/patrimonio/:path*",
+    "/configuracoes/:path*",
     "/emprestimos/:path*",
+    "/estoque/:path*",
+    "/eventos/:path*",
     "/manutencao/:path*",
     "/movimentacoes/:path*",
+    "/patrimonio/:path*",
+    "/perfil/:path*",
+    "/permissoes/:path*",
+    "/presenca/:path*",
     "/relatorios/:path*",
+    "/salas/:path*",
+    "/scanner/:path*",
+    "/sorteios/:path*",
     "/usuarios/:path*",
-    "/configuracoes/:path*",
   ],
 };

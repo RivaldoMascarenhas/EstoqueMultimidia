@@ -20,13 +20,13 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+psycopg://postgres:unifap_secure_password_2026@localhost:5432/unifap_estoque",
+        "postgresql+psycopg://postgres@localhost:5432/estoque_multimidia",
     )
 
     # Security Token for internal microservice communication
     BIOMETRIC_INTERNAL_TOKEN: str = os.getenv(
         "BIOMETRIC_INTERNAL_TOKEN",
-        "unifap_biometric_secret_token_2026_internal_only",
+        "unifap_dev_biometric_token_only_for_local_development",
     )
 
     # Biometric Recognition Thresholds

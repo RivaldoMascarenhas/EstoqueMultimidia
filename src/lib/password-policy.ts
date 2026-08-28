@@ -5,6 +5,7 @@
  * 1. Mínimo de 8 caracteres
  * 2. Conter pelo menos uma letra (a-z ou A-Z)
  * 3. Conter pelo menos um número (0-9)
+ * 4. Rejeitar senhas triviais e padrões comuns conhecidos
  */
 
 export interface PasswordValidationResult {
@@ -12,8 +13,25 @@ export interface PasswordValidationResult {
   hasMinLength: boolean;
   hasLetter: boolean;
   hasNumber: boolean;
+  hasSpecialChar?: boolean;
+  isNotCommon?: boolean;
   error?: string;
 }
+
+const TRIVIAL_PASSWORDS = new Set([
+  "12345678",
+  "123456789",
+  "1234567890",
+  "password",
+  "password123",
+  "admin123",
+  "admin1234",
+  "unifap123",
+  "unifap2026",
+  "qwerty123",
+  "mudar123",
+  "trocar123",
+]);
 
 export function validatePasswordPolicy(password: string): PasswordValidationResult {
   if (!password || typeof password !== "string") {
@@ -22,6 +40,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasMinLength: false,
       hasLetter: false,
       hasNumber: false,
+      isNotCommon: false,
       error: "A senha não pode ser vazia.",
     };
   }
@@ -29,6 +48,8 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
   const hasMinLength = password.length >= 8;
   const hasLetter = /[a-zA-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const isNotCommon = !TRIVIAL_PASSWORDS.has(password.toLowerCase().trim());
 
   if (!hasMinLength) {
     return {
@@ -36,6 +57,8 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasMinLength,
       hasLetter,
       hasNumber,
+      hasSpecialChar,
+      isNotCommon,
       error: "A senha deve possuir no mínimo 8 caracteres.",
     };
   }
@@ -46,6 +69,8 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasMinLength,
       hasLetter,
       hasNumber,
+      hasSpecialChar,
+      isNotCommon,
       error: "A senha deve conter pelo menos uma letra.",
     };
   }
@@ -56,7 +81,21 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasMinLength,
       hasLetter,
       hasNumber,
+      hasSpecialChar,
+      isNotCommon,
       error: "A senha deve conter pelo menos um número.",
+    };
+  }
+
+  if (!isNotCommon) {
+    return {
+      isValid: false,
+      hasMinLength,
+      hasLetter,
+      hasNumber,
+      hasSpecialChar,
+      isNotCommon,
+      error: "Esta senha é muito comum e insegura. Escolha uma senha mais forte.",
     };
   }
 
@@ -65,5 +104,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
     hasMinLength: true,
     hasLetter: true,
     hasNumber: true,
+    hasSpecialChar,
+    isNotCommon: true,
   };
 }

@@ -10,12 +10,12 @@ if (!process.env.NEXTAUTH_SECRET) {
   );
 }
 
-// Rate limiter in-memory para tentativas de login (5 tentativas por 15 minutos por conta/email)
+// Rate limiter em memória com proteção contra Força Bruta por Conta e por IP (Cloudflare / Proxies)
 const loginAttemptsMap = new Map<string, { count: number; blockedUntil: number }>();
 
-function checkLoginRateLimit(identifier: string, maxAttempts = 5, blockDurationMs = 15 * 60 * 1000): { allowed: boolean; waitMinutes?: number } {
+function checkRateLimit(key: string, maxAttempts: number, blockDurationMs: number): { allowed: boolean; waitMinutes?: number } {
   const now = Date.now();
-  const record = loginAttemptsMap.get(identifier);
+  const record = loginAttemptsMap.get(key);
 
   if (record) {
     if (record.blockedUntil > now) {
@@ -24,7 +24,7 @@ function checkLoginRateLimit(identifier: string, maxAttempts = 5, blockDurationM
     }
     // Se o período de bloqueio já passou, reinicia contagem
     if (record.blockedUntil > 0 && record.blockedUntil <= now) {
-      loginAttemptsMap.set(identifier, { count: 1, blockedUntil: 0 });
+      loginAttemptsMap.set(key, { count: 1, blockedUntil: 0 });
       return { allowed: true };
     }
   }
@@ -32,9 +32,9 @@ function checkLoginRateLimit(identifier: string, maxAttempts = 5, blockDurationM
   return { allowed: true };
 }
 
-function recordFailedLogin(identifier: string, maxAttempts = 5, blockDurationMs = 15 * 60 * 1000) {
+function recordFailure(key: string, maxAttempts: number, blockDurationMs: number) {
   const now = Date.now();
-  const record = loginAttemptsMap.get(identifier);
+  const record = loginAttemptsMap.get(key);
 
   if (record) {
     record.count += 1;
@@ -42,12 +42,29 @@ function recordFailedLogin(identifier: string, maxAttempts = 5, blockDurationMs 
       record.blockedUntil = now + blockDurationMs;
     }
   } else {
-    loginAttemptsMap.set(identifier, { count: 1, blockedUntil: 0 });
+    loginAttemptsMap.set(key, { count: 1, blockedUntil: 0 });
   }
 }
 
-function resetLoginAttempts(identifier: string) {
-  loginAttemptsMap.delete(identifier);
+function clearAttempts(key: string) {
+  loginAttemptsMap.delete(key);
+}
+
+function getClientIp(req: any): string {
+  if (!req?.headers) return "unknown";
+  const headers = req.headers;
+  const cfIp = headers["cf-connecting-ip"] || headers["CF-Connecting-IP"];
+  if (typeof cfIp === "string" && cfIp) return cfIp.trim();
+  
+  const xForwardedFor = headers["x-forwarded-for"] || headers["X-Forwarded-For"];
+  if (typeof xForwardedFor === "string" && xForwardedFor) {
+    return xForwardedFor.split(",")[0].trim();
+  }
+  
+  const xRealIp = headers["x-real-ip"] || headers["X-Real-IP"];
+  if (typeof xRealIp === "string" && xRealIp) return xRealIp.trim();
+  
+  return "unknown";
 }
 
 export const authOptions: NextAuthOptions = {
@@ -66,19 +83,38 @@ export const authOptions: NextAuthOptions = {
         email: { label: "E-mail", type: "email", placeholder: "nome.sobrenome@fapce.edu.br" },
         password: { label: "Senha", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Informe o e-mail e a senha");
         }
 
         const inputEmail = credentials.email.toLowerCase().trim();
         const username = inputEmail.split("@")[0];
+        const clientIp = getClientIp(req);
 
-        // 0. Checar Rate Limit de tentativas
-        const rateLimitCheck = checkLoginRateLimit(inputEmail);
-        if (!rateLimitCheck.allowed) {
-          throw new Error(`Muitas tentativas incorretas. Conta bloqueada temporariamente. Tente novamente em ${rateLimitCheck.waitMinutes || 15} minutos.`);
+        const accountKey = `acc:${inputEmail}`;
+        const ipKey = `ip:${clientIp}`;
+
+        // 0. Checar Rate Limit por Conta (5 tentativas / 15 min)
+        const accountCheck = checkRateLimit(accountKey, 5, 15 * 60 * 1000);
+        if (!accountCheck.allowed) {
+          throw new Error(`Muitas tentativas incorretas para esta conta. Bloqueio temporário por ${accountCheck.waitMinutes || 15} minutos.`);
         }
+
+        // 0.1 Checar Rate Limit por IP contra Password Spraying (15 tentativas / 15 min por IP)
+        if (clientIp !== "unknown") {
+          const ipCheck = checkRateLimit(ipKey, 15, 15 * 60 * 1000);
+          if (!ipCheck.allowed) {
+            throw new Error(`Limite de tentativas excedido para o seu endereço IP. Bloqueio temporário por ${ipCheck.waitMinutes || 15} minutos.`);
+          }
+        }
+
+        const registerFailedAttempt = () => {
+          recordFailure(accountKey, 5, 15 * 60 * 1000);
+          if (clientIp !== "unknown") {
+            recordFailure(ipKey, 15, 15 * 60 * 1000);
+          }
+        };
 
         // 1. Tentar busca exata por e-mail
         let user = await prisma.user.findUnique({
@@ -98,7 +134,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         if (!user || !user.active) {
-          recordFailedLogin(inputEmail);
+          registerFailedAttempt();
           throw new Error("Credenciais inválidas ou usuário inativo");
         }
 
@@ -108,12 +144,15 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
-          recordFailedLogin(inputEmail);
+          registerFailedAttempt();
           throw new Error("Credenciais inválidas");
         }
 
-        // Sucesso: limpar contagem de tentativas falhas
-        resetLoginAttempts(inputEmail);
+        // Sucesso: limpar contagem de tentativas falhas da conta e do IP
+        clearAttempts(accountKey);
+        if (clientIp !== "unknown") {
+          clearAttempts(ipKey);
+        }
 
         // Registrar log de auditoria de login
         await prisma.auditLog.create({
@@ -122,7 +161,7 @@ export const authOptions: NextAuthOptions = {
             action: "LOGIN",
             entity: "User",
             entityId: user.id,
-            details: { email: user.email, role: user.role },
+            details: { email: user.email, role: user.role, clientIp },
           },
         }).catch(() => {});
 

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { BiometricApiService } from "@/services/biometric-api.service";
 import { safeAuditLog } from "@/lib/audit";
-import { PresenceMethod, ParticipantStatus } from "@prisma/client";
+import { requireSession } from "@/lib/api-guard";
+import { maskCpf } from "@/lib/maskData";
+import { PresenceMethod, ParticipantStatus, Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +12,20 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // 1. Exigir autenticação obrigatória de operador/gestor/admin
+  const { session, error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.OPERADOR,
+  ]);
+  if (error) return error;
+
   try {
     const eventId = params.id;
     const body = await req.json();
     const { imageBase64, personId, method = "FACE" } = body;
 
-    // 1. Verificar se o evento existe
+    // 2. Verificar se o evento existe e está ativo
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
@@ -41,61 +51,72 @@ export async function POST(
       );
     }
 
-    let recognizedPersonId = personId;
-    let confidence = 0.96;
-    let distance = 0.35;
+    let recognizedPersonId: string | null = null;
+    let confidence = 0.95;
+    let distance = 0.38;
 
-    // 2. Se enviou imagem, realiza reconhecimento biométrico
-    if (imageBase64 && !personId) {
-      try {
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-        const buffer = Buffer.from(base64Data, "base64");
-        const blob = new Blob([buffer], { type: "image/jpeg" });
+    // 3. Se enviou imagem, realiza reconhecimento biométrico estrito
+    if (imageBase64) {
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const buffer = Buffer.from(base64Data, "base64");
+      const blob = new Blob([buffer], { type: "image/jpeg" });
 
-        const bioRes = await BiometricApiService.recognizeFace({
-          eventId,
-          cropBlob: blob,
-        });
-
-        if (bioRes.success && bioRes.person) {
-          recognizedPersonId = bioRes.person.id;
-          confidence = bioRes.confidence || 0.95;
-          distance = bioRes.distance || 0.38;
-        } else if (bioRes.status === "ALREADY_REGISTERED" && bioRes.person) {
-          return NextResponse.json({
-            success: false,
-            status: "ALREADY_REGISTERED",
-            message: bioRes.message || "Presença já confirmada anteriormente.",
-            person: bioRes.person,
-          });
-        }
-      } catch (err) {
-        console.warn("FastAPI fallback para consulta de pessoas no banco:", err);
-      }
-    }
-
-    // Se ainda não identificou a pessoa e não temos personId
-    if (!recognizedPersonId) {
-      // Busca a primeira pessoa ativa para simulação de teste se não houver embeddings cadastrados
-      const anyPerson = await prisma.person.findFirst({
-        where: { active: true },
-        orderBy: { updatedAt: "desc" },
+      const bioRes = await BiometricApiService.recognizeFace({
+        eventId,
+        cropBlob: blob,
+        operatorUserId: session?.user?.id,
       });
 
-      if (!anyPerson) {
+      if (bioRes.success && bioRes.person) {
+        recognizedPersonId = bioRes.person.id;
+        confidence = bioRes.confidence || 0.95;
+        distance = bioRes.distance || 0.38;
+      } else if (bioRes.status === "ALREADY_REGISTERED" && bioRes.person) {
+        return NextResponse.json({
+          success: false,
+          status: "ALREADY_REGISTERED",
+          message: bioRes.message || "Presença já confirmada anteriormente.",
+          person: {
+            ...bioRes.person,
+            cpf: maskCpf(bioRes.person.cpf),
+          },
+        });
+      } else {
         return NextResponse.json(
           {
             success: false,
             status: "NOT_RECOGNIZED",
-            message: "Rosto não identificado no sistema. Procure a mesa de apoio.",
+            message: bioRes.message || "Rosto não identificado no sistema. Procure a mesa de apoio.",
           },
           { status: 404 }
         );
       }
-      recognizedPersonId = anyPerson.id;
+    } else if (personId && (session.user.role === Role.ADMIN || session.user.role === Role.GESTOR || session.user.role === Role.OPERADOR)) {
+      // Registro manual explícito por operador autenticado
+      recognizedPersonId = personId;
+    } else {
+      return NextResponse.json(
+        {
+          success: false,
+          status: "BAD_REQUEST",
+          message: "É necessário fornecer a imagem biométrica ou efetuar o registro manual por operador.",
+        },
+        { status: 400 }
+      );
     }
 
-    // 3. Buscar dados completos da pessoa
+    if (!recognizedPersonId) {
+      return NextResponse.json(
+        {
+          success: false,
+          status: "BAD_REQUEST",
+          message: "Identificador da pessoa não reconhecido.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // 4. Buscar dados completos da pessoa
     const person = await prisma.person.findUnique({
       where: { id: recognizedPersonId },
     });
@@ -111,7 +132,7 @@ export async function POST(
       );
     }
 
-    // 4. Verificar se a pessoa já está inscrita no evento ou vincular automaticamente
+    // 5. Verificar se a pessoa já está inscrita no evento ou vincular
     let participant = await prisma.eventParticipant.findUnique({
       where: {
         eventId_personId: {
@@ -122,7 +143,6 @@ export async function POST(
     });
 
     if (!participant) {
-      // Auto-inscrição do participante presente
       const lastTicket = await prisma.eventParticipant.findFirst({
         where: { eventId },
         orderBy: { ticketNumber: "desc" },
@@ -142,7 +162,7 @@ export async function POST(
       });
     }
 
-    // 5. Verificar se presença já foi registrada
+    // 6. Verificar se presença já foi registrada
     const existingPresence = await prisma.presence.findUnique({
       where: {
         eventId_personId: {
@@ -165,7 +185,7 @@ export async function POST(
           id: person.id,
           name: person.name,
           registration: person.registration,
-          cpf: person.cpf,
+          cpf: maskCpf(person.cpf), // LGPD: CPF mascarado
           category: person.category,
           affiliation: person.affiliation,
           photoUrl: person.photoUrl,
@@ -175,7 +195,7 @@ export async function POST(
       });
     }
 
-    // 6. Registrar nova presença
+    // 7. Registrar nova presença
     const newPresence = await prisma.presence.create({
       data: {
         eventId,
@@ -202,6 +222,7 @@ export async function POST(
         personName: person.name,
         method,
         ticketNumber: participant.ticketNumber,
+        registeredBy: session?.user?.id,
       },
     });
 
@@ -213,7 +234,7 @@ export async function POST(
         id: person.id,
         name: person.name,
         registration: person.registration,
-        cpf: person.cpf,
+        cpf: maskCpf(person.cpf), // LGPD: CPF mascarado
         category: person.category,
         affiliation: person.affiliation,
         photoUrl: person.photoUrl,

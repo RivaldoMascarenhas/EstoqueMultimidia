@@ -165,10 +165,9 @@ export class EventService {
       month = parts[1];
       day = parts[2];
     } else if (event.date instanceof Date) {
-      const iso = event.date.toISOString().split("T")[0].split("-").map(Number);
-      year = iso[0];
-      month = iso[1];
-      day = iso[2];
+      year = event.date.getFullYear();
+      month = event.date.getMonth() + 1;
+      day = event.date.getDate();
     }
 
     if (!year || !month || !day) {
