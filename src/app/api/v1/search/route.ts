@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
           boxes: [],
           loans: [],
           maintenances: [],
+          events: [],
+          people: [],
         },
       });
     }
@@ -25,7 +27,7 @@ export async function GET(req: NextRequest) {
     const cleanQuery = q.replace(/^#/, ""); // Remove '#' se o usuário digitou #123458 ou #OS-2026-0001
 
     // Executar buscas paralelas
-    const [items, assets, boxes, loans, maintenances] = await Promise.all([
+    const [items, assets, boxes, loans, maintenances, events, rawPeople] = await Promise.all([
       // 1. Itens do Catálogo
       prisma.item.findMany({
         where: {
@@ -139,7 +141,68 @@ export async function GET(req: NextRequest) {
         orderBy: { entryDate: "desc" },
         take: 4,
       }),
+
+      // 6. Eventos & Sorteios
+      prisma.event.findMany({
+        where: {
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { description: { contains: q, mode: "insensitive" } },
+            { location: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        include: {
+          _count: {
+            select: {
+              participants: true,
+              presences: true,
+              prizes: true,
+              winners: true,
+            },
+          },
+        },
+        orderBy: { date: "desc" },
+        take: 5,
+      }),
+
+      // 7. Pessoas & Biometria
+      prisma.person.findMany({
+        where: {
+          active: true,
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { registration: { contains: cleanQuery, mode: "insensitive" } },
+            { email: { contains: q, mode: "insensitive" } },
+            { category: { contains: q, mode: "insensitive" } },
+            { affiliation: { contains: q, mode: "insensitive" } },
+          ],
+        },
+        include: {
+          _count: {
+            select: {
+              participations: true,
+              presences: true,
+              faceEmbeddings: true,
+            },
+          },
+        },
+        take: 5,
+      }),
     ]);
+
+    // Sanitizar dados de pessoas (LGPD: CPF mascarado/removido)
+    const people = rawPeople.map((p) => ({
+      id: p.id,
+      name: p.name,
+      registration: p.registration,
+      email: p.email,
+      category: p.category,
+      affiliation: p.affiliation,
+      photoUrl: p.photoUrl,
+      hasFaceEnrolled: (p._count?.faceEmbeddings || 0) > 0 || !!p.photoUrl,
+      participantsCount: p._count?.participations || 0,
+      presencesCount: p._count?.presences || 0,
+    }));
 
     return NextResponse.json({
       success: true,
@@ -149,6 +212,8 @@ export async function GET(req: NextRequest) {
         boxes,
         loans,
         maintenances,
+        events,
+        people,
       },
     });
   } catch (error: any) {

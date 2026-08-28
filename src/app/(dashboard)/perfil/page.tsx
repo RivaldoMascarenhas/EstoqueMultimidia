@@ -13,13 +13,15 @@ import {
   Trash2, 
   Crop,
   Eye,
-  EyeOff
+  EyeOff,
+  Check
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AvatarCropperModal } from "@/components/users/avatar-cropper-modal";
+import { validatePasswordPolicy } from "@/lib/password-policy";
 import { toast } from "sonner";
 
 export default function PerfilPage() {
@@ -43,6 +45,9 @@ export default function PerfilPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const policy = validatePasswordPolicy(newPassword);
+  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+
   useEffect(() => {
     if (session?.user) {
       setName((prev) => prev || session.user.name || "");
@@ -58,14 +63,9 @@ export default function PerfilPage() {
 
       if (json.success && json.data) {
         setProfileData(json.data);
-        setName(json.data.name || "");
-        setAvatarUrl(json.data.avatarUrl || null);
-        setImageError(false);
-      } else if (!res.ok) {
-        console.warn("Erro ao buscar dados do perfil:", json.error);
       }
     } catch (e) {
-      console.warn("Erro de conexão ao carregar perfil:", e);
+      // Ignora erro inicial silenciosamente
     }
   };
 
@@ -78,19 +78,27 @@ export default function PerfilPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem válido (JPG, PNG, WebP).");
+      return;
+    }
+
     if (file.size > 5 * 1024 * 1024) {
       toast.error("A imagem deve ter no máximo 5MB.");
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setRawImageForCrop(reader.result as string);
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      setRawImageForCrop(base64);
       setCropperOpen(true);
     };
     reader.readAsDataURL(file);
-    // Limpar o input para permitir selecionar o mesmo arquivo novamente
-    e.target.value = "";
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleOpenCropperWithCurrent = () => {
@@ -124,8 +132,8 @@ export default function PerfilPage() {
         toast.error("Informe sua senha atual para alterar a senha.");
         return;
       }
-      if (newPassword.length < 6) {
-        toast.error("A nova senha deve ter pelo menos 6 caracteres.");
+      if (!policy.isValid) {
+        toast.error(policy.error || "A nova senha não atende aos requisitos de segurança.");
         return;
       }
       if (newPassword !== confirmPassword) {
@@ -458,6 +466,35 @@ export default function PerfilPage() {
                 </div>
               </div>
 
+            </div>
+
+            {/* Requisitos de Segurança Institucional */}
+            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/70 space-y-2 text-[11px]">
+              <p className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider">
+                Requisitos de Segurança Institucional:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className={`flex items-center gap-1.5 ${policy.hasMinLength ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                  {policy.hasMinLength ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                  <span>8+ caracteres</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${policy.hasLetter ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                  {policy.hasLetter ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                  <span>1+ letra</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${policy.hasNumber ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                  {policy.hasNumber ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                  <span>1+ número</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${policy.hasSpecialChar ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                  {policy.hasSpecialChar ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                  <span>1+ símbolo (@, #, !)</span>
+                </div>
+                <div className={`flex items-center gap-1.5 ${passwordsMatch ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-muted-foreground"}`}>
+                  {passwordsMatch ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                  <span>Senhas conferem</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

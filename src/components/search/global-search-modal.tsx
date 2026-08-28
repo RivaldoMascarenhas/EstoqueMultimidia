@@ -11,7 +11,11 @@ import {
   ArrowRight, 
   X, 
   Boxes, 
-  Sparkles
+  Sparkles,
+  Calendar,
+  Users,
+  User,
+  Camera
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +26,7 @@ interface GlobalSearchModalProps {
 }
 
 interface SearchEntry {
-  type: "ASSET" | "ITEM" | "BOX" | "LOAN" | "MAINTENANCE";
+  type: "ASSET" | "ITEM" | "BOX" | "LOAN" | "MAINTENANCE" | "EVENT" | "PERSON";
   url: string;
   data: any;
 }
@@ -36,12 +40,16 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     boxes: any[];
     loans: any[];
     maintenances: any[];
+    events: any[];
+    people: any[];
   }>({
     items: [],
     assets: [],
     boxes: [],
     loans: [],
     maintenances: [],
+    events: [],
+    people: [],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -49,14 +57,24 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
 
   // Flattened entries list for arrow navigation
   const flatEntries: SearchEntry[] = [
+    ...results.events.map((event) => ({
+      type: "EVENT" as const,
+      url: `/eventos/${event.id}`,
+      data: event,
+    })),
+    ...results.people.map((person) => ({
+      type: "PERSON" as const,
+      url: `/biometria/pessoas?search=${encodeURIComponent(person.name)}`,
+      data: person,
+    })),
     ...results.assets.map((asset) => ({
       type: "ASSET" as const,
-      url: `/patrimonio?search=${asset.assetTag}`,
+      url: `/patrimonio?search=${encodeURIComponent(asset.assetTag)}`,
       data: asset,
     })),
     ...results.items.map((item) => ({
       type: "ITEM" as const,
-      url: `/estoque?search=${item.sku || item.name}`,
+      url: `/estoque?search=${encodeURIComponent(item.sku || item.name)}`,
       data: item,
     })),
     ...results.boxes.map((box) => ({
@@ -66,12 +84,12 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     })),
     ...results.loans.map((loan) => ({
       type: "LOAN" as const,
-      url: `/emprestimos?search=${loan.borrowerName}`,
+      url: `/emprestimos?search=${encodeURIComponent(loan.borrowerName)}`,
       data: loan,
     })),
     ...results.maintenances.map((m) => ({
       type: "MAINTENANCE" as const,
-      url: `/manutencao?search=${m.orderNumber || m.asset?.assetTag}`,
+      url: `/manutencao?search=${encodeURIComponent(m.orderNumber || m.asset?.assetTag || "")}`,
       data: m,
     })),
   ];
@@ -84,7 +102,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
       }, 100);
     } else {
       setQuery("");
-      setResults({ items: [], assets: [], boxes: [], loans: [], maintenances: [] });
+      setResults({ items: [], assets: [], boxes: [], loans: [], maintenances: [], events: [], people: [] });
       setSelectedIndex(0);
     }
   }, [isOpen]);
@@ -92,7 +110,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   // Debounced fetch
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
-      setResults({ items: [], assets: [], boxes: [], loans: [], maintenances: [] });
+      setResults({ items: [], assets: [], boxes: [], loans: [], maintenances: [], events: [], people: [] });
       setIsLoading(false);
       setSelectedIndex(0);
       return;
@@ -185,6 +203,21 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     }
   };
 
+  const getEventBadge = (status: string) => {
+    switch (status) {
+      case "OPEN":
+        return <Badge variant="available" className="text-xs">Ao Vivo</Badge>;
+      case "PUBLISHED":
+        return <Badge variant="default" className="text-xs">Agendado</Badge>;
+      case "IN_PROGRESS":
+        return <Badge variant="in_use" className="text-xs">Em Andamento</Badge>;
+      case "COMPLETED":
+        return <Badge variant="outline" className="text-xs">Finalizado</Badge>;
+      default:
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
+    }
+  };
+
   let globalCounter = -1;
 
   return (
@@ -200,7 +233,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
             value={query}
             onKeyDown={handleKeyDown}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Digite para buscar patrimônio (#123458), caixa (C001), item ou solicitante..."
+            placeholder="Buscar patrimônio (#123458), item, caixa, evento, pessoa ou OS..."
             className="w-full bg-transparent px-2 py-4 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {query && (
@@ -239,20 +272,20 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                 Nenhum resultado para &quot;{query}&quot;
               </p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                Verifique o número do tombamento (#123458), nome do material ou código da caixa.
+                Verifique o número do tombamento (#123458), nome do material, evento ou pessoa.
               </p>
             </div>
           ) : query.length < 2 ? (
             <div className="p-6 text-center space-y-3">
               <div className="flex items-center justify-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
-                Busca Rápida UniFAP
+                Busca Global Inteligente • UniFAP
               </div>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                Digite 2 ou mais caracteres para pesquisar instantaneamente entre todos os materiais, patrimônios, armários e chamados.
+                Digite 2 ou mais caracteres para pesquisar instantaneamente entre patrimônios, materiais, armários, eventos, pessoas e ordens de serviço.
               </p>
               <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-                {["Projetor", "Cabo HDMI", "C001", "Microfone", "Manutenção"].map((tag) => (
+                {["Projetor", "Semana TI", "Rivaldo", "C001", "Cabo HDMI", "Manutenção"].map((tag) => (
                   <button
                     key={tag}
                     type="button"
@@ -267,7 +300,110 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           ) : (
             <div className="space-y-4">
               
-              {/* 1. Equipamentos Patrimoniais */}
+              {/* 1. Eventos & Sorteios */}
+              {results.events.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    <span>Eventos & Sorteios ({results.events.length})</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {results.events.map((event) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
+                      return (
+                        <button
+                          key={event.id}
+                          type="button"
+                          onClick={() => handleSelect(`/eventos/${event.id}`)}
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
+                                {event.name}
+                              </span>
+                              {event.date && (
+                                <span className={`text-xs ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                                  • {new Date(event.date).toLocaleDateString("pt-BR")}
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-[11px] ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {event.location ? `${event.location} • ` : ""}{event._count?.participants || 0} inscritos • {event._count?.presences || 0} presenças
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getEventBadge(event.status)}
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Pessoas & Biometria */}
+              {results.people.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    <Users className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Pessoas & Biometria ({results.people.length})</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {results.people.map((person) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
+                      return (
+                        <button
+                          key={person.id}
+                          type="button"
+                          onClick={() => handleSelect(`/biometria/pessoas?search=${encodeURIComponent(person.name)}`)}
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
+                                {person.name}
+                              </span>
+                              {person.registration && (
+                                <span className={`font-mono text-xs ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                                  #{person.registration}
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-[11px] ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {person.category || person.affiliation || "Participante"} • {person.presencesCount || 0} presenças registradas
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {person.hasFaceEnrolled && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                isHighlighted ? "bg-primary-foreground/20 text-primary-foreground" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                              }`}>
+                                <Camera className="w-3 h-3" />
+                                Biometria
+                              </span>
+                            )}
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Equipamentos Patrimoniais */}
               {results.assets.length > 0 && (
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
