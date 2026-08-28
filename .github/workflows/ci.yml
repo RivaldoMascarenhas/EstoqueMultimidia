@@ -1,0 +1,64 @@
+name: UniFAP CI / Security Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate-and-test:
+    name: Typecheck, Lint & Automated Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: estoque_multimidia_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema & Generate Client
+        run: |
+          npx prisma validate
+          npx prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
+
+      - name: TypeScript Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run Vitest Test Suite (100% Coverage)
+        run: npx vitest run
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
+          NEXTAUTH_SECRET: test_ci_super_secret_key_1234567890
+          BIOMETRIC_INTERNAL_TOKEN: test_internal_token_ci_987654
+
+      - name: Next.js Production Build Verification
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
+          NEXTAUTH_SECRET: test_ci_super_secret_key_1234567890
+          BIOMETRIC_INTERNAL_TOKEN: test_internal_token_ci_987654

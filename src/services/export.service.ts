@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export class ExportService {
   /**
@@ -10,13 +10,36 @@ export class ExportService {
   }
 
   /**
-   * Generates XLSX Buffer from array of objects
+   * Generates XLSX Buffer from array of objects using ExcelJS
    */
-  public static toXlsx(data: any[], sheetName = "Dados"): Buffer {
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  public static async toXlsx(data: any[], sheetName = "Dados"): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet(sheetName);
+
+    if (data.length > 0) {
+      const keys = Object.keys(data[0]);
+      worksheet.columns = keys.map((key) => ({
+        header: key,
+        key: key,
+        width: Math.max(key.length + 5, 14),
+      }));
+
+      data.forEach((item) => {
+        worksheet.addRow(item);
+      });
+
+      // Estilizar linha de cabeçalho
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF002B49" },
+      };
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 
   /**

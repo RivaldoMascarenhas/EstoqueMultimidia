@@ -190,12 +190,25 @@ export function BiometricEnrollModal({
       isMountedRef.current = false;
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
       if (currentStreamRef.current) {
-        currentStreamRef.current.getTracks().forEach((t) => t.stop());
+        currentStreamRef.current.getTracks().forEach((t) => {
+          t.stop();
+          t.enabled = false;
+        });
         currentStreamRef.current = null;
       }
-      if (videoRef.current && videoRef.current.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-        videoRef.current.srcObject = null;
+      if (videoRef.current) {
+        if (videoRef.current.srcObject) {
+          (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => {
+            t.stop();
+            t.enabled = false;
+          });
+          videoRef.current.srcObject = null;
+        }
+        try {
+          videoRef.current.pause();
+          videoRef.current.src = "";
+          videoRef.current.load();
+        } catch {}
       }
       if (faceDetectorRef.current) {
         try {

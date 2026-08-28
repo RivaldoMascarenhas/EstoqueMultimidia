@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { safeAuditLog } from "@/lib/audit";
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { ParticipantStatus } from "@prisma/client";
 
 export interface ParsedPersonRow {
@@ -29,10 +29,12 @@ export class ImportService {
    */
   private static normalizeHeader(header: string): string {
     return header
+      .toString()
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]/g, "");
+      .replace(/[^a-z0-9]/g, "")
+      .trim();
   }
 
   /**
@@ -49,9 +51,9 @@ export class ImportService {
   }
 
   /**
-   * Parses file buffer (CSV or XLSX) into standardized objects
+   * Parses file buffer (CSV or XLSX) into standardized objects using ExcelJS
    */
-  public static parseFile(buffer: Buffer, filename: string): ParsedPersonRow[] {
+  public static async parseFile(buffer: Buffer, filename: string): Promise<ParsedPersonRow[]> {
     const isCsv = filename.toLowerCase().endsWith(".csv");
     let rawRows: any[] = [];
 
@@ -64,10 +66,29 @@ export class ImportService {
       });
       rawRows = parsed.data;
     } else {
-      const workbook = XLSX.read(buffer, { type: "buffer" });
-      const firstSheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[firstSheetName];
-      rawRows = XLSX.utils.sheet_to_json(sheet);
+      const workbook = new ExcelJS.Workbook();
+      await (workbook.xlsx as any).load(buffer);
+      const worksheet = workbook.worksheets[0];
+      if (worksheet) {
+        const headers: string[] = [];
+        worksheet.getRow(1).eachCell((cell, colNumber) => {
+          headers[colNumber] = String(cell.value || "").trim();
+        });
+
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+          const rowObj: Record<string, any> = {};
+          row.eachCell((cell, colNumber) => {
+            const header = headers[colNumber];
+            if (header) {
+              rowObj[header] = cell.value;
+            }
+          });
+          if (Object.keys(rowObj).length > 0) {
+            rawRows.push(rowObj);
+          }
+        });
+      }
     }
 
     const rows: ParsedPersonRow[] = [];

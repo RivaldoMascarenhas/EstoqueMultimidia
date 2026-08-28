@@ -10,6 +10,14 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
+  const { error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.OPERADOR,
+    Role.CONSULTA,
+  ]);
+  if (error) return error;
+
   try {
     const resolvedParams = await Promise.resolve(params);
     const eventId = resolvedParams?.id;

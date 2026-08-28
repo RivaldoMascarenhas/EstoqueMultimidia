@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Users,
@@ -24,7 +24,7 @@ import { ImportParticipantsModal } from "@/components/biometria/ImportParticipan
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
-export default function PessoasPage() {
+function PessoasContent() {
   const searchParams = useSearchParams();
   const initialSearch = searchParams?.get("search") || searchParams?.get("query") || "";
 
@@ -406,3 +406,18 @@ export default function PessoasPage() {
     </div>
   );
 }
+
+export default function PessoasPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-xs text-muted-foreground">
+          Carregando participantes...
+        </div>
+      }
+    >
+      <PessoasContent />
+    </Suspense>
+  );
+}
+

@@ -189,10 +189,25 @@ export function TestBiometricModal({
     return () => {
       isMountedRef.current = false;
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
-      if (localStream) localStream.getTracks().forEach((t) => t.stop());
-      if (videoRef.current && videoRef.current.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => t.stop());
-        videoRef.current.srcObject = null;
+      if (localStream) {
+        localStream.getTracks().forEach((t) => {
+          t.stop();
+          t.enabled = false;
+        });
+      }
+      if (videoRef.current) {
+        if (videoRef.current.srcObject) {
+          (videoRef.current.srcObject as MediaStream).getTracks().forEach((t) => {
+            t.stop();
+            t.enabled = false;
+          });
+          videoRef.current.srcObject = null;
+        }
+        try {
+          videoRef.current.pause();
+          videoRef.current.src = "";
+          videoRef.current.load();
+        } catch {}
       }
       if (faceDetectorRef.current) {
         try {

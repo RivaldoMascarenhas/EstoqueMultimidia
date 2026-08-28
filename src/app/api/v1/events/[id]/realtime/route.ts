@@ -80,7 +80,40 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+import { z } from "zod";
+
+const realtimePublishSchema = z.object({
+  type: z.enum([
+    "state:sync",
+    "qr:show",
+    "logo:show",
+    "idle:show",
+    "prize:show",
+    "draw:start",
+    "draw:result",
+    "draw:cancel",
+    "sponsors:show",
+    "audio:config",
+    "participant:registered",
+  ]),
+  state: z.enum([
+    "IDLE",
+    "SHOWING_QR_CODE",
+    "SHOWING_EVENT_LOGO",
+    "SHOWING_PRIZE",
+    "DRAWING",
+    "RESULT",
+    "SPONSORS_SLIDESHOW",
+  ]).optional(),
+  prizeId: z.string().optional(),
+  prize: z.any().optional(),
+  winner: z.any().optional(),
+  sponsors: z.array(z.any()).optional(),
+  soundEnabled: z.boolean().optional(),
+  volume: z.number().min(0).max(1).optional(),
+});
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -89,10 +122,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ]);
     if (error) return error;
 
-    const eventId = params.id;
-    const body = await req.json();
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
 
-    const { type, state, prizeId, prize, winner, soundEnabled, volume, sponsors } = body;
+    const body = await req.json();
+    const parsed = realtimePublishSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.errors[0]?.message || "Payload de transmissão realtime inválido." },
+        { status: 400 }
+      );
+    }
+
+    const { type, state, prizeId, prize, winner, soundEnabled, volume, sponsors } = parsed.data;
 
     await realtimeService.publish(eventId, {
       type,

@@ -63,7 +63,7 @@ export async function GET(
       }
 
       if (format === "xlsx") {
-        const buf = ExportService.toXlsx(formatted, "Ganhadores");
+        const buf = await ExportService.toXlsx(formatted, "Ganhadores");
         return new NextResponse(new Uint8Array(buf), {
           headers: {
             "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -113,7 +113,7 @@ export async function GET(
     });
 
     if (format === "xlsx") {
-      const buf = ExportService.toXlsx(data, "Participantes");
+      const buf = await ExportService.toXlsx(data, "Participantes");
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

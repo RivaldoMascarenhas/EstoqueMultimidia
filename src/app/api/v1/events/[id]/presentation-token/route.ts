@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ success: false, error: "Não autorizado" }, { status: 401 });
+    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "GESTOR")) {
+      return NextResponse.json({ success: false, error: "Apenas administradores e gestores podem visualizar tokens de apresentação." }, { status: 403 });
     }
 
     const resolvedParams = await Promise.resolve(params);
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     // If no token exists yet, generate one automatically
     let token = event.presentationToken;
     if (!token) {
-      token = crypto.randomBytes(24).toString("hex");
+      token = crypto.randomBytes(32).toString("base64url");
       await prisma.event.update({
         where: { id: eventId },
         data: { presentationToken: token },
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const session = await getServerSession(authOptions);
     if (!session || (session.user.role !== "ADMIN" && session.user.role !== "GESTOR")) {
       return NextResponse.json(
-        { success: false, error: "Apenas administradores podem revogar ou regenerar tokens de apresentação" },
+        { success: false, error: "Apenas administradores e gestores podem revogar ou regenerar tokens de apresentação" },
         { status: 403 }
       );
     }
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente" }, { status: 400 });
     }
-    const newToken = crypto.randomBytes(24).toString("hex");
+    const newToken = crypto.randomBytes(32).toString("base64url");
 
     const updated = await prisma.event.update({
       where: { id: eventId },

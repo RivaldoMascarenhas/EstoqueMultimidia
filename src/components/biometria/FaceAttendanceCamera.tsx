@@ -160,6 +160,8 @@ export function FaceAttendanceCamera({
   const recognizingRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
   const currentStreamRef = useRef<MediaStream | null>(null);
+  const activeStreamsSetRef = useRef<Set<MediaStream>>(new Set());
+  const streamSessionIdRef = useRef<number>(0);
 
   const [recognitionState, setRecognitionState] = useState<RecognitionState>("IDLE");
   const [statusMessage, setStatusMessage] = useState<string>("Iniciando câmera...");
@@ -172,8 +174,24 @@ export function FaceAttendanceCamera({
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Stop camera tracks cleanly so hardware LED turns off immediately
+  // Stop camera tracks cleanly and instantly so hardware LED turns off immediately
   const stopCameraStream = useCallback(() => {
+    streamSessionIdRef.current += 1; // Invalidate any pending in-flight getUserMedia
+
+    // 1. Stop all tracked streams in the active set
+    if (activeStreamsSetRef.current) {
+      activeStreamsSetRef.current.forEach((s) => {
+        try {
+          s.getTracks().forEach((track) => {
+            track.stop();
+            track.enabled = false;
+          });
+        } catch {}
+      });
+      activeStreamsSetRef.current.clear();
+    }
+
+    // 2. Stop current stream
     if (currentStreamRef.current) {
       try {
         currentStreamRef.current.getTracks().forEach((track) => {
@@ -183,6 +201,8 @@ export function FaceAttendanceCamera({
       } catch {}
       currentStreamRef.current = null;
     }
+
+    // 3. Stop video element srcObject
     if (videoRef.current) {
       if (videoRef.current.srcObject) {
         try {
@@ -196,8 +216,11 @@ export function FaceAttendanceCamera({
       }
       try {
         videoRef.current.pause();
+        videoRef.current.src = "";
+        videoRef.current.load();
       } catch {}
     }
+
     setCameraReady(false);
   }, []);
 
@@ -267,7 +290,6 @@ export function FaceAttendanceCamera({
 
       const ctx = offCanvas.getContext("2d");
       if (!ctx) return null;
-
       ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, offCanvas.width, offCanvas.height);
 
       return new Promise<Blob | null>((resolve) => {
@@ -281,6 +303,7 @@ export function FaceAttendanceCamera({
   const startCamera = useCallback(
     async (deviceId?: string) => {
       stopCameraStream();
+      const currentSessionId = streamSessionIdRef.current;
 
       try {
         setStatusMessage("Conectando à câmera...");
@@ -299,7 +322,9 @@ export function FaceAttendanceCamera({
         };
 
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (!isMountedRef.current) {
+
+        // If component unmounted or stopCameraStream was called while in-flight
+        if (!isMountedRef.current || streamSessionIdRef.current !== currentSessionId) {
           stream.getTracks().forEach((t) => {
             t.stop();
             t.enabled = false;
@@ -307,11 +332,13 @@ export function FaceAttendanceCamera({
           return;
         }
 
+        activeStreamsSetRef.current.add(stream);
         currentStreamRef.current = stream;
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
-            if (!isMountedRef.current) {
+            if (!isMountedRef.current || streamSessionIdRef.current !== currentSessionId) {
               stream.getTracks().forEach((t) => {
                 t.stop();
                 t.enabled = false;
@@ -336,7 +363,7 @@ export function FaceAttendanceCamera({
           else if (videoDevs.length > 0) setSelectedDeviceId(videoDevs[0].deviceId);
         } catch {}
       } catch (err: any) {
-        if (!isMountedRef.current) return;
+        if (!isMountedRef.current || streamSessionIdRef.current !== currentSessionId) return;
         setRecognitionState("ERROR");
         setStatusMessage(
           err.name === "NotAllowedError"
@@ -362,17 +389,100 @@ export function FaceAttendanceCamera({
 
       const currentIndex = videoDevs.findIndex((d) => d.deviceId === selectedDeviceId);
       const nextIndex = (currentIndex + 1) % videoDevs.length;
-      const nextDev = videoDevs[nextIndex];
-      setSelectedDeviceId(nextDev.deviceId);
+      const nextDevice = videoDevs[nextIndex];
+
+      setSelectedDeviceId(nextDevice.deviceId);
       if (typeof window !== "undefined") {
-        localStorage.setItem("unifap_selected_camera_id", nextDev.deviceId);
+        localStorage.setItem("unifap_selected_camera_id", nextDevice.deviceId);
       }
-      toast.success(`Câmera alterada para: ${nextDev.label || `Câmera ${nextIndex + 1}`}`);
-      await startCamera(nextDev.deviceId);
+      toast.success(`Câmera alterada: ${nextDevice.label || `Câmera ${nextIndex + 1}`}`);
+      await startCamera(nextDevice.deviceId);
     } catch {
       toast.error("Erro ao alternar câmera.");
     }
   };
+
+  // Inicializar MediaPipe FaceDetector & Câmera
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    async function initialize() {
+      try {
+        setStatusMessage("Carregando detector MediaPipe...");
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+        );
+
+        if (!isMountedRef.current) return;
+
+        const detector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "/models/blaze_face_short_range.tflite",
+            delegate: "GPU",
+          },
+          runningMode: "VIDEO",
+          minDetectionConfidence: 0.3,
+          minSuppressionThreshold: 0.3,
+        });
+
+        if (!isMountedRef.current) {
+          detector.close();
+          return;
+        }
+
+        faceDetectorRef.current = detector;
+        await startCamera();
+      } catch (err: any) {
+        if (!isMountedRef.current) return;
+        setRecognitionState("ERROR");
+        setStatusMessage(`Erro ao carregar detector: ${err.message}`);
+      }
+    }
+
+    initialize();
+
+    return () => {
+      isMountedRef.current = false;
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+      stopCameraStream();
+      if (faceDetectorRef.current) {
+        try {
+          faceDetectorRef.current.close();
+        } catch {}
+        faceDetectorRef.current = null;
+      }
+    };
+  }, [startCamera, stopCameraStream]);
+
+  // Listener para desligamento forçado e instantâneo ao mudar de página, aba ou navegar
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopCameraStream();
+      } else if (isMountedRef.current && faceDetectorRef.current) {
+        startCamera();
+      }
+    };
+
+    const handleUnload = () => {
+      stopCameraStream();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handleUnload);
+    window.addEventListener("beforeunload", handleUnload);
+    window.addEventListener("popstate", handleUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handleUnload);
+      window.removeEventListener("beforeunload", handleUnload);
+      window.removeEventListener("popstate", handleUnload);
+      stopCameraStream();
+    };
+  }, [startCamera, stopCameraStream]);
 
   // Send crop to recognize endpoint
   const performRecognition = useCallback(
@@ -444,76 +554,6 @@ export function FaceAttendanceCamera({
     },
     [eventId, deviceIdentifier, onPresenceRecorded, playFeedbackSound]
   );
-
-  // Initialize MediaPipe FaceDetector & start camera
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    async function initialize() {
-      try {
-        setRecognitionState("IDLE");
-        setStatusMessage("Carregando detector MediaPipe...");
-
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-        );
-
-        if (!isMountedRef.current) return;
-
-        const detector = await FaceDetector.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "/models/blaze_face_short_range.tflite",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          minDetectionConfidence: 0.3,
-          minSuppressionThreshold: 0.3,
-        });
-
-        if (!isMountedRef.current) {
-          detector.close();
-          return;
-        }
-
-        faceDetectorRef.current = detector;
-        await startCamera();
-      } catch (err: any) {
-        if (!isMountedRef.current) return;
-        setRecognitionState("ERROR");
-        setStatusMessage(`Erro ao carregar detector: ${err.message}`);
-      }
-    }
-
-    initialize();
-
-    return () => {
-      isMountedRef.current = false;
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-      }
-      stopCameraStream();
-      if (faceDetectorRef.current) {
-        try {
-          faceDetectorRef.current.close();
-        } catch {}
-        faceDetectorRef.current = null;
-      }
-    };
-  }, [startCamera, stopCameraStream]);
-
-  // Listener para desligamento forçado ao sair da página ou ocultar
-  useEffect(() => {
-    const handleUnload = () => {
-      stopCameraStream();
-    };
-    window.addEventListener("pagehide", handleUnload);
-    window.addEventListener("beforeunload", handleUnload);
-    return () => {
-      window.removeEventListener("pagehide", handleUnload);
-      window.removeEventListener("beforeunload", handleUnload);
-      stopCameraStream();
-    };
-  }, [stopCameraStream]);
 
   // Main Detection Loop with ~15 FPS
   useEffect(() => {
@@ -594,16 +634,19 @@ export function FaceAttendanceCamera({
                 const isWellFramed = isCentered && isAdequateSize;
 
                 // Draw primary bounding box
+                const isBoxActiveGreen = isWellFramed;
                 ctx.save();
-                ctx.strokeStyle = isWellFramed ? "#22c55e" : "#f59e0b";
+                ctx.strokeStyle = isBoxActiveGreen ? "#22c55e" : "#f59e0b";
                 ctx.lineWidth = 3.5;
                 ctx.strokeRect(box.originX, box.originY, box.width, box.height);
 
                 // High-Tech Glowing Corner Brackets
                 const cornerLen = Math.min(28, box.width * 0.28);
-                ctx.strokeStyle = isWellFramed ? "#4ade80" : "#fbbf24";
+                ctx.strokeStyle = isBoxActiveGreen ? "#4ade80" : "#fbbf24";
                 ctx.lineWidth = 5;
-                ctx.shadowColor = isWellFramed ? "rgba(34, 197, 94, 0.8)" : "rgba(245, 158, 11, 0.8)";
+                ctx.shadowColor = isBoxActiveGreen
+                  ? "rgba(34, 197, 94, 0.8)"
+                  : "rgba(245, 158, 11, 0.8)";
                 ctx.shadowBlur = 10;
 
                 // Top-Left
@@ -643,7 +686,7 @@ export function FaceAttendanceCamera({
                     setStatusMessage("Aproxime-se e alinhe o rosto na moldura");
                   } else {
                     setRecognitionState("FACE_FOUND");
-                    setStatusMessage("Rosto identificado. Processando presença...");
+                    setStatusMessage("Rosto identificado! Processando presença...");
 
                     const timeSinceLastRecognize = now - lastRecognitionTimeRef.current;
                     if (timeSinceLastRecognize >= 2800) {
@@ -820,9 +863,9 @@ export function FaceAttendanceCamera({
         />
 
         {/* HUD Center Target Outline - Proporcional, Limpo e Elegante */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <div
-            className={`rounded-3xl border-[2.5px] border-dashed border-white/85 shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all duration-300 ${
+            className={`rounded-3xl border-[2.5px] border-dashed border-white/85 shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all duration-300 relative ${
               isFullscreen
                 ? "h-[62vh] w-[26vw] min-w-[340px] max-w-[500px] min-h-[440px] max-h-[640px]"
                 : "h-[68%] max-h-[350px] aspect-[3/4] min-w-[220px]"

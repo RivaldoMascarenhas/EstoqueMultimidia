@@ -73,16 +73,16 @@ export function Sidebar({
   const { data: session } = useSession();
   const userRole = session?.user?.role || "OPERADOR";
 
-  // Estado dos submenus abertos
+  // Estado dos submenus abertos (fechados por padrão)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    estoque: true,
-    patrimonio: true,
-    eventos: true,
+    estoque: false,
+    patrimonio: false,
+    eventos: false,
     gestao: false,
   });
 
   const toggleGroup = (key: string) => {
-    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOpenGroups((prev) => ({ ...prev, [key]: !(prev[key] ?? false) }));
   };
 
   // Travar o scroll da página de fundo no mobile enquanto o menu lateral estiver aberto
@@ -99,18 +99,15 @@ export function Sidebar({
     }
   }, [isMobileOpen]);
 
-  // Auto-abrir grupos baseado na URL atual
+  // Auto-abrir apenas o grupo correspondente à rota ativa atual
   useEffect(() => {
     if (pathname.startsWith("/estoque") || pathname.startsWith("/armario") || pathname.startsWith("/caixas") || pathname.startsWith("/movimentacoes")) {
       setOpenGroups((prev) => ({ ...prev, estoque: true }));
-    }
-    if (pathname.startsWith("/patrimonio") || pathname.startsWith("/emprestimos") || pathname.startsWith("/manutencao")) {
+    } else if (pathname.startsWith("/patrimonio") || pathname.startsWith("/emprestimos") || pathname.startsWith("/manutencao")) {
       setOpenGroups((prev) => ({ ...prev, patrimonio: true }));
-    }
-    if (pathname.startsWith("/eventos") || pathname.startsWith("/biometria") || pathname.startsWith("/sorteios")) {
+    } else if (pathname.startsWith("/eventos") || pathname.startsWith("/biometria") || pathname.startsWith("/sorteios")) {
       setOpenGroups((prev) => ({ ...prev, eventos: true }));
-    }
-    if (pathname.startsWith("/relatorios") || pathname.startsWith("/usuarios") || pathname.startsWith("/configuracoes") || pathname.startsWith("/privacidade")) {
+    } else if (pathname.startsWith("/relatorios") || pathname.startsWith("/usuarios") || pathname.startsWith("/configuracoes") || pathname.startsWith("/privacidade")) {
       setOpenGroups((prev) => ({ ...prev, gestao: true }));
     }
   }, [pathname]);
@@ -289,7 +286,7 @@ export function Sidebar({
                   {filteredItems.map((item) => {
                     const Icon = item.icon;
                     const groupKey = item.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(" ")[0];
-                    const isGroupOpen = openGroups[groupKey] ?? true;
+                    const isGroupOpen = openGroups[groupKey] ?? false;
 
                     // Se for item simples com link direto
                     if (item.href) {

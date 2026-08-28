@@ -68,14 +68,26 @@ function PresentationContent({ eventId }: { eventId: string }) {
     }
   };
 
-  // Initial event data fetch
+  // Bootstrap session cookie if token is provided
+  useEffect(() => {
+    if (eventId && token) {
+      fetch("/api/v1/public/presentation/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, token }),
+      }).catch(() => {});
+    }
+  }, [eventId, token]);
+
+  // Initial event data fetch from public endpoint
   const fetchEvent = async () => {
     try {
-      const res = await fetch(`/api/v1/events/${eventId}`);
+      const url = `/api/v1/public/events/${eventId}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.event) {
         setEvent(data.event);
-        setParticipantCount(data.event._count?.participants ?? data.event.participants?.length ?? 0);
+        setParticipantCount(data.event._count?.participants ?? data.event.stats?.participantsCount ?? 0);
 
         const appUrl = typeof window !== "undefined" ? window.location.origin : "";
         const regUrl = `${appUrl}/eventos/${data.event.id}`;
@@ -90,17 +102,15 @@ function PresentationContent({ eventId }: { eventId: string }) {
         setQrCodeDataUrl(qr);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao carregar evento público:", err);
     }
   };
 
-  // Fetch Sponsors from event prizes or system
+  // Fetch Sponsors from public event prizes
   const fetchSponsors = async () => {
     try {
-      const [resPrizes, resSponsors] = await Promise.all([
-        fetch(`/api/v1/events/${eventId}/prizes`).then((r) => r.json()),
-        fetch(`/api/v1/sponsors`).then((r) => r.json()),
-      ]);
+      const url = `/api/v1/public/events/${eventId}/prizes${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      const resPrizes = await fetch(url, { credentials: "include" }).then((r) => r.json());
 
       const sponsorMap = new Map<string, any>();
 
@@ -123,25 +133,13 @@ function PresentationContent({ eventId }: { eventId: string }) {
         });
       }
 
-      // If no prizes had sponsors attached, fallback to all registered sponsors in system
-      if (sponsorMap.size === 0 && resSponsors.success && Array.isArray(resSponsors.sponsors)) {
-        resSponsors.sponsors.forEach((s: any) => {
-          sponsorMap.set(s.id, {
-            ...s,
-            prizeCount: s._count?.prizes || 1,
-            totalValue: 0,
-            prizes: [],
-          });
-        });
-      }
-
-      // If even system sponsors are empty, fallback to institutional UniFAP card
+      // If no prizes had sponsors attached, fallback to institutional UniFAP card
       if (sponsorMap.size === 0) {
         sponsorMap.set("unifap-inst", {
           id: "unifap-inst",
-          name: "Centro Universitário Paraíso — UniFAP",
-          description: "Apoio Institucional • Coordenação Multimídia",
-          logoUrl: null,
+          name: "UniFAP • Centro Universitário",
+          logoUrl: "/unifap-logo-white.png",
+          tier: "INSTITUTIONAL",
           prizeCount: 1,
           instagram: "@unifapce",
           website: "https://unifapce.edu.br",
@@ -159,7 +157,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
   useEffect(() => {
     fetchEvent();
     fetchSponsors();
-  }, [eventId]);
+  }, [eventId, token]);
 
   // Auto-rotate Sponsors in Slideshow mode with dynamic timer based on prize count
   useEffect(() => {
@@ -341,7 +339,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
 
   // 1. Primary: Server-Sent Events (SSE) Stream
   useEffect(() => {
-    const sseUrl = `/api/v1/events/${eventId}/realtime${token ? `?token=${token}` : ""}`;
+    const sseUrl = `/api/v1/public/events/${eventId}/realtime${token ? `?token=${encodeURIComponent(token)}` : ""}`;
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource(sseUrl);
@@ -378,8 +376,9 @@ function PresentationContent({ eventId }: { eventId: string }) {
     const syncState = async () => {
       if (isAnimatingRef.current) return;
       try {
-        const res = await fetch(`/api/v1/events/${eventId}/realtime?poll=true${token ? `&token=${token}` : ""}`, {
+        const res = await fetch(`/api/v1/public/events/${eventId}/realtime?poll=true${token ? `&token=${encodeURIComponent(token)}` : ""}`, {
           cache: "no-store",
+          credentials: "include",
         });
         if (res.ok && isMounted && !isAnimatingRef.current) {
           const payload = await res.json();

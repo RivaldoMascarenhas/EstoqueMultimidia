@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { safeAuditLog } from "@/lib/audit";
 import { CreateEventInput, UpdateEventInput } from "@/schemas/event.schema";
@@ -54,7 +55,7 @@ export class EventService {
         allowRepeatWinners: data.allowRepeatWinners ?? false,
         maxParticipants: data.maxParticipants || null,
         checkinOpenMinutesBefore: data.checkinOpenMinutesBefore ?? 60,
-        presentationToken: `${finalSlug}-${Date.now().toString(36)}`,
+        presentationToken: crypto.randomBytes(32).toString("base64url"),
       },
     });
 
@@ -233,8 +234,10 @@ export class EventService {
 
     const checkinStatus = EventService.isCheckinAllowed(event);
 
+    const { presentationToken: _, ...sanitizedEvent } = event;
+
     return {
-      ...event,
+      ...sanitizedEvent,
       checkinStatus,
       stats: {
         participantsCount: event._count.participants,
@@ -311,7 +314,6 @@ export class EventService {
         secondaryColor: e.secondaryColor,
         allowRepeatWinners: e.allowRepeatWinners,
         maxParticipants: e.maxParticipants,
-        presentationToken: e.presentationToken,
         createdAt: e.createdAt,
         updatedAt: e.updatedAt,
         participantsCount: e._count.participants,

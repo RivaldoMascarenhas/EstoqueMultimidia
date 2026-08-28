@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { FaceAttendanceCamera } from "@/components/biometria/FaceAttendanceCamera";
 import {
   Sparkles,
@@ -21,10 +21,12 @@ import {
 } from "lucide-react";
 import { PrivacyPolicyModal } from "@/components/legal/PrivacyPolicyModal";
 
-export default function EventTotemPage() {
+function EventTotemContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const eventId = params.eventId as string;
+  const token = searchParams.get("token") || "";
 
   const [event, setEvent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,6 +36,17 @@ export default function EventTotemPage() {
   const [recentPresences, setRecentPresences] = useState<any[]>([]);
   const [showLiveFeed, setShowLiveFeed] = useState(true);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+
+  // Bootstrap session cookie if token is provided
+  useEffect(() => {
+    if (eventId && token) {
+      fetch("/api/v1/public/presentation/bootstrap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, token }),
+      }).catch(() => {});
+    }
+  }, [eventId, token]);
 
   useEffect(() => {
     const updateTime = () => {
@@ -47,26 +60,28 @@ export default function EventTotemPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch Event Details
+  // Fetch Event Details from Public Endpoint
   const loadEvent = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/events/${eventId}`);
+      const url = `/api/v1/public/events/${eventId}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
       const data = await res.json();
       if (data.success && data.event) {
         setEvent(data.event);
         setPresentCount(data.event._count?.presences || data.event.stats?.presencesTotal || 0);
       }
     } catch (err) {
-      console.error("Erro ao carregar evento:", err);
+      console.error("Erro ao carregar evento público:", err);
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, token]);
 
-  // Fetch Recent Presences (Live Feed)
+  // Fetch Recent Presences (Public Live Feed)
   const fetchRecentPresences = useCallback(async () => {
     try {
-      const res = await fetch(`/api/v1/events/${eventId}/presences?limit=15`);
+      const url = `/api/v1/public/events/${eventId}/presences?limit=15${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+      const res = await fetch(url, { credentials: "include" });
       const data = await res.json();
       if (data.success && data.items) {
         setRecentPresences(data.items);
@@ -75,7 +90,7 @@ export default function EventTotemPage() {
         }
       }
     } catch {}
-  }, [eventId]);
+  }, [eventId, token]);
 
   useEffect(() => {
     if (eventId) {
@@ -116,87 +131,77 @@ export default function EventTotemPage() {
   }, []);
 
   const toggleFullscreen = () => {
-    const isCurrentlyFullscreen = !!(
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
-    );
-
-    if (!isCurrentlyFullscreen) {
+    if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
+      document.exitFullscreen().catch(() => {});
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060b19] flex flex-col items-center justify-center text-white">
-        <RefreshCw className="w-10 h-10 text-emerald-400 animate-spin mb-4" />
-        <p className="text-sm font-semibold tracking-wide text-zinc-300">
-          Iniciando Totem de Recepção Facial...
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#020617] text-white">
+        <RefreshCw className="h-10 w-10 animate-spin text-emerald-400 mb-4 opacity-80" />
+        <p className="text-sm font-semibold tracking-wider uppercase text-zinc-400">
+          Iniciando Totem Inteligente...
         </p>
       </div>
     );
   }
 
   return (
-    <div className="relative h-screen max-h-screen w-full bg-[#060b19] text-white flex flex-col justify-between overflow-hidden select-none font-sans">
-      {/* Background Glows */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#020617] text-white select-none">
+      {/* Dynamic Background Glows */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="absolute -top-[20%] left-[20%] h-[500px] w-[500px] rounded-full bg-emerald-500/10 blur-[130px]" />
+        <div className="absolute top-[60%] -right-[10%] h-[500px] w-[500px] rounded-full bg-blue-600/10 blur-[150px]" />
+        <div className="absolute -bottom-[20%] left-[10%] h-[400px] w-[400px] rounded-full bg-indigo-500/10 blur-[140px]" />
+      </div>
 
-      {/* Header */}
-      <header className="relative z-20 w-full px-4 sm:px-6 py-3 flex items-center justify-between border-b border-slate-800/80 bg-[#091124]/90 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+      {/* Top Bar / Header */}
+      <header className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-800/80 bg-[#091124]/90 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
-            onClick={() => router.push(`/eventos/${eventId}`)}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-zinc-300 hover:text-white transition cursor-pointer shrink-0"
-            title="Voltar ao Painel"
+            onClick={() => router.push("/eventos")}
+            className="flex items-center justify-center p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 text-zinc-300 hover:text-white transition cursor-pointer shrink-0"
+            title="Voltar aos Eventos"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
-
-          {event?.logoUrl ? (
-            <img
-              src={event.logoUrl}
-              alt="Logo"
-              className="h-9 sm:h-10 max-w-[100px] sm:max-w-[120px] object-contain filter drop-shadow shrink-0"
-            />
-          ) : (
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-sm sm:text-base shrink-0">
-              UF
-            </div>
-          )}
-
           <div className="min-w-0">
-            <h1 className="text-sm sm:text-lg font-extrabold tracking-tight text-white leading-tight truncate">
-              {event?.name || "Totem de Presença UniFAP"}
+            <h1 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-2 truncate">
+              <span>{event?.name || "Totem de Presença"}</span>
+              <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                AO VIVO
+              </span>
             </h1>
-            <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-zinc-400 mt-0.5 truncate">
-              <span className="flex items-center gap-1 truncate">
-                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span className="truncate">{event?.location || "Auditório Principal"}</span>
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1 font-semibold text-emerald-400 shrink-0">
-                <Users className="w-3.5 h-3.5" />
-                {presentCount} presentes
-              </span>
+            <div className="flex items-center gap-3 text-[11px] text-zinc-400 font-mono">
+              {event?.location && (
+                <span className="flex items-center gap-1 truncate">
+                  <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
+                  {event.location}
+                </span>
+              )}
+              {event?.date && (
+                <span className="hidden sm:flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
+                  {new Date(event.date).toLocaleDateString("pt-BR")}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/10 font-mono text-xs text-zinc-300 font-semibold shadow-inner">
+        {/* Right Info: Live Time, Counter & Actions */}
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {/* Clock */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs font-mono text-zinc-300">
             <Clock className="w-3.5 h-3.5 text-emerald-400" />
             <span>{currentTime}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] sm:text-xs font-semibold">
+          {/* Status Indicator */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold font-mono">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#22c55e]" />
             <span className="hidden xs:inline">TOTEM ATIVO</span>
           </div>
@@ -209,21 +214,18 @@ export default function EventTotemPage() {
                 ? "bg-slate-800 border-slate-700 text-emerald-400"
                 : "bg-slate-900/60 border-slate-800 text-zinc-400 hover:text-white"
             }`}
-            title={showLiveFeed ? "Ocultar Feed de Presenças" : "Exibir Feed de Presenças"}
           >
             {showLiveFeed ? (
               <PanelRightClose className="w-4 h-4" />
             ) : (
               <PanelRightOpen className="w-4 h-4" />
             )}
-            <span className="hidden xl:inline">{showLiveFeed ? "Feed Aberto" : "Ver Feed"}</span>
           </button>
 
           {/* Fullscreen Toggle */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-zinc-300 hover:text-white transition cursor-pointer"
-            title="Modo Tela Cheia (F11)"
+            className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-zinc-300 hover:text-white transition cursor-pointer"
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
@@ -231,7 +233,7 @@ export default function EventTotemPage() {
       </header>
 
       {/* Main Face Attendance Area + Live Feed Side Panel */}
-      <main className="relative z-10 flex-1 flex items-center justify-center p-2 sm:p-4 w-full max-w-7xl mx-auto min-h-0 overflow-hidden gap-4">
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto min-h-0 overflow-hidden gap-4">
         {/* Left / Center: Camera Stream */}
         <div className="flex-1 h-full w-full max-h-full flex items-center justify-center min-h-0 overflow-hidden">
           <FaceAttendanceCamera
@@ -320,7 +322,7 @@ export default function EventTotemPage() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 py-2 px-4 flex flex-wrap items-center justify-between text-[11px] text-zinc-500 border-t border-slate-900 bg-[#060b19] shrink-0">
+      <footer className="relative z-10 py-2 px-4 flex flex-wrap items-center justify-between text-[11px] text-zinc-500 border-t border-slate-900 bg-[#020617] shrink-0">
         <span>UniFAP Multimídia • Sistema Integrado de Presença Facial & Sorteios</span>
         <button
           type="button"
@@ -338,5 +340,22 @@ export default function EventTotemPage() {
         onClose={() => setIsPrivacyModalOpen(false)}
       />
     </div>
+  );
+}
+
+export default function EventTotemPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#020617] text-white">
+          <RefreshCw className="h-10 w-10 animate-spin text-emerald-400 mb-4 opacity-80" />
+          <p className="text-sm font-semibold tracking-wider uppercase text-zinc-400">
+            Carregando Totem...
+          </p>
+        </div>
+      }
+    >
+      <EventTotemContent />
+    </Suspense>
   );
 }

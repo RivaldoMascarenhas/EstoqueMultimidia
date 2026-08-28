@@ -50,7 +50,7 @@ describe("Unified System Integration Flow (Estoque + Eventos + Biometria + Sorte
       "Mariana Costa,20267001,11144477700,Aluno\n" +
       "Roberto Alves,20267002,22255588800,Professor";
 
-    const parsedRows = ImportService.parseFile(Buffer.from(csvContent), "inscritos.csv");
+    const parsedRows = await ImportService.parseFile(Buffer.from(csvContent), "inscritos.csv");
     expect(parsedRows).toHaveLength(2);
     expect(parsedRows[0].name).toBe("Mariana Costa");
 
