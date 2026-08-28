@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateApiRequest } from "@/lib/api-auth";
+import { validateApiRequest, requireApiPermission } from "@/lib/api-auth";
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Validar autenticação
+    // 1. Validar autenticação e escopo de permissão
     const auth = await validateApiRequest(req);
-    if (!auth.authenticated) {
-      return NextResponse.json(
-        { success: false, error: auth.error || "Não autorizado." },
-        { status: 401 }
-      );
+    const permissionCheck = requireApiPermission(auth, "inventory:read");
+    if (!permissionCheck.allowed && permissionCheck.response) {
+      return permissionCheck.response;
     }
 
     const { searchParams } = new URL(req.url);

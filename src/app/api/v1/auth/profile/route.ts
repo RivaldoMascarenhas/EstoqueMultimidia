@@ -143,11 +143,14 @@ export async function PUT(req: NextRequest) {
         updateData.avatarUrl = avatarUrl;
       } else if (avatarUrl === null || avatarUrl === "") {
         updateData.avatarUrl = null;
-      } else if (typeof avatarUrl === "string" && avatarUrl.startsWith("/uploads/")) {
-        // Apenas caminhos de uploads locais estáticos permitidos
-        updateData.avatarUrl = avatarUrl;
+      } else if (typeof avatarUrl === "string" && avatarUrl.startsWith("/api/v1/users/")) {
+        // Preserva o avatar existente sem alteração
+      } else {
+        return NextResponse.json(
+          { success: false, error: "Formato de imagem de avatar inválido." },
+          { status: 400 }
+        );
       }
-      // NOTA: Se for a rota da API (/api/v1/users/...), não altera o campo no banco para preservar a foto existente.
     }
 
     // Se estiver alterando a senha

@@ -54,10 +54,11 @@ export class BiometricApiService {
   }
 
   private static get internalToken(): string {
-    return (
-      process.env.BIOMETRIC_INTERNAL_TOKEN ||
-      "unifap_biometric_secret_token_2026_internal_only"
-    );
+    const token = process.env.BIOMETRIC_INTERNAL_TOKEN;
+    if (!token) {
+      throw new Error("BIOMETRIC_INTERNAL_TOKEN não foi configurado nas variáveis de ambiente do servidor.");
+    }
+    return token;
   }
 
   /**

@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiRequest } from "@/lib/api-auth";
+import { validateApiRequest, requireApiPermission } from "@/lib/api-auth";
 import { validateSafeUrl } from "@/lib/ssrf";
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await validateApiRequest(req);
-    if (!auth.authenticated) {
-      return NextResponse.json(
-        { success: false, error: auth.error || "Não autorizado." },
-        { status: 401 }
-      );
+    const permissionCheck = requireApiPermission(auth, "webhook:test");
+    if (!permissionCheck.allowed && permissionCheck.response) {
+      return permissionCheck.response;
     }
 
     const body = await req.json();

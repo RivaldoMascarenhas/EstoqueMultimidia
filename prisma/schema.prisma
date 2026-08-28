@@ -193,6 +193,7 @@ model ApiKey {
   keyHash     String    @unique
   keyPrefix   String
   role        Role      @default(OPERADOR)
+  permissions String[]  @default([])
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastUsedAt  DateTime?
@@ -201,6 +202,13 @@ model ApiKey {
   createdAt   DateTime  @default(now())
 
   @@index([keyHash])
+  @@index([userId])
+  @@index([active])
+}
+
+model MaintenanceSequence {
+  year    Int @id
+  current Int @default(0)
 }
 
 // ----------------------------------------------------

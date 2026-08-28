@@ -9,25 +9,17 @@ import {
 
 export class MaintenanceService {
   /**
-   * Gera o próximo número sequencial de OS: OS-YYYY-XXXX (ex: OS-2026-0001)
+   * Gera o próximo número sequencial de OS: OS-YYYY-XXXX (ex: OS-2026-0001) usando sequência atômica
    */
   private static async generateOrderNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const count = await prisma.maintenance.count();
-    const seq = String(count + 1).padStart(4, "0");
-    const candidate = `OS-${year}-${seq}`;
-
-    // Garantir unicidade
-    const existing = await prisma.maintenance.findUnique({
-      where: { orderNumber: candidate },
+    const seqRecord = await prisma.maintenanceSequence.upsert({
+      where: { year },
+      update: { current: { increment: 1 } },
+      create: { year, current: 1 },
     });
-
-    if (existing) {
-      const timestamp = Date.now().toString().slice(-4);
-      return `OS-${year}-${seq}-${timestamp}`;
-    }
-
-    return candidate;
+    const seq = String(seqRecord.current).padStart(4, "0");
+    return `OS-${year}-${seq}`;
   }
 
   /**

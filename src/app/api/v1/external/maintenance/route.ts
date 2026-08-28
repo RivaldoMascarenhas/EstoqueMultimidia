@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateApiRequest } from "@/lib/api-auth";
+import { validateApiRequest, requireApiPermission } from "@/lib/api-auth";
 import { AssetStatus, MaintenanceStatus } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await validateApiRequest(req);
-    if (!auth.authenticated) {
-      return NextResponse.json(
-        { success: false, error: auth.error || "Não autorizado." },
-        { status: 401 }
-      );
+    const permissionCheck = requireApiPermission(auth, "maintenance:create");
+    if (!permissionCheck.allowed && permissionCheck.response) {
+      return permissionCheck.response;
     }
 
     const body = await req.json();
@@ -45,14 +43,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Gerar número de OS sequencial
-    const year = new Date().getFullYear();
-    const count = await prisma.maintenance.count();
-    const orderNumber = `OS-${year}-${String(count + 1).padStart(4, "0")}`;
-
     const userId = auth.user?.id || (await prisma.user.findFirst({ where: { role: "ADMIN" } }))?.id || "";
 
-    const result = await prisma.$transaction(async (tx) => {
+    const { maintenance: result, orderNumber } = await prisma.$transaction(async (tx) => {
       // 1. Atualizar status do ativo apenas se AVAILABLE ou DAMAGED (lock atômico)
       const assetUpdate = await tx.asset.updateMany({
         where: {
@@ -69,7 +62,16 @@ export async function POST(req: NextRequest) {
         throw new Error(`Equipamento #${asset.assetTag} não está disponível para manutenção (já em empréstimo ou em manutenção ativa).`);
       }
 
-      // 2. Criar chamado de manutenção
+      // 2. Gerar número de OS sequencial atômico (anti race condition)
+      const year = new Date().getFullYear();
+      const seqRecord = await tx.maintenanceSequence.upsert({
+        where: { year },
+        update: { current: { increment: 1 } },
+        create: { year, current: 1 },
+      });
+      const orderNumber = `OS-${year}-${String(seqRecord.current).padStart(4, "0")}`;
+
+      // 3. Criar chamado de manutenção
       const maintenance = await tx.maintenance.create({
         data: {
           assetId: asset.id,
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      return maintenance;
+      return { maintenance, orderNumber };
     });
 
     const whatsappMessage = [

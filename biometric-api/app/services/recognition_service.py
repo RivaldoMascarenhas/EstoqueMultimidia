@@ -274,9 +274,6 @@ class RecognitionService:
                         id=person.id,
                         name=person.name,
                         registration=person.registration,
-                        cpf=person.cpf,
-                        email=person.email,
-                        photoUrl=person.photoUrl,
                         category=person.category,
                     ),
                     confidence=confidence,
@@ -356,9 +353,6 @@ class RecognitionService:
                         id=person.id,
                         name=person.name,
                         registration=person.registration,
-                        cpf=person.cpf,
-                        email=person.email,
-                        photoUrl=person.photoUrl,
                         category=person.category,
                     ),
                     confidence=confidence,
@@ -392,9 +386,6 @@ class RecognitionService:
                     id=person.id,
                     name=person.name,
                     registration=person.registration,
-                    cpf=person.cpf,
-                    email=person.email,
-                    photoUrl=person.photoUrl,
                     category=person.category,
                 ),
                 confidence=confidence,
@@ -506,9 +497,6 @@ class RecognitionService:
                             id=person.id,
                             name=person.name,
                             registration=person.registration,
-                            cpf=person.cpf,
-                            email=person.email,
-                            photoUrl=person.photoUrl,
                         ),
                         message=f"{person.name} não possui biometria facial cadastrada.",
                     )
@@ -543,9 +531,6 @@ class RecognitionService:
                     id=person.id,
                     name=person.name,
                     registration=person.registration,
-                    cpf=person.cpf,
-                    email=person.email,
-                    photoUrl=person.photoUrl,
                 ),
                 confidence=round(conf, 4),
                 distance=round(dist, 4),
@@ -557,7 +542,7 @@ class RecognitionService:
         if is_postgres:
             q_all = text("""
                 SELECT
-                    p.id, p.name, p.registration, p.cpf, p.email, p."photoUrl", p.category,
+                    p.id, p.name, p.registration, p.category,
                     fe.embedding <-> (:vec)::vector AS distance
                 FROM "FaceEmbedding" fe
                 INNER JOIN "Person" p ON p.id = fe."personId"
@@ -567,7 +552,7 @@ class RecognitionService:
             """)
             row = db.execute(q_all, {"vec": vec_str}).first()
             if row:
-                p_id, p_name, p_reg, p_cpf, p_email, p_photo, p_cat, dist = row
+                p_id, p_name, p_reg, p_cat, dist = row
                 dist = float(dist)
                 conf = cls.distance_to_confidence(dist)
                 is_match = dist <= threshold and conf >= settings.MIN_CONFIDENCE_THRESHOLD
@@ -579,9 +564,6 @@ class RecognitionService:
                         id=p_id,
                         name=p_name,
                         registration=p_reg,
-                        cpf=p_cpf,
-                        email=p_email,
-                        photoUrl=p_photo,
                         category=p_cat,
                     ),
                     confidence=round(conf, 4),
@@ -622,9 +604,6 @@ class RecognitionService:
                             id=best_person.id,
                             name=best_person.name,
                             registration=best_person.registration,
-                            cpf=best_person.cpf,
-                            email=best_person.email,
-                            photoUrl=best_person.photoUrl,
                             category=best_person.category,
                         ),
                         confidence=round(conf, 4),

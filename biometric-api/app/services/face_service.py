@@ -2,8 +2,11 @@ import io
 import os
 from typing import List, Optional
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 from fastapi import HTTPException, status
+
+MAX_PIXELS = 12_000_000
+MAX_DIMENSION = 4096
 
 try:
     import face_recognition
@@ -15,25 +18,32 @@ except ImportError:
 class FaceService:
     @staticmethod
     def bytes_to_rgb_array(image_bytes: bytes) -> np.ndarray:
-        """Converts raw image bytes to an RGB numpy array handling EXIF orientation."""
+        """
+        Converts raw image bytes to an RGB numpy array handling EXIF orientation
+        and strictly enforcing dimensions to prevent decompression bombs.
+        """
         try:
             image = Image.open(io.BytesIO(image_bytes))
-            if hasattr(image, "_getexif"):
-                exif = image._getexif()
-                if exif:
-                    orientation = exif.get(0x0112)
-                    if orientation == 3:
-                        image = image.rotate(180, expand=True)
-                    elif orientation == 6:
-                        image = image.rotate(270, expand=True)
-                    elif orientation == 8:
-                        image = image.rotate(90, expand=True)
+            width, height = image.size
+
+            if width <= 0 or height <= 0:
+                raise ValueError("Dimensões inválidas de imagem.")
+
+            if width > MAX_DIMENSION or height > MAX_DIMENSION:
+                raise ValueError("Dimensões da imagem excedem o limite seguro máximo.")
+
+            if width * height > MAX_PIXELS:
+                raise ValueError("Imagem excede o limite máximo permitido de pixels (12 megapixels).")
+
+            image = ImageOps.exif_transpose(image)
             rgb_image = image.convert("RGB")
             return np.array(rgb_image)
-        except Exception as e:
+        except HTTPException:
+            raise
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Arquivo de imagem inválido ou corrompido: {str(e)}",
+                detail="Arquivo de imagem inválido, corrompido ou excessivamente grande.",
             )
 
     @classmethod

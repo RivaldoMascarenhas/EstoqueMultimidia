@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (error) return error;
 
     const body = await req.json();
-    const { name, role, expiresAt } = body;
+    const { name, role, permissions, expiresAt } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
@@ -66,6 +66,29 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Regra de segurança institucional: Chaves de API externas NUNCA podem ter papel ADMIN global
+    if (assignedRole === Role.ADMIN) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Chaves de API não podem possuir o perfil ADMIN por motivos de segurança e princípio do menor privilégio.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Escopos de permissão padrão por perfil
+    const defaultPermissionsByRole: Record<string, string[]> = {
+      OPERADOR: ["inventory:read", "loan:create", "loan:return", "maintenance:create", "webhook:test"],
+      GESTOR: ["inventory:read", "loan:create", "loan:return", "maintenance:create", "webhook:test"],
+      CONSULTA: ["inventory:read"],
+      ACADEMIC_SUPPORT: ["inventory:read"],
+    };
+
+    const assignedPermissions = Array.isArray(permissions) && permissions.length > 0
+      ? permissions.filter((p) => typeof p === "string")
+      : defaultPermissionsByRole[assignedRole] || ["inventory:read"];
 
     // 1. Gerar token aleatório de alta entropia com prefixo institucional
     const randomHex = crypto.randomBytes(24).toString("hex");
@@ -95,6 +118,7 @@ export async function POST(req: NextRequest) {
         keyHash,
         keyPrefix,
         role: assignedRole,
+        permissions: assignedPermissions,
         userId: session.user.id,
         expiresAt: parsedExpiresAt,
         active: true,
@@ -104,6 +128,7 @@ export async function POST(req: NextRequest) {
         name: true,
         keyPrefix: true,
         role: true,
+        permissions: true,
         active: true,
         expiresAt: true,
         createdAt: true,

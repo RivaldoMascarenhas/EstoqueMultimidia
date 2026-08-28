@@ -56,6 +56,26 @@ export async function PUT(
       );
     }
 
+    // Trava de segurança: impedir desativação ou rebaixamento do último administrador ativo
+    if (existing.role === Role.ADMIN && (active === false || (role && role !== Role.ADMIN))) {
+      const adminCount = await prisma.user.count({
+        where: {
+          role: Role.ADMIN,
+          active: true,
+        },
+      });
+
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Não é permitido desativar ou rebaixar o único administrador ativo do sistema.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
@@ -156,6 +176,25 @@ export async function DELETE(
         { success: false, error: "Usuário não encontrado." },
         { status: 404 }
       );
+    }
+
+    if (user.role === Role.ADMIN) {
+      const adminCount = await prisma.user.count({
+        where: {
+          role: Role.ADMIN,
+          active: true,
+        },
+      });
+
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Não é possível desativar ou excluir o único administrador ativo do sistema.",
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const hasHistory = 

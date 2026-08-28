@@ -13,6 +13,8 @@ services:
     image: pgvector/pgvector:pg16
     container_name: unifap-postgres
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina a variavel POSTGRES_PASSWORD no .env}
@@ -24,6 +26,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - unifap-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1.5G
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-estoque_multimidia}"]
       interval: 5s
@@ -36,16 +43,24 @@ services:
       dockerfile: Dockerfile
     container_name: unifap-biometric-api
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
       BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:?Defina a variavel BIOMETRIC_INTERNAL_TOKEN no .env}
-      RECOGNITION_TOLERANCE: ${RECOGNITION_TOLERANCE:-0.60}
+      FACE_DISTANCE_THRESHOLD: ${FACE_DISTANCE_THRESHOLD:-0.60}
+      MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.80}
       PORT: 8000
     # Comunicação interna via Docker Network; porta no host restrita a 127.0.0.1
     ports:
       - "127.0.0.1:8000:8000"
     networks:
       - unifap-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
 
   app:
     build:
@@ -53,6 +68,8 @@ services:
       dockerfile: Dockerfile
     container_name: unifap-web-app
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
@@ -60,7 +77,7 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Defina a variavel NEXTAUTH_SECRET no .env}
       BIOMETRIC_API_URL: http://biometric-api:8000
       BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:?Defina a variavel BIOMETRIC_INTERNAL_TOKEN no .env}
-    # Porta restrita a 127.0.0.1 para que o trafego externo passe exclusivamente pelo Cloudflare Tunnel
+    # Porta restrita a 127.0.0.1 para que o tráfego externo passe exclusivamente pelo Cloudflare Tunnel
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -70,13 +87,25 @@ services:
         condition: service_started
     networks:
       - unifap-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2024.8.3
     container_name: unifap-cloudflared
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Defina a variavel CLOUDFLARE_TUNNEL_TOKEN no .env}
     depends_on:
       - app
     networks:
       - unifap-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M

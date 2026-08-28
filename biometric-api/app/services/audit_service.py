@@ -1,7 +1,10 @@
+import logging
 import uuid
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
+
+logger = logging.getLogger("unifap.audit")
 
 
 class AuditService:
@@ -17,7 +20,7 @@ class AuditService:
         user_agent: Optional[str] = None,
     ):
         """
-        Creates an audit record in the central audit_logs table.
+        Creates an audit record in the central AuditLog table.
         NOTE: Never log face images, frames or embeddings.
         """
         try:
@@ -33,6 +36,6 @@ class AuditService:
             )
             db.add(log_entry)
             db.commit()
-        except Exception as e:
+        except Exception:
             db.rollback()
-            print(f"[ERROR] Failed to write audit log: {e}")
+            logger.exception(f"Falha ao registrar log de auditoria para ação '{action}' em '{entity}'.")

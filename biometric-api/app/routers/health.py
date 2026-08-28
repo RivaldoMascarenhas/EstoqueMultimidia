@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.database import get_db
+from app.dependencies import verify_internal_token
 from app.schemas.health import HealthResponse
 from app.config import settings
 from app.services.face_service import HAS_FACE_RECOGNITION
@@ -9,8 +10,16 @@ from app.services.face_service import HAS_FACE_RECOGNITION
 router = APIRouter(prefix="/health", tags=["Health"])
 
 
-@router.get("", response_model=HealthResponse)
-def health_check(db: Session = Depends(get_db)):
+@router.get("/live")
+def liveness_check():
+    """Lightweight public liveness endpoint."""
+    return {"status": "ok"}
+
+
+@router.get("", response_model=HealthResponse, dependencies=[Depends(verify_internal_token)])
+@router.get("/ready", response_model=HealthResponse, dependencies=[Depends(verify_internal_token)])
+def readiness_check(db: Session = Depends(get_db)):
+    """Protected readiness check with detailed diagnostic info."""
     db_connected = False
     pgvector_available = False
     active_embeddings_count = 0
@@ -30,7 +39,7 @@ def health_check(db: Session = Depends(get_db)):
 
     if db_connected:
         try:
-            res = db.execute(text("SELECT count(*) FROM face_embeddings WHERE active = true")).first()
+            res = db.execute(text('SELECT count(*) FROM "FaceEmbedding" WHERE active = true')).first()
             if res:
                 active_embeddings_count = int(res[0])
         except Exception:

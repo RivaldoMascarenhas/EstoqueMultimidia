@@ -5,22 +5,26 @@ import crypto from "crypto";
 export interface ApiAuthResult {
   authenticated: boolean;
   role?: string;
+  permissions: string[];
   user?: {
     id: string;
     name: string;
     role: string;
   };
+  apiKeyId?: string;
   error?: string;
 }
 
-export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResult> {
+export async function validateApiRequest(
+  req: NextRequest
+): Promise<ApiAuthResult> {
   const authHeader = req.headers.get("authorization");
   const xApiKey = req.headers.get("x-api-key");
 
   let token = "";
 
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.replace("Bearer ", "").trim();
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.slice(7).trim();
   } else if (xApiKey) {
     token = xApiKey.trim();
   }
@@ -28,31 +32,15 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
   if (!token) {
     return {
       authenticated: false,
+      permissions: [],
       error: "Token de autorização ausente.",
     };
   }
 
-  // 1. Validar contra Chave Mestre de Integração (se configurada)
-  const masterApiKey = process.env.EXTERNAL_API_MASTER_KEY;
-  if (masterApiKey && token === masterApiKey) {
-    const adminUser = await prisma.user.findFirst({
-      where: { role: "ADMIN", active: true },
-      select: { id: true, name: true, role: true },
-    });
-
-    return {
-      authenticated: true,
-      role: "ADMIN",
-      user: adminUser || {
-        id: "n8n-system-admin",
-        name: "Serviço de Integração n8n",
-        role: "ADMIN",
-      },
-    };
-  }
-
-  // 2. Validar contra chaves de API cadastradas no banco de dados via Hash SHA-256
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
 
   const apiKeyRecord = await prisma.apiKey.findUnique({
     where: {
@@ -60,7 +48,12 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
     },
     include: {
       user: {
-        select: { id: true, name: true, email: true, role: true },
+        select: {
+          id: true,
+          name: true,
+          role: true,
+          active: true,
+        },
       },
     },
   });
@@ -68,6 +61,7 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
   if (!apiKeyRecord) {
     return {
       authenticated: false,
+      permissions: [],
       error: "Chave de API inválida.",
     };
   }
@@ -75,19 +69,31 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
   if (!apiKeyRecord.active) {
     return {
       authenticated: false,
-      error: "Chave de API inativa ou revogada.",
+      permissions: [],
+      error: "Chave de API revogada ou inativa.",
     };
   }
 
-  // Verificar se a chave expirou
-  if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date()) {
+  if (!apiKeyRecord.user || !apiKeyRecord.user.active) {
     return {
       authenticated: false,
+      permissions: [],
+      error: "Usuário proprietário da chave de API está inativo ou foi revogado.",
+    };
+  }
+
+  if (
+    apiKeyRecord.expiresAt &&
+    apiKeyRecord.expiresAt <= new Date()
+  ) {
+    return {
+      authenticated: false,
+      permissions: [],
       error: "Chave de API expirada.",
     };
   }
 
-  // Atualizar timestamp de último uso
+  // Atualizar timestamp de último uso de forma assíncrona
   prisma.apiKey.update({
     where: { id: apiKeyRecord.id },
     data: { lastUsedAt: new Date() },
@@ -96,6 +102,64 @@ export async function validateApiRequest(req: NextRequest): Promise<ApiAuthResul
   return {
     authenticated: true,
     role: apiKeyRecord.role,
-    user: apiKeyRecord.user,
+    permissions: apiKeyRecord.permissions || [],
+    apiKeyId: apiKeyRecord.id,
+    user: {
+      id: apiKeyRecord.user.id,
+      name: apiKeyRecord.user.name,
+      role: apiKeyRecord.user.role,
+    },
+  };
+}
+
+export function requireApiPermission(
+  auth: ApiAuthResult,
+  permission: string
+) {
+  if (!auth.authenticated) {
+    return {
+      allowed: false,
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          error: auth.error || "Não autorizado.",
+        }),
+        {
+          status: 401,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      ),
+    };
+  }
+
+  // Administradores ou chaves com permissão explícita ou permissão curinga '*'
+  const hasPermission =
+    auth.role === "ADMIN" ||
+    auth.permissions.includes("*") ||
+    auth.permissions.includes(permission);
+
+  if (!hasPermission) {
+    return {
+      allowed: false,
+      response: new Response(
+        JSON.stringify({
+          success: false,
+          error: `Permissão insuficiente. Requer escopo: '${permission}'.`,
+        }),
+        {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      ),
+    };
+  }
+
+  return {
+    allowed: true,
+    response: null,
   };
 }

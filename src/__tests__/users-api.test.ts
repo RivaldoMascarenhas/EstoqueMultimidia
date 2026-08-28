@@ -27,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
     user: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -40,6 +41,29 @@ vi.mock("@/lib/prisma", () => ({
 describe("Users API - Security & Role Authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: findUnique matches session user active
+    (vi.mocked(prisma.user.findUnique) as any).mockImplementation((args: any) => {
+      const id = args?.where?.id;
+      if (id === "adm-1") {
+        return Promise.resolve({ id: "adm-1", name: "Admin", role: Role.ADMIN, active: true, _count: {} } as any);
+      }
+      if (id === "op-1") {
+        return Promise.resolve({
+          id: "op-1",
+          name: "Operador 1",
+          email: "op1@unifap.br",
+          role: Role.OPERADOR,
+          active: true,
+          passwordHash: "$2a$10$old_different_password_hash",
+          mustChangePassword: false,
+          _count: {},
+        } as any);
+      }
+      if (id === "gest-1") {
+        return Promise.resolve({ id: "gest-1", name: "Gestor", role: Role.GESTOR, active: true, _count: {} } as any);
+      }
+      return Promise.resolve(null);
+    });
   });
 
   describe("GET /api/v1/users", () => {
@@ -102,7 +126,7 @@ describe("Users API - Security & Role Authorization", () => {
 
       const req = new NextRequest("http://localhost:3000/api/v1/users", {
         method: "POST",
-        body: JSON.stringify({ name: "Novo", email: "novo@unifap.br", password: "password123" }),
+        body: JSON.stringify({ name: "Novo", email: "novo@unifap.br", password: "Password123!" }),
       });
       const res = await createUser(req);
 
@@ -175,14 +199,6 @@ describe("Users API - Security & Role Authorization", () => {
     it("deve permitir que o próprio usuário altere sua senha com formato válido", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
         user: { id: "op-1", role: Role.OPERADOR },
-      } as any);
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
-        id: "op-1",
-        name: "Operador 1",
-        email: "op1@unifap.br",
-        passwordHash: "$2a$10$old_different_password_hash",
-        mustChangePassword: false,
       } as any);
 
       vi.mocked(prisma.user.update).mockResolvedValueOnce({} as any);

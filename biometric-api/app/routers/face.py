@@ -12,6 +12,36 @@ from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/face", tags=["Biometrics"])
 
+ALLOWED_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
+
+
+async def read_limited_upload(upload: UploadFile) -> bytes:
+    """Reads uploaded image file with stream size limit to prevent memory exhaustion / DoS."""
+    if upload.content_type and upload.content_type.lower() not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Formato de imagem não permitido ({upload.content_type}). Use JPEG, PNG ou WebP.",
+        )
+
+    data = await upload.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Arquivo de imagem excede o limite máximo seguro de 5 MB.",
+        )
+    if len(data) < 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Arquivo de imagem vazio ou corrompido.",
+        )
+    return data
+
 
 @router.post("/enroll", response_model=FaceEnrollResponse, dependencies=[Depends(verify_internal_token)])
 async def enroll_face(
@@ -23,13 +53,7 @@ async def enroll_face(
     db: Session = Depends(get_db),
 ):
     """Enrolls or replaces facial biometrics for a specific Person."""
-    image_bytes = await image.read()
-    if not image_bytes or len(image_bytes) < 100:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Arquivo de imagem vazio ou inválido.",
-        )
-
+    image_bytes = await read_limited_upload(image)
     ip = request.client.host if request and request.client else None
 
     embedding_id, updated_at = RecognitionService.enroll_person_face(
@@ -63,14 +87,7 @@ async def recognize_face(
     Recognizes face crop from client-side MediaPipe, verifies active participation in event,
     and registers attendance presence with concurrency and duplication protection.
     """
-    crop_bytes = await crop.read()
-    if not crop_bytes or len(crop_bytes) < 100:
-        return RecognizeResponse(
-            success=False,
-            status="ERROR",
-            message="Arquivo de recorte facial inválido.",
-        )
-
+    crop_bytes = await read_limited_upload(crop)
     ip = request.client.host if request and request.client else None
 
     return RecognitionService.recognize_and_register(
@@ -93,13 +110,7 @@ async def test_biometrics(
     Performs 1:1 or 1:N biometric validation for testing purposes.
     NEVER registers attendance presence.
     """
-    crop_bytes = await crop.read()
-    if not crop_bytes or len(crop_bytes) < 100:
-        return BiometricTestResponse(
-            success=False,
-            status="ERROR",
-            message="Arquivo de recorte facial inválido.",
-        )
+    crop_bytes = await read_limited_upload(crop)
 
     return RecognitionService.test_biometrics(
         db=db,

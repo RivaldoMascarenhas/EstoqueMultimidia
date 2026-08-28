@@ -189,8 +189,12 @@ export const authOptions: NextAuthOptions = {
             : user.avatarUrl
           : null;
       }
+
+      // O cliente pode solicitar apenas alterações de perfil visual não privilegiadas
       if (trigger === "update" && session?.user) {
-        if (session.user.name) token.name = session.user.name;
+        if (typeof session.user.name === "string" && session.user.name.trim()) {
+          token.name = session.user.name.trim();
+        }
         if (session.user.avatarUrl !== undefined) {
           token.avatarUrl = session.user.avatarUrl
             ? session.user.avatarUrl.startsWith("data:")
@@ -198,7 +202,7 @@ export const authOptions: NextAuthOptions = {
               : session.user.avatarUrl
             : null;
         }
-        if (session.user.mustChangePassword !== undefined) token.mustChangePassword = session.user.mustChangePassword;
+        // Jamais aceitar token.role, token.mustChangePassword ou token.id do cliente
       }
       return token;
     },

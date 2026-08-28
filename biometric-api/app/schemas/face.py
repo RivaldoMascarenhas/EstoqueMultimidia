@@ -16,9 +16,6 @@ class PersonBasicInfo(BaseModel):
     id: str
     name: str
     registration: Optional[str] = None
-    cpf: Optional[str] = None
-    email: Optional[str] = None
-    photoUrl: Optional[str] = None
     category: Optional[str] = None
 
 

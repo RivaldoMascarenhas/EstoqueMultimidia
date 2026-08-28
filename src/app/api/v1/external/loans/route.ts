@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateApiRequest } from "@/lib/api-auth";
+import { validateApiRequest, requireApiPermission } from "@/lib/api-auth";
 import { AssetStatus, LoanStatus, MovementType } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await validateApiRequest(req);
-    if (!auth.authenticated) {
-      return NextResponse.json(
-        { success: false, error: auth.error || "Não autorizado." },
-        { status: 401 }
-      );
+    const permissionCheck = requireApiPermission(auth, "loan:create");
+    if (!permissionCheck.allowed && permissionCheck.response) {
+      return permissionCheck.response;
     }
 
     const body = await req.json();
