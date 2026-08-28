@@ -94,10 +94,15 @@ export async function validateApiRequest(
   }
 
   // Atualizar timestamp de último uso de forma assíncrona
-  prisma.apiKey.update({
-    where: { id: apiKeyRecord.id },
-    data: { lastUsedAt: new Date() },
-  }).catch(() => {});
+  try {
+    const updatePromise = prisma.apiKey.update({
+      where: { id: apiKeyRecord.id },
+      data: { lastUsedAt: new Date() },
+    });
+    if (updatePromise && typeof updatePromise.catch === "function") {
+      updatePromise.catch(() => {});
+    }
+  } catch {}
 
   return {
     authenticated: true,
@@ -134,11 +139,8 @@ export function requireApiPermission(
     };
   }
 
-  // Administradores ou chaves com permissão explícita ou permissão curinga '*'
-  const hasPermission =
-    auth.role === "ADMIN" ||
-    auth.permissions.includes("*") ||
-    auth.permissions.includes(permission);
+  // Princípio do Menor Privilégio: chaves de API externas exigem escopos de permissão explícitos (sem bypass de wildcard ou role)
+  const hasPermission = auth.permissions.includes(permission);
 
   if (!hasPermission) {
     return {

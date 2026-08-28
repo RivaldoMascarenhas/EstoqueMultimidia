@@ -8,13 +8,19 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "15", 10);
 
-    const result = await EventService.getRecentPresences(params.id, limit);
+    const result = await EventService.getRecentPresences(eventId, limit);
     return NextResponse.json({
       success: true,
       ...result,
@@ -29,7 +35,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -39,6 +45,12 @@ export async function POST(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const body = await req.json();
     const parsed = manualPresenceSchema.safeParse(body);
 
@@ -50,7 +62,7 @@ export async function POST(
     }
 
     const result = await EventService.registerManualPresence(
-      params.id,
+      eventId,
       parsed.data.personId,
       session?.user?.id
     );

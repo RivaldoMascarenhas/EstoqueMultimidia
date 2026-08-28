@@ -54,7 +54,7 @@ export default function EventHubPage() {
   const { data: session } = useSession();
   const params = useParams();
   const router = useRouter();
-  const eventId = params.id as string;
+  const eventId = (Array.isArray(params?.id) ? params.id[0] : params?.id) as string;
 
   const [activeTab, setActiveTab] = useState<
     "overview" | "participants" | "presence" | "prizes" | "winners" | "reports"
@@ -106,26 +106,36 @@ export default function EventHubPage() {
 
   // Fetch Event Details
   const fetchEvent = async () => {
-    try {
-      const [resEvent, resToken] = await Promise.all([
-        fetch(`/api/v1/events/${eventId}`).then((r) => r.json()),
-        fetch(`/api/v1/events/${eventId}/presentation-token`).then((r) => r.json()),
-      ]);
+    if (!eventId || eventId === "undefined") return;
 
-      if (resEvent.success) {
-        setEvent(resEvent.event);
-      } else {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/v1/events/${eventId}`);
+      if (!res.ok) {
         toast.error("Evento não encontrado.");
+        setEvent(null);
+        return;
       }
 
-      if (resToken.success) {
-        setPresentationUrl(resToken.presentationUrl);
+      const resEvent = await res.json();
+      if (resEvent.success && resEvent.event) {
+        setEvent(resEvent.event);
+      } else {
+        toast.error(resEvent.error || "Evento não encontrado.");
       }
     } catch {
       toast.error("Erro ao carregar dados do evento.");
     } finally {
       setLoading(false);
     }
+
+    // Carregar presentation-token de forma silenciosa e resiliente
+    try {
+      const resToken = await fetch(`/api/v1/events/${eventId}/presentation-token`).then((r) => r.json());
+      if (resToken && resToken.success && resToken.presentationUrl) {
+        setPresentationUrl(resToken.presentationUrl);
+      }
+    } catch {}
   };
 
   const copyPresentationLink = () => {
@@ -139,6 +149,7 @@ export default function EventHubPage() {
 
   // Fetch Participants
   const fetchParticipants = async () => {
+    if (!eventId || eventId === "undefined") return;
     setParticipantsLoading(true);
     try {
       const pParams = new URLSearchParams();
@@ -150,7 +161,7 @@ export default function EventHubPage() {
       const res = await fetch(`/api/v1/events/${eventId}/participants?${pParams.toString()}`);
       const data = await res.json();
       if (data.success) {
-        setParticipants(data.items);
+        setParticipants(data.items || []);
       }
     } catch {
       toast.error("Erro ao carregar lista de participantes.");
@@ -161,28 +172,31 @@ export default function EventHubPage() {
 
   // Fetch Prizes
   const fetchPrizes = async () => {
+    if (!eventId || eventId === "undefined") return;
     try {
       const res = await fetch(`/api/v1/events/${eventId}/prizes`);
       const data = await res.json();
       if (data.success) {
-        setPrizes(data.prizes);
+        setPrizes(data.prizes || []);
       }
     } catch {}
   };
 
   // Fetch Winners
   const fetchWinners = async () => {
+    if (!eventId || eventId === "undefined") return;
     try {
       const res = await fetch(`/api/v1/events/${eventId}/winners`);
       const data = await res.json();
       if (data.success) {
-        setWinners(data.winners);
+        setWinners(data.winners || []);
       }
     } catch {}
   };
 
   // Fetch Recent Presences
   const fetchRecentPresences = async () => {
+    if (!eventId || eventId === "undefined") return;
     try {
       const res = await fetch(`/api/v1/events/${eventId}/presences?limit=15`);
       const data = await res.json();
@@ -201,9 +215,11 @@ export default function EventHubPage() {
   };
 
   useEffect(() => {
-    fetchEvent();
-    fetchPrizes();
-    fetchWinners();
+    if (eventId && eventId !== "undefined") {
+      fetchEvent();
+      fetchPrizes();
+      fetchWinners();
+    }
   }, [eventId]);
 
   useEffect(() => {

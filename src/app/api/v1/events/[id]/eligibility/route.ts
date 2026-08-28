@@ -5,7 +5,7 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { error } = await requireSession([
     Role.ADMIN,
@@ -16,6 +16,12 @@ export async function GET(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const { searchParams } = new URL(req.url);
     const requireRegistration = searchParams.get("requireRegistration") !== "false";
     const requirePresence = searchParams.get("requirePresence") !== "false";
@@ -24,7 +30,7 @@ export async function GET(
     const categoryFilter = searchParams.get("category") || null;
 
     const eligible = await DrawEligibilityService.getEligibleParticipants({
-      eventId: params.id,
+      eventId,
       requireRegistration,
       requirePresence,
       requireFacialPresenceOnly,

@@ -6,7 +6,7 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { error } = await requireSession([
     Role.ADMIN,
@@ -17,7 +17,16 @@ export async function GET(
   if (error) return error;
 
   try {
-    const event = await EventService.getEventById(params.id);
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID do evento ausente." },
+        { status: 400 }
+      );
+    }
+
+    const event = await EventService.getEventById(id);
     if (!event) {
       return NextResponse.json(
         { success: false, error: "Evento não encontrado." },
@@ -35,7 +44,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -45,6 +54,15 @@ export async function PATCH(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID do evento ausente." },
+        { status: 400 }
+      );
+    }
+
     const body = await req.json();
     const parsed = updateEventSchema.safeParse(body);
 
@@ -56,7 +74,7 @@ export async function PATCH(
     }
 
     const updated = await EventService.updateEvent(
-      params.id,
+      id,
       parsed.data,
       session?.user?.id
     );

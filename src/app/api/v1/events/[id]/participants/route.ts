@@ -6,7 +6,7 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { error } = await requireSession([
     Role.ADMIN,
@@ -17,6 +17,12 @@ export async function GET(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("query") || undefined;
     const category = searchParams.get("category") || undefined;
@@ -29,7 +35,7 @@ export async function GET(
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    const result = await EventService.listEventParticipants(params.id, {
+    const result = await EventService.listEventParticipants(eventId, {
       query,
       category,
       isEligible,
@@ -50,7 +56,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -60,6 +66,12 @@ export async function POST(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const body = await req.json();
     const parsed = addParticipantSchema.safeParse(body);
 
@@ -71,7 +83,7 @@ export async function POST(
     }
 
     const participant = await EventService.addParticipant(
-      params.id,
+      eventId,
       parsed.data.personId,
       parsed.data.category,
       parsed.data.ticketNumber,
@@ -89,7 +101,7 @@ export async function POST(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -99,6 +111,12 @@ export async function DELETE(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const { searchParams } = new URL(req.url);
     const personId = searchParams.get("personId");
 
@@ -109,7 +127,7 @@ export async function DELETE(
       );
     }
 
-    await EventService.removeParticipant(params.id, personId, session?.user?.id);
+    await EventService.removeParticipant(eventId, personId, session?.user?.id);
     return NextResponse.json({ success: true, message: "Participante removido do evento." });
   } catch (err: any) {
     return NextResponse.json(

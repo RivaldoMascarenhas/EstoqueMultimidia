@@ -42,8 +42,7 @@ import { toast } from "sonner";
 
 export default function OperatorDrawPage() {
   const params = useParams();
-  const router = useRouter();
-  const eventId = params.id as string;
+  const eventId = (Array.isArray(params?.id) ? params.id[0] : params?.id) as string;
 
   const [event, setEvent] = useState<any | null>(null);
   const [prizes, setPrizes] = useState<any[]>([]);
@@ -81,34 +80,44 @@ export default function OperatorDrawPage() {
 
   // Fetch Event Data & Presentation Token
   const fetchEventData = async (silent = false) => {
+    if (!eventId || eventId === "undefined") return;
+
     try {
       if (!silent) setIsLoading(true);
-      const [resEvent, resPrizes, resToken, resEligible, resWinners] = await Promise.all([
-        fetch(`/api/v1/events/${eventId}`).then((r) => r.json()),
+      const res = await fetch(`/api/v1/events/${eventId}`);
+      if (!res.ok) {
+        toast.error("Evento não encontrado.");
+        setEvent(null);
+        return;
+      }
+
+      const resEvent = await res.json();
+      if (resEvent.success && resEvent.event) {
+        setEvent(resEvent.event);
+      }
+
+      // Fetch sub-endpoints asynchronously
+      const [resPrizes, resToken, resEligible, resWinners] = await Promise.allSettled([
         fetch(`/api/v1/events/${eventId}/prizes`).then((r) => r.json()),
         fetch(`/api/v1/events/${eventId}/presentation-token`).then((r) => r.json()),
         fetch(`/api/v1/events/${eventId}/eligibility`).then((r) => r.json()),
         fetch(`/api/v1/events/${eventId}/winners`).then((r) => r.json()),
       ]);
 
-      if (resEvent.success) {
-        setEvent(resEvent.event);
+      if (resToken.status === "fulfilled" && resToken.value?.success) {
+        setPresentationTokenUrl(resToken.value.presentationUrl);
       }
 
-      if (resToken.success) {
-        setPresentationTokenUrl(resToken.presentationUrl);
+      if (resEligible.status === "fulfilled" && resEligible.value?.success) {
+        setEligibleList(resEligible.value.eligible || []);
       }
 
-      if (resEligible.success) {
-        setEligibleList(resEligible.eligible || []);
+      if (resWinners.status === "fulfilled" && resWinners.value?.success) {
+        setEventWinners(resWinners.value.winners || []);
       }
 
-      if (resWinners.success) {
-        setEventWinners(resWinners.winners || []);
-      }
-
-      if (resPrizes.success) {
-        const availablePrizes = resPrizes.prizes.filter((p: any) => p.status === "AVAILABLE");
+      if (resPrizes.status === "fulfilled" && resPrizes.value?.success) {
+        const availablePrizes = (resPrizes.value.prizes || []).filter((p: any) => p.status === "AVAILABLE");
         setPrizes(availablePrizes);
         if (availablePrizes.length > 0) {
           setSelectedPrizeId((prev) => {

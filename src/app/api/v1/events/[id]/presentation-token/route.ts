@@ -6,21 +6,26 @@ import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Não autorizado" }, { status: 401 });
     }
 
-    const eventId = params.id;
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente" }, { status: 400 });
+    }
+
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       select: { id: true, name: true, slug: true, presentationToken: true },
     });
 
     if (!event) {
-      return NextResponse.json({ error: "Evento não encontrado" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Evento não encontrado" }, { status: 404 });
     }
 
     // If no token exists yet, generate one automatically
@@ -41,21 +46,25 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       presentationUrl,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Erro ao buscar token" }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Erro ao buscar token" }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || (session.user.role !== "ADMIN" && session.user.role !== "GESTOR")) {
       return NextResponse.json(
-        { error: "Apenas administradores podem revogar ou regenerar tokens de apresentação" },
+        { success: false, error: "Apenas administradores podem revogar ou regenerar tokens de apresentação" },
         { status: 403 }
       );
     }
 
-    const eventId = params.id;
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente" }, { status: 400 });
+    }
     const newToken = crypto.randomBytes(24).toString("hex");
 
     const updated = await prisma.event.update({

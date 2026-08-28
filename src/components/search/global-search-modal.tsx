@@ -21,6 +21,12 @@ interface GlobalSearchModalProps {
   onClose: () => void;
 }
 
+interface SearchEntry {
+  type: "ASSET" | "ITEM" | "BOX" | "LOAN" | "MAINTENANCE";
+  url: string;
+  data: any;
+}
+
 export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -38,7 +44,37 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     maintenances: [],
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Flattened entries list for arrow navigation
+  const flatEntries: SearchEntry[] = [
+    ...results.assets.map((asset) => ({
+      type: "ASSET" as const,
+      url: `/patrimonio?search=${asset.assetTag}`,
+      data: asset,
+    })),
+    ...results.items.map((item) => ({
+      type: "ITEM" as const,
+      url: `/estoque?search=${item.sku || item.name}`,
+      data: item,
+    })),
+    ...results.boxes.map((box) => ({
+      type: "BOX" as const,
+      url: `/caixas/${box.code}`,
+      data: box,
+    })),
+    ...results.loans.map((loan) => ({
+      type: "LOAN" as const,
+      url: `/emprestimos?search=${loan.borrowerName}`,
+      data: loan,
+    })),
+    ...results.maintenances.map((m) => ({
+      type: "MAINTENANCE" as const,
+      url: `/manutencao?search=${m.orderNumber || m.asset?.assetTag}`,
+      data: m,
+    })),
+  ];
 
   // Foco automático ao abrir
   useEffect(() => {
@@ -49,6 +85,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     } else {
       setQuery("");
       setResults({ items: [], assets: [], boxes: [], loans: [], maintenances: [] });
+      setSelectedIndex(0);
     }
   }, [isOpen]);
 
@@ -57,6 +94,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     if (!query.trim() || query.length < 2) {
       setResults({ items: [], assets: [], boxes: [], loans: [], maintenances: [] });
       setIsLoading(false);
+      setSelectedIndex(0);
       return;
     }
 
@@ -67,6 +105,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
         const json = await res.json();
         if (json.success) {
           setResults(json.data);
+          setSelectedIndex(0);
         }
       } catch (err) {
         console.error("Erro na busca global:", err);
@@ -78,83 +117,91 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     return () => clearTimeout(timeoutId);
   }, [query]);
 
+  // Teclado: Navegação com Setas Cima/Baixo e Enter
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (flatEntries.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev + 1) % flatEntries.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev - 1 + flatEntries.length) % flatEntries.length);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (flatEntries[selectedIndex]) {
+        handleSelect(flatEntries[selectedIndex].url);
+      }
+    }
+  };
+
   const handleSelect = (url: string) => {
     onClose();
     router.push(url);
   };
 
-  const totalResults =
-    results.items.length +
-    results.assets.length +
-    results.boxes.length +
-    results.loans.length +
-    results.maintenances.length;
+  const totalResults = flatEntries.length;
 
   const getAssetBadge = (status: string) => {
     switch (status) {
       case "AVAILABLE":
-        return <Badge variant="available" className="text-[9px]">Disponível</Badge>;
+        return <Badge variant="available" className="text-xs">Disponível</Badge>;
       case "IN_USE":
-        return <Badge variant="in_use" className="text-[9px]">Em Uso (Sala)</Badge>;
+        return <Badge variant="in_use" className="text-xs">Em Uso</Badge>;
       case "LOANED":
-        return <Badge variant="loaned" className="text-[9px]">Emprestado</Badge>;
+        return <Badge variant="loaned" className="text-xs">Emprestado</Badge>;
       case "IN_MAINTENANCE":
-        return <Badge variant="maintenance" className="text-[9px]">Em Manutenção</Badge>;
+        return <Badge variant="maintenance" className="text-xs">Em Manutenção</Badge>;
       case "DAMAGED":
-        return <Badge variant="damaged" className="text-[9px]">Danificado</Badge>;
-      case "WRITTEN_OFF":
-        return <Badge variant="secondary" className="text-[9px]">Baixado</Badge>;
-      case "LOST":
-        return <Badge variant="destructive" className="text-[9px]">Perdido</Badge>;
+        return <Badge variant="damaged" className="text-xs">Danificado</Badge>;
       default:
-        return <Badge variant="outline" className="text-[9px]">{status}</Badge>;
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
 
   const getLoanBadge = (status: string) => {
     switch (status) {
       case "ACTIVE":
-        return <Badge variant="loaned" className="text-[9px]">Em Andamento</Badge>;
+        return <Badge variant="loaned" className="text-xs">Em Aberto</Badge>;
       case "RETURNED":
-        return <Badge variant="available" className="text-[9px]">Devolvido</Badge>;
+        return <Badge variant="available" className="text-xs">Devolvido</Badge>;
       case "OVERDUE":
-        return <Badge variant="overdue" className="text-[9px]">Atrasado</Badge>;
-      case "RETURNED_DAMAGED":
-        return <Badge variant="damaged" className="text-[9px]">Devolvido c/ Avaria</Badge>;
+        return <Badge variant="overdue" className="text-xs">Atrasado</Badge>;
       default:
-        return <Badge variant="outline" className="text-[9px]">{status}</Badge>;
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
 
   const getMaintenanceBadge = (status: string) => {
     switch (status) {
       case "PENDING":
-        return <Badge variant="low" className="text-[9px]">Pendente</Badge>;
+        return <Badge variant="low" className="text-xs">Pendente</Badge>;
       case "IN_PROGRESS":
-        return <Badge variant="maintenance" className="text-[9px]">Em Andamento</Badge>;
+        return <Badge variant="maintenance" className="text-xs">Em Reparo</Badge>;
       case "COMPLETED":
-        return <Badge variant="available" className="text-[9px]">Concluída</Badge>;
-      case "CANCELLED":
-        return <Badge variant="secondary" className="text-[9px]">Cancelada</Badge>;
+        return <Badge variant="available" className="text-xs">Concluída</Badge>;
       default:
-        return <Badge variant="outline" className="text-[9px]">{status}</Badge>;
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
+
+  let globalCounter = -1;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent hideClose className="max-w-2xl p-0 gap-0 overflow-hidden rounded-3xl border-border/80 bg-card/95 backdrop-blur-xl shadow-2xl">
         
         {/* Input Bar */}
-        <div className="flex items-center px-4 border-b border-border/80 bg-accent/20 gap-2">
+        <div className="flex items-center px-4 border-b border-border/80 bg-accent/20 gap-2.5">
           <Search className="w-5 h-5 text-primary shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
+            onKeyDown={handleKeyDown}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por item, patrimônio (#123458), caixa (C001), OS ou solicitante..."
-            className="w-full bg-transparent px-2 py-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            placeholder="Digite para buscar patrimônio (#123458), caixa (C001), item ou solicitante..."
+            className="w-full bg-transparent px-2 py-4 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {query && (
             <button
@@ -184,55 +231,37 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           {isLoading ? (
             <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
               <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <p>Buscando em todo o sistema...</p>
+              <p>Buscando no inventário e cadastros...</p>
             </div>
           ) : query.length >= 2 && totalResults === 0 ? (
             <div className="p-8 text-center space-y-2">
-              <p className="text-sm font-semibold text-foreground">
-                Nenhum resultado encontrado para &quot;{query}&quot;
+              <p className="text-sm font-bold text-foreground">
+                Nenhum resultado para &quot;{query}&quot;
               </p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                Tente buscar por nome de item, tag de patrimônio, código de caixa ou número de OS.
+                Verifique o número do tombamento (#123458), nome do material ou código da caixa.
               </p>
             </div>
           ) : query.length < 2 ? (
             <div className="p-6 text-center space-y-3">
-              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
+              <div className="flex items-center justify-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
                 Busca Rápida UniFAP
               </div>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Digite pelo menos 2 caracteres para localizar instantaneamente equipamentos, insumos, caixas, termos de cautela e ordens de serviço.
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                Digite 2 ou mais caracteres para pesquisar instantaneamente entre todos os materiais, patrimônios, armários e chamados.
               </p>
               <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setQuery("Projetor")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
-                >
-                  Projetor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuery("Cabo")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
-                >
-                  Cabo HDMI
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuery("C001")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
-                >
-                  Caixa C001
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuery("Epson")}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer"
-                >
-                  Epson
-                </button>
+                {["Projetor", "Cabo HDMI", "C001", "Microfone", "Manutenção"].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setQuery(tag)}
+                    className="text-xs font-medium px-3 py-1 rounded-xl bg-accent text-foreground hover:bg-accent/80 transition-colors cursor-pointer border border-border/60"
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
             </div>
           ) : (
@@ -241,42 +270,52 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               {/* 1. Equipamentos Patrimoniais */}
               {results.assets.length > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     <Tag className="w-3.5 h-3.5 text-primary" />
                     <span>Patrimônio ({results.assets.length})</span>
                   </div>
                   <div className="space-y-0.5">
-                    {results.assets.map((asset) => (
-                      <button
-                        key={asset.id}
-                        type="button"
-                        onClick={() => handleSelect(`/patrimonio?search=${asset.assetTag}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                              #{asset.assetTag}
-                            </span>
-                            <span className="font-semibold text-xs text-foreground">
-                              {asset.item?.name}
-                            </span>
-                            {asset.model && (
-                              <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                                • {asset.model}
+                    {results.assets.map((asset) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
+                      return (
+                        <button
+                          key={asset.id}
+                          type="button"
+                          onClick={() => handleSelect(`/patrimonio?search=${asset.assetTag}`)}
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
+                                isHighlighted ? "bg-primary-foreground/20 text-primary-foreground" : "text-primary bg-primary/10"
+                              }`}>
+                                #{asset.assetTag}
                               </span>
-                            )}
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
+                                {asset.item?.name}
+                              </span>
+                              {asset.model && (
+                                <span className={`text-xs hidden sm:inline ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                                  • {asset.model}
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-[11px] ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {asset.currentRoom ? `Sala: ${asset.currentRoom.name}` : asset.currentBox ? `Armário: ${asset.currentBox.door?.name} / ${asset.currentBox.name}` : "Sem caixa alocada"}
+                            </p>
                           </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            {asset.currentRoom ? `Sala: ${asset.currentRoom.name}` : asset.currentBox ? `Armário: ${asset.currentBox.door?.name} / ${asset.currentBox.name}` : "Sem caixa alocada"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getAssetBadge(asset.status)}
-                          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="flex items-center gap-2">
+                            {getAssetBadge(asset.status)}
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -284,38 +323,44 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               {/* 2. Materiais do Catálogo */}
               {results.items.length > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     <Package className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Materiais & Insumos ({results.items.length})</span>
+                    <span>Materiais de Estoque ({results.items.length})</span>
                   </div>
                   <div className="space-y-0.5">
                     {results.items.map((item) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
                       const totalQty = item.inventories?.reduce((acc: number, inv: any) => acc + inv.quantity, 0) || 0;
                       return (
                         <button
                           key={item.id}
                           type="button"
                           onClick={() => handleSelect(`/estoque?search=${item.sku || item.name}`)}
-                          className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-xs text-foreground">
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
                                 {item.name}
                               </span>
-                              <span className="font-mono text-[11px] text-muted-foreground">
+                              <span className={`font-mono text-xs ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                                 SKU: {item.sku}
                               </span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className={`text-[11px] ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                               Categoria: {item.category?.name || "Geral"}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-bold text-foreground">
+                            <span className={`text-xs font-mono font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
                               {totalQty} {item.unit || "UN"}
                             </span>
-                            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
                           </div>
                         </button>
                       );
@@ -327,39 +372,49 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               {/* 3. Caixas do Armário */}
               {results.boxes.length > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     <Boxes className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Armário & Caixas ({results.boxes.length})</span>
+                    <span>Caixas & Armário ({results.boxes.length})</span>
                   </div>
                   <div className="space-y-0.5">
-                    {results.boxes.map((box) => (
-                      <button
-                        key={box.id}
-                        type="button"
-                        onClick={() => handleSelect(`/caixas/${box.code}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                              {box.code}
-                            </span>
-                            <span className="font-semibold text-xs text-foreground">
-                              {box.name}
-                            </span>
+                    {results.boxes.map((box) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
+                      return (
+                        <button
+                          key={box.id}
+                          type="button"
+                          onClick={() => handleSelect(`/caixas/${box.code}`)}
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
+                                isHighlighted ? "bg-primary-foreground/20 text-primary-foreground" : "text-blue-600 dark:text-blue-400 bg-blue-500/10"
+                              }`}>
+                                {box.code}
+                              </span>
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
+                                {box.name}
+                              </span>
+                            </div>
+                            <p className={`text-[11px] ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {box.door?.name} • {box.description || "Caixa organizada"}
+                            </p>
                           </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            {box.door?.name} • {box.description || "Sem descrição"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] text-muted-foreground">
-                            {box.assets?.length || 0} patrimônios / {box.inventories?.length || 0} materiais
-                          </span>
-                          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {box.assets?.length || 0} pat. / {box.inventories?.length || 0} mat.
+                            </span>
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -367,37 +422,45 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               {/* 4. Empréstimos */}
               {results.loans.length > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     <Handshake className="w-3.5 h-3.5 text-purple-500" />
                     <span>Empréstimos ({results.loans.length})</span>
                   </div>
                   <div className="space-y-0.5">
-                    {results.loans.map((loan) => (
-                      <button
-                        key={loan.id}
-                        type="button"
-                        onClick={() => handleSelect(`/emprestimos?search=${loan.borrowerName}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-xs text-foreground">
-                              {loan.borrowerName}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              • Destino: {loan.destination}
-                            </span>
+                    {results.loans.map((loan) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
+                      return (
+                        <button
+                          key={loan.id}
+                          type="button"
+                          onClick={() => handleSelect(`/emprestimos?search=${loan.borrowerName}`)}
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
+                                {loan.borrowerName}
+                              </span>
+                              <span className={`text-xs ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                                • {loan.destination}
+                              </span>
+                            </div>
+                            <p className={`text-[11px] ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              Equipamento: {loan.asset?.item?.name} (#{loan.asset?.assetTag})
+                            </p>
                           </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            Item: {loan.asset?.item?.name} (#{loan.asset?.assetTag})
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getLoanBadge(loan.status)}
-                          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="flex items-center gap-2">
+                            {getLoanBadge(loan.status)}
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -405,37 +468,47 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               {/* 5. Ordens de Serviço */}
               {results.maintenances.length > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 px-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     <Wrench className="w-3.5 h-3.5 text-amber-500" />
                     <span>Ordens de Serviço ({results.maintenances.length})</span>
                   </div>
                   <div className="space-y-0.5">
-                    {results.maintenances.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => handleSelect(`/manutencao?search=${m.orderNumber || m.asset?.assetTag}`)}
-                        className="w-full text-left p-2.5 rounded-xl hover:bg-accent flex items-center justify-between group transition-colors cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                              {m.orderNumber || `#OS-${m.id.slice(0, 8)}`}
-                            </span>
-                            <span className="font-semibold text-xs text-foreground">
-                              {m.asset?.item?.name}
-                            </span>
+                    {results.maintenances.map((m) => {
+                      globalCounter++;
+                      const isHighlighted = selectedIndex === globalCounter;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => handleSelect(`/manutencao?search=${m.orderNumber || m.asset?.assetTag}`)}
+                          className={`w-full text-left p-2.5 rounded-xl flex items-center justify-between group transition-colors cursor-pointer ${
+                            isHighlighted ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-accent"
+                          }`}
+                        >
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
+                                isHighlighted ? "bg-primary-foreground/20 text-primary-foreground" : "text-amber-600 dark:text-amber-400 bg-amber-500/10"
+                              }`}>
+                                {m.orderNumber || `#OS-${m.id.slice(0, 8)}`}
+                              </span>
+                              <span className={`text-xs font-bold ${isHighlighted ? "text-primary-foreground" : "text-foreground"}`}>
+                                {m.asset?.item?.name}
+                              </span>
+                            </div>
+                            <p className={`text-[11px] truncate max-w-md ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {m.issueDescription}
+                            </p>
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate max-w-md">
-                            {m.issueDescription}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getMaintenanceBadge(m.status)}
-                          <ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="flex items-center gap-2">
+                            {getMaintenanceBadge(m.status)}
+                            <ArrowRight className={`w-3.5 h-3.5 transition-all ${
+                              isHighlighted ? "text-primary-foreground translate-x-0.5" : "text-muted-foreground group-hover:text-foreground"
+                            }`} />
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -445,16 +518,19 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
         </div>
 
         {/* Keyboard Hints Footer */}
-        <div className="px-4 py-2.5 border-t border-border/80 bg-accent/30 flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="px-4 py-2.5 border-t border-border/80 bg-accent/30 flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">Esc</kbd> Fechar
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[11px] font-bold">↑↓</kbd> navegar
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[10px]">↵</kbd> Navegar
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[11px] font-bold">↵</kbd> abrir
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border font-mono text-[11px] font-bold">Esc</kbd> fechar
             </span>
           </div>
-          <span className="text-[10px]">Busca Global Multimídia UniFAP</span>
+          <span className="text-[11px] font-medium hidden sm:inline">Paleta de Comandos • UniFAP</span>
         </div>
 
       </DialogContent>

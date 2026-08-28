@@ -18,7 +18,8 @@ import {
   Activity,
   Boxes,
   MessageSquare,
-  Calendar
+  Calendar,
+  Camera
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -97,34 +98,46 @@ export default function DashboardPage() {
     <div className="space-y-8 animate-in fade-in-50 duration-300">
       
       {/* 1. Header & Welcome Banner */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 p-5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-xs">
         <div className="space-y-1.5 sm:space-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] sm:text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              Painel Integrado • TI UniFAP
+            <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4" />
+              Painel Operacional • TI UniFAP
             </span>
-            <Badge variant={getRoleVariant(userRole)} className="text-[9px] sm:text-[10px]">
+            <Badge variant={getRoleVariant(userRole)} className="text-xs font-semibold px-2">
               {userRole}
             </Badge>
           </div>
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             Olá, {userName.split(" ")[0]}!
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
-            Visão unificada em tempo real do armário físico, catálogo de materiais, tombamentos patrimoniais, empréstimos e chamados técnicos.
+          <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
+            Visão unificada em tempo real do armário físico, materiais de estoque, patrimônios, empréstimos e chamados técnicos.
           </p>
         </div>
 
         {/* Quick Action Shortcuts */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-primary/20">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-primary/20">
           <Button
             asChild
             size="sm"
             className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5 justify-center"
           >
+            <Link href="/scanner">
+              <Camera className="w-4 h-4 shrink-0" />
+              <span className="truncate">Scanner QR</span>
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent"
+          >
             <Link href="/agenda">
-              <Calendar className="w-4 h-4 shrink-0" />
+              <Calendar className="w-4 h-4 text-primary shrink-0" />
               <span className="truncate">Agenda de Turnos</span>
             </Link>
           </Button>
@@ -133,11 +146,11 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent"
           >
             <Link href="/emprestimos">
               <Handshake className="w-4 h-4 text-purple-500 shrink-0" />
-              <span className="truncate">Novo Empréstimo</span>
+              <span className="truncate">Empréstimos</span>
             </Link>
           </Button>
 
@@ -145,7 +158,7 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
+            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent"
           >
             <Link href="/manutencao">
               <Wrench className="w-4 h-4 text-amber-500 shrink-0" />
@@ -154,22 +167,10 @@ export default function DashboardPage() {
           </Button>
 
           <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card/60"
-          >
-            <Link href="/salas">
-              <Boxes className="w-4 h-4 text-blue-500 shrink-0" />
-              <span className="truncate">Salas</span>
-            </Link>
-          </Button>
-
-          <Button
             variant="outline"
             size="sm"
             onClick={fetchDashboardData}
-            className="rounded-xl text-xs h-9 gap-1.5 sm:w-9 sm:p-0 text-muted-foreground hover:text-foreground justify-center bg-card/60"
+            className="rounded-xl text-xs h-9 gap-1.5 sm:w-9 sm:p-0 text-muted-foreground hover:text-foreground justify-center bg-card hover:bg-accent"
             title="Atualizar dados"
           >
             <RefreshCw className="w-4 h-4 shrink-0" />
@@ -178,7 +179,173 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 2. Top KPI Cards (4 Módulos Principais) */}
+      {/* 2. Bloco ATENÇÃO AGORA (O Que Resolver Hoje?) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold text-xs">
+              ⚡
+            </div>
+            <h2 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
+              Atenção Agora • Ações Prioritárias
+            </h2>
+          </div>
+          <span className="text-xs text-muted-foreground font-medium">
+            Responda às demandas imediatas do setor
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          
+          {/* Card Ação 1: Empréstimos em Atraso */}
+          <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+            loans.overdueCount > 0 
+              ? "bg-rose-500/10 border-rose-500/30 hover:border-rose-500/50 shadow-xs" 
+              : "bg-card border-border/80 text-muted-foreground"
+          }`}>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Empréstimos
+                </span>
+                <Badge variant={loans.overdueCount > 0 ? "destructive" : "outline"} className="text-xs font-bold px-2 py-0.5">
+                  {loans.overdueCount} em atraso
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {loans.overdueCount > 0 
+                  ? "Itens que já ultrapassaram o horário limite de devolução."
+                  : "Todos os empréstimos ativos estão dentro do prazo estipulado."}
+              </p>
+            </div>
+            <div className="pt-3">
+              <Button
+                asChild
+                size="sm"
+                variant={loans.overdueCount > 0 ? "default" : "outline"}
+                className={`w-full h-8 text-xs font-bold rounded-xl justify-between ${
+                  loans.overdueCount > 0 ? "bg-rose-600 hover:bg-rose-700 text-white" : ""
+                }`}
+              >
+                <Link href="/emprestimos">
+                  <span>{loans.overdueCount > 0 ? "Resolver Devoluções" : "Ver Empréstimos"}</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* Card Ação 2: Estoque Crítico */}
+          <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+            stock.criticalCount > 0 
+              ? "bg-amber-500/10 border-amber-500/30 hover:border-amber-500/50 shadow-xs" 
+              : "bg-card border-border/80 text-muted-foreground"
+          }`}>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5" />
+                  Estoque Crítico
+                </span>
+                <Badge variant={stock.criticalCount > 0 ? "low" : "outline"} className="text-xs font-bold px-2 py-0.5">
+                  {stock.criticalCount} itens zerados
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {stock.criticalCount > 0
+                  ? "Insumos com saldo abaixo da quantidade mínima necessária."
+                  : "Níveis de estoque normais no armário físico."}
+              </p>
+            </div>
+            <div className="pt-3">
+              <Button
+                asChild
+                size="sm"
+                variant={stock.criticalCount > 0 ? "default" : "outline"}
+                className={`w-full h-8 text-xs font-bold rounded-xl justify-between ${
+                  stock.criticalCount > 0 ? "bg-amber-600 hover:bg-amber-700 text-white" : ""
+                }`}
+              >
+                <Link href="/estoque">
+                  <span>{stock.criticalCount > 0 ? "Repor Estoque" : "Ver Catálogo"}</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* Card Ação 3: Manutenções Abertas */}
+          <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+            maintenance.openCount > 0 
+              ? "bg-indigo-500/10 border-indigo-500/30 hover:border-indigo-500/50 shadow-xs" 
+              : "bg-card border-border/80 text-muted-foreground"
+          }`}>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <Wrench className="w-3.5 h-3.5" />
+                  Chamados OS
+                </span>
+                <Badge variant={maintenance.openCount > 0 ? "maintenance" : "outline"} className="text-xs font-bold px-2 py-0.5">
+                  {maintenance.openCount} em reparo
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {maintenance.openCount > 0
+                  ? `Média de ${maintenance.avgDays} dias na bancada de diagnóstico técnico.`
+                  : "Nenhum equipamento em assistência técnica."}
+              </p>
+            </div>
+            <div className="pt-3">
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="w-full h-8 text-xs font-bold rounded-xl justify-between hover:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+              >
+                <Link href="/manutencao">
+                  <span>Acompanhar OS</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* Card Ação 4: Operações Próximas */}
+          <div className="p-4 rounded-2xl border bg-primary/10 border-primary/30 hover:border-primary/50 shadow-xs flex flex-col justify-between transition-all">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Grade de Turno
+                </span>
+                <Badge variant="default" className="text-xs font-bold px-2 py-0.5">
+                  {summary?.todayOperations?.totalDayCount || 0} hoje
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                Preparos, entregas e recolhimentos programados para as salas de aula.
+              </p>
+            </div>
+            <div className="pt-3">
+              <Button
+                asChild
+                size="sm"
+                className="w-full h-8 text-xs font-bold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 justify-between"
+              >
+                <Link href="/agenda">
+                  <span>Abrir Agenda</span>
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* 3. Top KPI Cards (4 Módulos Principais) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Card 1: Patrimônio & Ativos */}

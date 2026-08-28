@@ -6,7 +6,7 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { error } = await requireSession([
     Role.ADMIN,
@@ -17,7 +17,13 @@ export async function GET(
   if (error) return error;
 
   try {
-    const prizes = await EventService.getPrizes(params.id);
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
+    const prizes = await EventService.getPrizes(eventId);
     return NextResponse.json({ success: true, prizes });
   } catch (err: any) {
     return NextResponse.json(
@@ -29,7 +35,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -39,8 +45,14 @@ export async function POST(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
     const body = await req.json();
-    const parsed = createPrizeSchema.safeParse({ ...body, eventId: params.id });
+    const parsed = createPrizeSchema.safeParse({ ...body, eventId });
 
     if (!parsed.success) {
       return NextResponse.json(

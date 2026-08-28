@@ -184,4 +184,42 @@ describe("API Auth - validateApiRequest & requireApiPermission", () => {
     expect(result.authenticated).toBe(false);
     expect(result.error).toBe("Chave de API expirada.");
   });
+
+  it("deve rejeitar acesso se a ApiKey não possuir o escopo explícito necessário (sem bypass de role)", async () => {
+    const rawToken = "unifap_live_no_scope_key";
+    const hashed = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    vi.mocked(prisma.apiKey.findUnique).mockResolvedValueOnce({
+      id: "key-4",
+      name: "Bot Sem Escopo",
+      keyHash: hashed,
+      keyPrefix: "unifap_live_no_scope",
+      role: Role.ADMIN, // Mesmo se tivesse role ADMIN gravada
+      permissions: ["inventory:read"], // Mas não tem loan:create
+      active: true,
+      expiresAt: null,
+      userId: "user-1",
+      createdAt: new Date(),
+      lastUsedAt: null,
+      user: {
+        id: "user-1",
+        name: "Admin",
+        role: Role.ADMIN,
+        active: true,
+      },
+    } as any);
+
+    const req = new NextRequest("http://localhost:3000/api/v1/external/loans", {
+      headers: {
+        Authorization: `Bearer ${rawToken}`,
+      },
+    });
+
+    const result = await validateApiRequest(req);
+    expect(result.authenticated).toBe(true);
+
+    const check = requireApiPermission(result, "loan:create");
+    expect(check.allowed).toBe(false);
+    expect(check.response?.status).toBe(403);
+  });
 });

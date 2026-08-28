@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -18,6 +18,7 @@ import {
   Settings, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
   X,
   Camera,
   CalendarDays,
@@ -28,6 +29,9 @@ import {
   Gauge,
   Sparkles,
   ShieldCheck,
+  QrCode,
+  Layers,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,12 +42,20 @@ interface SidebarProps {
   onToggleCollapse: () => void;
 }
 
-interface NavItem {
+interface SubItem {
   title: string;
   href: string;
+  badge?: string | number;
+  roles?: string[];
+}
+
+interface NavItem {
+  title: string;
+  href?: string;
   icon: React.ElementType;
   badge?: string | number;
   roles?: string[];
+  subItems?: SubItem[];
 }
 
 interface NavSection {
@@ -59,8 +71,19 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
-
   const userRole = session?.user?.role || "OPERADOR";
+
+  // Estado dos submenus abertos
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    estoque: true,
+    patrimonio: true,
+    eventos: true,
+    gestao: false,
+  });
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   // Travar o scroll da página de fundo no mobile enquanto o menu lateral estiver aberto
   useEffect(() => {
@@ -76,6 +99,22 @@ export function Sidebar({
     }
   }, [isMobileOpen]);
 
+  // Auto-abrir grupos baseado na URL atual
+  useEffect(() => {
+    if (pathname.startsWith("/estoque") || pathname.startsWith("/armario") || pathname.startsWith("/caixas") || pathname.startsWith("/movimentacoes")) {
+      setOpenGroups((prev) => ({ ...prev, estoque: true }));
+    }
+    if (pathname.startsWith("/patrimonio") || pathname.startsWith("/emprestimos") || pathname.startsWith("/manutencao")) {
+      setOpenGroups((prev) => ({ ...prev, patrimonio: true }));
+    }
+    if (pathname.startsWith("/eventos") || pathname.startsWith("/biometria") || pathname.startsWith("/sorteios")) {
+      setOpenGroups((prev) => ({ ...prev, eventos: true }));
+    }
+    if (pathname.startsWith("/relatorios") || pathname.startsWith("/usuarios") || pathname.startsWith("/configuracoes") || pathname.startsWith("/privacidade")) {
+      setOpenGroups((prev) => ({ ...prev, gestao: true }));
+    }
+  }, [pathname]);
+
   const navSections: NavSection[] = [
     {
       title: "PRINCIPAL",
@@ -84,6 +123,13 @@ export function Sidebar({
           title: "Dashboard",
           href: "/dashboard",
           icon: LayoutDashboard,
+        },
+        {
+          title: "Scanner Operacional",
+          href: "/scanner",
+          icon: Camera,
+          badge: "QR",
+          roles: ["ADMIN", "GESTOR", "OPERADOR"],
         },
         {
           title: "Agenda Operacional",
@@ -96,82 +142,41 @@ export function Sidebar({
           href: "/salas",
           icon: School,
         },
-        {
-          title: "Scanner Mobile",
-          href: "/scanner",
-          icon: Camera,
-          badge: "QR",
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
       ],
     },
     {
-      title: "OPERAÇÃO & ESTOQUE",
+      title: "OPERAÇÃO",
       items: [
         {
           title: "Estoque",
-          href: "/estoque",
           icon: Package,
           roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Armário Físico",
-          href: "/armario",
-          icon: Archive,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Caixas & QR Code",
-          href: "/caixas",
-          icon: Boxes,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
+          subItems: [
+            { title: "Catálogo de Itens", href: "/estoque" },
+            { title: "Armário Físico", href: "/armario" },
+            { title: "Caixas & QR Code", href: "/caixas" },
+            { title: "Movimentações", href: "/movimentacoes" },
+          ],
         },
         {
           title: "Patrimônio",
-          href: "/patrimonio",
           icon: Monitor,
           roles: ["ADMIN", "GESTOR", "OPERADOR"],
+          subItems: [
+            { title: "Equipamentos", href: "/patrimonio" },
+            { title: "Empréstimos", href: "/emprestimos" },
+            { title: "Manutenções (OS)", href: "/manutencao" },
+          ],
         },
         {
-          title: "Empréstimos",
-          href: "/emprestimos",
-          icon: Handshake,
+          title: "Eventos & Biometria",
+          icon: ScanFace,
           roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Manutenção",
-          href: "/manutencao",
-          icon: Wrench,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Movimentações",
-          href: "/movimentacoes",
-          icon: History,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-      ],
-    },
-    {
-      title: "EVENTOS & BIOMETRIA",
-      items: [
-        {
-          title: "Hub de Eventos",
-          href: "/eventos",
-          icon: Calendar,
-          badge: "Novo",
-        },
-        {
-          title: "Pessoas & Biometria",
-          href: "/biometria/pessoas",
-          icon: Users,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Lab Biométrico",
-          href: "/biometria/testar",
-          icon: Gauge,
-          roles: ["ADMIN", "GESTOR"],
+          subItems: [
+            { title: "Hub de Eventos", href: "/eventos" },
+            { title: "Pessoas & Biometria", href: "/biometria/pessoas" },
+            { title: "Laboratório Facial", href: "/biometria/testar", roles: ["ADMIN", "GESTOR"] },
+          ],
         },
       ],
     },
@@ -179,27 +184,15 @@ export function Sidebar({
       title: "GESTÃO & SISTEMA",
       items: [
         {
-          title: "Relatórios",
-          href: "/relatorios",
-          icon: BarChart3,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Usuários",
-          href: "/usuarios",
-          icon: Users,
-          roles: ["ADMIN"],
-        },
-        {
-          title: "Configurações",
-          href: "/configuracoes",
-          icon: Settings,
-          roles: ["ADMIN"],
-        },
-        {
-          title: "Privacidade & LGPD",
-          href: "/privacidade",
-          icon: ShieldCheck,
+          title: "Administração",
+          icon: SlidersHorizontal,
+          roles: ["ADMIN", "GESTOR"],
+          subItems: [
+            { title: "Relatórios & KPIs", href: "/relatorios" },
+            { title: "Gestão de Usuários", href: "/usuarios", roles: ["ADMIN"] },
+            { title: "Configurações", href: "/configuracoes", roles: ["ADMIN"] },
+            { title: "Privacidade & LGPD", href: "/privacidade" },
+          ],
         },
       ],
     },
@@ -209,7 +202,7 @@ export function Sidebar({
     const collapsed = isMobileView ? false : isCollapsed;
 
     return (
-      <div className="flex h-full flex-col overflow-hidden overscroll-contain">
+      <div className="flex h-full flex-col overflow-hidden overscroll-contain bg-card text-foreground">
         {/* Brand Header (Fixo no Topo) */}
         <div className="shrink-0">
           <div className={cn(
@@ -218,7 +211,7 @@ export function Sidebar({
           )}>
             <Link href="/dashboard" className="flex items-center gap-3 group" title="UniFAP - Centro Universitário Paraíso">
               {collapsed ? (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card border border-border/60 shadow-sm p-1">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-card border border-border/80 shadow-sm p-1.5 hover:border-primary/50 transition-all">
                   <img
                     src="/brand/logo-unifap-quadrada.png"
                     alt="UniFAP"
@@ -232,24 +225,24 @@ export function Sidebar({
                 </div>
               ) : (
                 <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-auto flex items-center">
+                  <div className="h-8 w-auto flex items-center shrink-0">
                     <img
                       src="/brand/logo-unifap.png"
                       alt="UniFAP"
-                      className="h-8 w-auto object-contain dark:hidden"
+                      className="h-7 w-auto object-contain dark:hidden"
                     />
                     <img
                       src="/brand/logo-unifap-negativa.png"
                       alt="UniFAP"
-                      className="h-8 w-auto object-contain hidden dark:block"
+                      className="h-7 w-auto object-contain hidden dark:block"
                     />
                   </div>
-                  <div className="flex flex-col border-l border-border/80 pl-2">
-                    <span className="text-[11px] font-bold text-foreground leading-tight">
-                      Suporte TI
+                  <div className="flex flex-col border-l border-border/80 pl-2 min-w-0">
+                    <span className="text-[11px] font-bold text-foreground tracking-tight whitespace-nowrap leading-tight">
+                      Estoque & Multimídia
                     </span>
-                    <span className="text-[9px] text-muted-foreground leading-none">
-                      Multimídia
+                    <span className="text-[9px] font-medium text-muted-foreground whitespace-nowrap leading-none mt-0.5">
+                      UniFAP • Suporte TI
                     </span>
                   </div>
                 </div>
@@ -260,7 +253,7 @@ export function Sidebar({
             {isMobileView && (
               <button
                 onClick={onCloseMobile}
-                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer transition-colors"
+                className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer transition-colors"
                 title="Fechar menu"
                 aria-label="Fechar menu"
               >
@@ -272,7 +265,7 @@ export function Sidebar({
 
         {/* Navigation Sections (Área Rolável com Contenção de Scroll) */}
         <div className={cn(
-          "flex-1 min-h-0 overflow-y-auto overscroll-y-contain overflow-x-hidden touch-pan-y space-y-6 py-4",
+          "flex-1 min-h-0 overflow-y-auto overscroll-y-contain overflow-x-hidden touch-pan-y space-y-5 py-3",
           collapsed ? "px-2" : "px-3"
         )}>
           {navSections.map((section, idx) => {
@@ -285,7 +278,7 @@ export function Sidebar({
             return (
               <div key={idx} className="space-y-1">
                 {!collapsed ? (
-                  <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80">
                     {section.title}
                   </p>
                 ) : (
@@ -295,43 +288,138 @@ export function Sidebar({
                 <nav className="space-y-1">
                   {filteredItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive =
-                      item.href === "/dashboard"
-                        ? pathname === "/dashboard"
-                        : pathname.startsWith(item.href);
+                    const groupKey = item.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(" ")[0];
+                    const isGroupOpen = openGroups[groupKey] ?? true;
 
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={onCloseMobile}
-                        title={collapsed ? item.title : undefined}
-                        className={cn(
-                          "group flex items-center rounded-xl text-xs font-medium transition-all duration-150 relative",
-                          collapsed
-                            ? "justify-center h-10 w-10 mx-auto px-0"
-                            : "gap-3 px-3 py-2.5 w-full",
-                          isActive
-                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20 font-semibold"
-                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                        )}
-                      >
-                        <Icon
+                    // Se for item simples com link direto
+                    if (item.href) {
+                      const isActive =
+                        item.href === "/dashboard"
+                          ? pathname === "/dashboard"
+                          : pathname.startsWith(item.href);
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={onCloseMobile}
+                          title={collapsed ? item.title : undefined}
                           className={cn(
-                            "h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
-                            isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                            "group flex items-center rounded-xl text-sm font-medium transition-all duration-150 relative",
+                            collapsed
+                              ? "justify-center h-10 w-10 mx-auto px-0"
+                              : "gap-3 px-3 py-2 w-full",
+                            isActive
+                              ? "bg-primary text-primary-foreground shadow-sm font-semibold"
+                              : "text-muted-foreground hover:bg-accent hover:text-foreground"
                           )}
-                        />
-                        {!collapsed && (
-                          <span className="truncate flex-1">{item.title}</span>
-                        )}
-                        {!collapsed && item.badge && (
-                          <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">
-                            {item.badge}
-                          </span>
-                        )}
-                      </Link>
-                    );
+                        >
+                          <Icon
+                            className={cn(
+                              "h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                              isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                            )}
+                          />
+                          {!collapsed && (
+                            <span className="truncate flex-1 text-sm">{item.title}</span>
+                          )}
+                          {!collapsed && item.badge && (
+                            <span className={cn(
+                              "rounded-full px-2 py-0.5 text-[11px] font-bold",
+                              isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/10 text-primary"
+                            )}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    }
+
+                    // Se for grupo de submenu
+                    if (item.subItems) {
+                      const filteredSubItems = item.subItems.filter(
+                        (sub) => !sub.roles || sub.roles.includes(userRole)
+                      );
+                      if (filteredSubItems.length === 0) return null;
+
+                      const isAnySubActive = filteredSubItems.some((sub) => pathname.startsWith(sub.href));
+
+                      if (collapsed) {
+                        return (
+                          <Link
+                            key={item.title}
+                            href={filteredSubItems[0].href}
+                            onClick={onCloseMobile}
+                            title={`${item.title}: ${filteredSubItems.map((s) => s.title).join(", ")}`}
+                            className={cn(
+                              "group flex items-center justify-center rounded-xl h-10 w-10 mx-auto px-0 transition-all duration-150 relative",
+                              isAnySubActive
+                                ? "bg-primary/15 text-primary font-semibold border border-primary/30"
+                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                            )}
+                          >
+                            <Icon className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                          </Link>
+                        );
+                      }
+
+                      return (
+                        <div key={item.title} className="space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(groupKey)}
+                            className={cn(
+                              "flex w-full items-center justify-between gap-3 px-3 py-2 text-sm font-medium rounded-xl transition-all cursor-pointer",
+                              isAnySubActive
+                                ? "text-primary font-semibold bg-primary/10"
+                                : "text-muted-foreground hover:bg-accent/80 hover:text-foreground"
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon className={cn("h-4 w-4", isAnySubActive ? "text-primary" : "text-muted-foreground")} />
+                              <span className="text-sm">{item.title}</span>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                                isGroupOpen ? "rotate-180" : "rotate-0"
+                              )}
+                            />
+                          </button>
+
+                          {isGroupOpen && (
+                            <div className="ml-4 pl-3 border-l-2 border-border/70 space-y-0.5 pt-0.5 pb-1 animate-in fade-in-50 duration-150">
+                              {filteredSubItems.map((sub) => {
+                                const isSubActive = pathname === sub.href || pathname.startsWith(sub.href + "/");
+
+                                return (
+                                  <Link
+                                    key={sub.href}
+                                    href={sub.href}
+                                    onClick={onCloseMobile}
+                                    className={cn(
+                                      "flex items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors",
+                                      isSubActive
+                                        ? "bg-primary text-primary-foreground font-semibold shadow-xs"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                                    )}
+                                  >
+                                    <span className="truncate text-xs">{sub.title}</span>
+                                    {sub.badge && (
+                                      <span className="rounded-full bg-primary/20 px-1.5 py-0.2 text-[10px] font-bold">
+                                        {sub.badge}
+                                      </span>
+                                    )}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return null;
                   })}
                 </nav>
               </div>
@@ -355,7 +443,7 @@ export function Sidebar({
               ) : (
                 <>
                   <ChevronLeft className="h-4 w-4" />
-                  <span className="text-[11px] font-medium">Recolher Menu</span>
+                  <span className="text-xs font-medium">Recolher Menu</span>
                 </>
               )}
             </button>
@@ -370,7 +458,7 @@ export function Sidebar({
       {/* Desktop Fixed Sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 border-r border-border/80 bg-card/95 backdrop-blur-xl transition-all duration-300 overscroll-contain",
+          "hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 border-r border-border/80 bg-card/95 backdrop-blur-xl transition-all duration-300 overscroll-contain shadow-xs",
           isCollapsed ? "w-20" : "w-64"
         )}
       >

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   // 1. Exigir autenticação obrigatória de operador/gestor/admin
   const { session, error } = await requireSession([
@@ -21,7 +21,11 @@ export async function POST(
   if (error) return error;
 
   try {
-    const eventId = params.id;
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
     const body = await req.json();
     const { imageBase64, personId, method = "FACE" } = body;
 

@@ -282,7 +282,7 @@ export default function EstoquePage() {
                             {item.name}
                           </span>
                           {item.manufacturer && (
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               {item.manufacturer} {item.model && `• ${item.model}`}
                             </span>
                           )}
@@ -291,7 +291,7 @@ export default function EstoquePage() {
 
                       {/* Categoria */}
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-xs">
                           {item.category?.name}
                         </Badge>
                       </TableCell>
@@ -299,7 +299,7 @@ export default function EstoquePage() {
                       {/* Localização Física (Caixas) */}
                       <TableCell>
                         {item.inventories.length === 0 ? (
-                          <span className="text-[10px] text-muted-foreground/60 italic">
+                          <span className="text-xs text-muted-foreground/60 italic">
                             Sem caixa atribuída
                           </span>
                         ) : (
@@ -308,7 +308,7 @@ export default function EstoquePage() {
                               <Link
                                 key={inv.id}
                                 href={`/caixas/${inv.box.code}`}
-                                className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted hover:bg-primary/15 hover:text-primary transition-colors border border-border/60"
+                                className="inline-flex items-center gap-1 text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-muted hover:bg-primary/15 hover:text-primary transition-colors border border-border/60"
                                 title={`${inv.box.door?.name} • ${inv.quantity} ${item.unit}`}
                               >
                                 <span>{inv.box.code}</span>
@@ -325,7 +325,7 @@ export default function EstoquePage() {
                           <span className="font-bold text-xs text-foreground">
                             {item.totalQuantity} {item.unit}
                           </span>
-                          <span className="text-[9px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             Mín: {item.minStock} • Ideal: {item.idealStock}
                           </span>
                         </div>
@@ -342,7 +342,7 @@ export default function EstoquePage() {
                               : "normal"
                           }
                           dot
-                          className="text-[10px]"
+                          className="text-xs"
                         >
                           {item.statusLevel === "CRITICAL"
                             ? "Crítico"
@@ -354,7 +354,20 @@ export default function EstoquePage() {
 
                       {/* Ações */}
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Botão Histórico */}
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl"
+                            title={`Ver histórico de movimentações de ${item.name}`}
+                          >
+                            <Link href={`/movimentacoes?search=${item.sku}`}>
+                              <span>Histórico</span>
+                            </Link>
+                          </Button>
+
                           {/* Botão Saída */}
                           {item.itemType === "ASSET_EQUIPMENT" ? (
                             <Tooltip
