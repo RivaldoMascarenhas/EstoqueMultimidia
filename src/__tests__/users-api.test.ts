@@ -191,7 +191,7 @@ describe("Users API - Security & Role Authorization", () => {
         method: "PATCH",
         body: JSON.stringify({
           currentPassword: "correctPassword123",
-          newPassword: "newsecretpassword123",
+          newPassword: "NewSecretPassword123!",
         }),
       });
       const res = await updatePassword(req, { params: Promise.resolve({ id: "op-1" }) });
@@ -208,7 +208,7 @@ describe("Users API - Security & Role Authorization", () => {
 
       const req = new NextRequest("http://localhost:3000/api/v1/users/op-2/password", {
         method: "PATCH",
-        body: JSON.stringify({ newPassword: "newsecretpassword123" }),
+        body: JSON.stringify({ newPassword: "NewSecretPassword123!" }),
       });
       const res = await updatePassword(req, { params: Promise.resolve({ id: "op-2" }) });
 

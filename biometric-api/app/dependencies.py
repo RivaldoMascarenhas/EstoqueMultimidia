@@ -12,6 +12,12 @@ def verify_internal_token(
     Supports both Authorization: Bearer <token> and X-Internal-Token: <token>.
     Uses constant-time comparison to prevent timing attacks.
     """
+    if not settings.BIOMETRIC_INTERNAL_TOKEN:
+      raise HTTPException(
+          status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+          detail="BIOMETRIC_INTERNAL_TOKEN não foi configurado nas variáveis de ambiente do servidor.",
+      )
+
     token = None
     if x_internal_token:
       token = x_internal_token

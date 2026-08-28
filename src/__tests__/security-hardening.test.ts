@@ -28,6 +28,8 @@ describe("Security Hardening & Vulnerability Suite", () => {
       expect(validatePasswordPolicy("123456789!").isValid).toBe(false);
       // No numbers
       expect(validatePasswordPolicy("PasswordOnly!").isValid).toBe(false);
+      // No special characters
+      expect(validatePasswordPolicy("Password123").isValid).toBe(false);
       // Valid strong password
       expect(validatePasswordPolicy("UniFAP@2026!").isValid).toBe(true);
     });

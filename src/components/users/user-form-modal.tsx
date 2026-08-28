@@ -190,7 +190,7 @@ export function UserFormModal({
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 8 caracteres (letras e números)"
+                    placeholder="Mínimo 8 caracteres (letras, números e símbolos)"
                     required
                     className="pl-9 pr-10 h-10 rounded-xl text-xs bg-background"
                   />
@@ -247,9 +247,9 @@ export function UserFormModal({
               {password.length > 0 && (
                 <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60 space-y-1 text-[11px]">
                   <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">
-                    Requisitos da Senha:
+                    Requisitos de Segurança da Senha:
                   </p>
-                  <div className="grid grid-cols-3 gap-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-0.5">
                     <span className={passwordPolicy.hasMinLength ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
                       {passwordPolicy.hasMinLength ? "✓" : "•"} 8+ caracteres
                     </span>
@@ -258,6 +258,9 @@ export function UserFormModal({
                     </span>
                     <span className={passwordPolicy.hasNumber ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
                       {passwordPolicy.hasNumber ? "✓" : "•"} 1+ número
+                    </span>
+                    <span className={passwordPolicy.hasSpecialChar ? "text-emerald-600 font-semibold" : "text-muted-foreground"}>
+                      {passwordPolicy.hasSpecialChar ? "✓" : "•"} 1+ símbolo (@, #, !)
                     </span>
                   </div>
                 </div>

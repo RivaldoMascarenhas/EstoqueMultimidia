@@ -87,6 +87,18 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
     };
   }
 
+  if (!hasSpecialChar) {
+    return {
+      isValid: false,
+      hasMinLength,
+      hasLetter,
+      hasNumber,
+      hasSpecialChar,
+      isNotCommon,
+      error: "A senha deve conter pelo menos um caractere especial (ex: @, #, $, %, !, &).",
+    };
+  }
+
   if (!isNotCommon) {
     return {
       isValid: false,

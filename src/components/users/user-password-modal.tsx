@@ -112,7 +112,7 @@ export function UserPasswordModal({
                 type={showNewPassword ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Mínimo 8 dígitos (letras e números)"
+                placeholder="Mínimo 8 caracteres (letras, números e símbolos)"
                 required
                 className="pl-9 pr-10 h-10 rounded-xl text-xs bg-background"
               />
@@ -130,23 +130,27 @@ export function UserPasswordModal({
           {/* Requisitos da Senha */}
           <div className="p-3 rounded-xl bg-muted/40 border border-border/60 space-y-1.5 text-[11px]">
             <p className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">
-              Requisitos de Segurança:
+              Requisitos de Segurança Institucional:
             </p>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               <div className={`flex items-center gap-1.5 ${policy.hasMinLength ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
                 {policy.hasMinLength ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
-                <span>Mínimo 8 caracteres</span>
+                <span>8+ caracteres</span>
               </div>
               <div className={`flex items-center gap-1.5 ${policy.hasLetter ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
                 {policy.hasLetter ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
-                <span>Pelo menos 1 letra</span>
+                <span>1+ letra</span>
               </div>
               <div className={`flex items-center gap-1.5 ${policy.hasNumber ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
                 {policy.hasNumber ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
-                <span>Pelo menos 1 número</span>
+                <span>1+ número</span>
               </div>
-              <div className={`flex items-center gap-1.5 ${passwordsMatch ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
-                {passwordsMatch ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+              <div className={`flex items-center gap-1.5 ${policy.hasSpecialChar ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
+                {policy.hasSpecialChar ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
+                <span>1+ símbolo (@, #, !)</span>
+              </div>
+              <div className={`flex items-center gap-1.5 ${passwordsMatch && confirmPassword.length > 0 ? "text-emerald-600 font-semibold" : "text-muted-foreground"}`}>
+                {passwordsMatch && confirmPassword.length > 0 ? <Check className="w-3.5 h-3.5" /> : <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 ml-1 mr-1" />}
                 <span>Senhas conferem</span>
               </div>
             </div>

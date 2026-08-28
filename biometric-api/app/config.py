@@ -17,17 +17,11 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
 
-    # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql+psycopg://postgres@localhost:5432/estoque_multimidia",
-    )
+    # Database connection (Must be set via environment variable)
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
-    # Security Token for internal microservice communication
-    BIOMETRIC_INTERNAL_TOKEN: str = os.getenv(
-        "BIOMETRIC_INTERNAL_TOKEN",
-        "unifap_dev_biometric_token_only_for_local_development",
-    )
+    # Security Token for internal microservice communication (Must be set via environment variable)
+    BIOMETRIC_INTERNAL_TOKEN: str = os.getenv("BIOMETRIC_INTERNAL_TOKEN", "")
 
     # Biometric Recognition Thresholds
     # In 128D Euclidean space, distance <= 0.60 is standard matching threshold

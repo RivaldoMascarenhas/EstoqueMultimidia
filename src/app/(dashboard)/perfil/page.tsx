@@ -421,7 +421,7 @@ export default function PerfilPage() {
                     type={showNewPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 8 dígitos"
+                    placeholder="Mínimo 8 caracteres (letras, números e símbolos)"
                     className="pr-10 h-10 rounded-xl text-xs bg-background"
                   />
                   <button
