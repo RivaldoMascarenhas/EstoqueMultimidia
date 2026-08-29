@@ -12,6 +12,7 @@ export async function GET(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
     Role.CONSULTA,
   ]);
   if (error) return error;
@@ -62,7 +63,7 @@ export async function GET(
         });
       }
 
-      if (format === "xlsx") {
+      if (format === "xlsx" || format === "excel") {
         const buf = await ExportService.toXlsx(formatted, "Ganhadores");
         return new NextResponse(new Uint8Array(buf), {
           headers: {
@@ -95,7 +96,13 @@ export async function GET(
       },
     });
 
-    const data = participants.map((p) => {
+    const filteredParticipants = type === "presences"
+      ? participants.filter((p) => p.person.presences.length > 0)
+      : type === "absent"
+      ? participants.filter((p) => p.person.presences.length === 0)
+      : participants;
+
+    const data = filteredParticipants.map((p) => {
       const pres = p.person.presences[0];
       return {
         "Número Bilhete": p.ticketNumber,
@@ -118,8 +125,8 @@ export async function GET(
         eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
         eventTime: event.time || null,
         eventLocation: event.location || null,
-        filterLabel: type === "presences" ? "Lista de Presenças Confirmadas" : "Lista Oficial de Inscritos",
-        participants: participants.map((p) => {
+        filterLabel: type === "presences" ? "Lista de Presenças Confirmadas" : type === "absent" ? "Lista de Ausentes" : "Lista Oficial de Inscritos",
+        participants: filteredParticipants.map((p) => {
           const pres = p.person.presences[0];
           return {
             ticketNumber: p.ticketNumber,
@@ -136,7 +143,7 @@ export async function GET(
       });
     }
 
-    if (format === "xlsx") {
+    if (format === "xlsx" || format === "excel") {
       const buf = await ExportService.toXlsx(data, "Participantes");
       return new NextResponse(new Uint8Array(buf), {
         headers: {

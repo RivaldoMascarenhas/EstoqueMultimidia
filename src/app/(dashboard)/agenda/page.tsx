@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
   CalendarDays, 
   ChevronLeft, 
@@ -24,6 +25,10 @@ import { formatDate, formatDateInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function AgendaPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return formatDateInput(new Date());
   });
@@ -125,6 +130,11 @@ export default function AgendaPage() {
                 Modo Monitor / Painel Fullscreen (Pressione Esc para sair)
               </Badge>
             )}
+            {isReadOnly && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Modo Consulta
+              </Badge>
+            )}
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-2">
             <span>Agenda Operacional por Turnos</span>
@@ -136,7 +146,7 @@ export default function AgendaPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {agendaData?.totalDayPendingReview > 0 && (
+          {!isReadOnly && agendaData?.totalDayPendingReview > 0 && (
             <Button
               asChild
               variant="outline"
@@ -150,16 +160,18 @@ export default function AgendaPage() {
             </Button>
           )}
 
-          <Button
-            asChild
-            size="sm"
-            className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5 cursor-pointer"
-          >
-            <Link href="/agenda/nova-solicitacao">
-              <Plus className="w-4 h-4 shrink-0" />
-              <span>Nova Solicitação</span>
-            </Link>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              asChild
+              size="sm"
+              className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5 cursor-pointer"
+            >
+              <Link href="/agenda/nova-solicitacao">
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>Nova Solicitação</span>
+              </Link>
+            </Button>
+          )}
 
           {/* Botão de Tela Cheia */}
           <Button

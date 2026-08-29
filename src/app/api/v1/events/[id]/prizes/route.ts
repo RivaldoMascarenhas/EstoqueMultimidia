@@ -13,6 +13,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -26,8 +27,9 @@ export async function GET(
     const prizes = await EventService.getPrizes(eventId);
     return NextResponse.json({ success: true, prizes });
   } catch (err: any) {
+    console.error("Erro ao buscar prêmios:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao buscar prêmios." },
+      { success: false, error: "Erro ao buscar prêmios." },
       { status: 500 }
     );
   }
@@ -41,6 +43,7 @@ export async function POST(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -68,6 +71,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, prize }, { status: 201 });
   } catch (err: any) {
+    console.error("Erro ao criar prêmio:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao criar prêmio." },
       { status: 400 }

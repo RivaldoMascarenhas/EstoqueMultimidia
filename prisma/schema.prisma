@@ -17,6 +17,7 @@ enum Role {
   OPERADOR
   CONSULTA
   ACADEMIC_SUPPORT
+  EVENTOS
 }
 
 enum ItemType {
@@ -182,6 +183,7 @@ model User {
   tasksCompleted     RequestTask[]
 
   // Relações com Eventos e Sorteios
+  eventsManaged      EventUser[]
   presencesOperated  Presence[]        @relation("PresenceOperator")
   drawsOperated      Draw[]            @relation("DrawOperator")
   prizesDelivered    Winner[]          @relation("PrizeDeliveryOperator")
@@ -310,6 +312,7 @@ model Event {
   presences    Presence[]
   theme        EventTheme?
   soundConfig  SoundConfig?
+  managers     EventUser[]
 
   @@index([slug])
   @@index([status])
@@ -336,6 +339,19 @@ model EventParticipant {
   @@index([eventId])
   @@index([personId])
   @@index([eventId, isEligible])
+}
+
+model EventUser {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
 }
 
 model Presence {

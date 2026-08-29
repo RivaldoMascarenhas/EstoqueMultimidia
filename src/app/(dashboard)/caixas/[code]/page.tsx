@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
   ArrowDownLeft, 
   Plus, 
@@ -25,6 +26,10 @@ import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
 import { StockTransferModal } from "@/components/inventory/stock-transfer-modal";
 
 export default function BoxDetailsPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const params = useParams();
   const boxCode = (params?.code as string)?.toUpperCase();
 
@@ -273,73 +278,79 @@ export default function BoxDetailsPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* BOTÃO SAÍDA */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            setSelectedItemForExit({
-                              item: inv.item,
-                              box: {
-                                id: boxData.id,
-                                code: boxData.code,
-                                name: boxData.name,
-                                doorName: boxData.door.name,
-                                currentQuantity: inv.quantity,
-                              },
-                            })
-                          }
-                          disabled={inv.quantity <= 0}
-                          className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
-                        >
-                          <ArrowDownLeft className="w-3.5 h-3.5" />
-                          <span>Saída</span>
-                        </Button>
+                      {isReadOnly ? (
+                        <Badge variant="available" className="text-[10px]">
+                          Disponível na Caixa
+                        </Badge>
+                      ) : (
+                        <div className="flex items-center justify-end gap-2">
+                          {/* BOTÃO SAÍDA */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setSelectedItemForExit({
+                                item: inv.item,
+                                box: {
+                                  id: boxData.id,
+                                  code: boxData.code,
+                                  name: boxData.name,
+                                  doorName: boxData.door.name,
+                                  currentQuantity: inv.quantity,
+                                },
+                              })
+                            }
+                            disabled={inv.quantity <= 0}
+                            className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 hover:border-rose-500/50 disabled:opacity-40 shadow-xs"
+                          >
+                            <ArrowDownLeft className="w-3.5 h-3.5" />
+                            <span>Saída</span>
+                          </Button>
 
-                        {/* BOTÃO ENTRADA */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            setSelectedItemForEntry({
-                              item: inv.item,
-                              box: {
-                                id: boxData.id,
-                                code: boxData.code,
-                                name: boxData.name,
-                                currentQuantity: inv.quantity,
-                              },
-                            })
-                          }
-                          className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/50 shadow-xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Entrada</span>
-                        </Button>
+                          {/* BOTÃO ENTRADA */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setSelectedItemForEntry({
+                                item: inv.item,
+                                box: {
+                                  id: boxData.id,
+                                  code: boxData.code,
+                                  name: boxData.name,
+                                  currentQuantity: inv.quantity,
+                                },
+                              })
+                            }
+                            className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/50 shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Entrada</span>
+                          </Button>
 
-                        {/* BOTÃO TRANSFERIR */}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            setSelectedItemForTransfer({
-                              item: inv.item,
-                              sourceBox: {
-                                id: boxData.id,
-                                code: boxData.code,
-                                name: boxData.name,
-                                currentQuantity: inv.quantity,
-                              },
-                            })
-                          }
-                          disabled={inv.quantity <= 0}
-                          className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 hover:border-indigo-500/50 disabled:opacity-40 shadow-xs"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Transferir</span>
-                        </Button>
-                      </div>
+                          {/* BOTÃO TRANSFERIR */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setSelectedItemForTransfer({
+                                item: inv.item,
+                                sourceBox: {
+                                  id: boxData.id,
+                                  code: boxData.code,
+                                  name: boxData.name,
+                                  currentQuantity: inv.quantity,
+                                },
+                              })
+                            }
+                            disabled={inv.quantity <= 0}
+                            className="h-8 px-3 text-xs font-semibold rounded-xl gap-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 hover:border-indigo-500/50 disabled:opacity-40 shadow-xs"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Transferir</span>
+                          </Button>
+                        </div>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

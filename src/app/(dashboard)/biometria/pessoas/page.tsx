@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Users,
   Search,
@@ -25,6 +26,10 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { toast } from "sonner";
 
 function PessoasContent() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const searchParams = useSearchParams();
   const initialSearch = searchParams?.get("search") || searchParams?.get("query") || "";
 
@@ -127,45 +132,56 @@ function PessoasContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            Pessoas & Cadastro Biométrico
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary" />
+              Pessoas & Cadastro Biométrico
+            </h1>
+            {isReadOnly && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                Modo Consulta
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Base central unificada de participantes, alunos, professores e dados biométricos.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsImportOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors shadow-sm"
-          >
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            Importar Lote
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => setIsImportOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors shadow-sm cursor-pointer"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              Importar Lote
+            </button>
+          )}
 
           <button
             onClick={() => {
               setSelectedPerson(null);
               setIsTestOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors shadow-sm cursor-pointer"
           >
             <Gauge className="h-4 w-4 text-sky-500" />
             Testar Biometria
           </button>
 
-          <button
-            onClick={() => {
-              setSelectedPerson(null);
-              setIsFormOpen(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Nova Pessoa
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => {
+                setSelectedPerson(null);
+                setIsFormOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Nova Pessoa
+            </button>
+          )}
         </div>
       </div>
 
@@ -293,43 +309,49 @@ function PessoasContent() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => {
-                            setSelectedPerson(person);
-                            setIsEnrollOpen(true);
-                          }}
-                          className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors"
-                          title={person.hasFaceEnrolled ? "Atualizar biometria" : "Cadastrar biometria"}
-                        >
-                          <Camera className="h-4 w-4" />
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => {
+                              setSelectedPerson(person);
+                              setIsEnrollOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                            title={person.hasFaceEnrolled ? "Atualizar biometria" : "Cadastrar biometria"}
+                          >
+                            <Camera className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setSelectedPerson(person);
                             setIsTestOpen(true);
                           }}
-                          className="p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors"
+                          className="p-1.5 rounded-lg text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-950/30 transition-colors cursor-pointer"
                           title="Testar biometria 1:1"
                         >
                           <Gauge className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => {
-                            setSelectedPerson(person);
-                            setIsFormOpen(true);
-                          }}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors"
-                          title="Editar cadastro"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeletePerson(person)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                          title="Desativar pessoa"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => {
+                              setSelectedPerson(person);
+                              setIsFormOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors cursor-pointer"
+                            title="Editar cadastro"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => handleDeletePerson(person)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+                            title="Desativar pessoa"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

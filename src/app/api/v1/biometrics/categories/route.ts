@@ -10,6 +10,7 @@ export async function GET(_req: NextRequest) {
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
     Role.CONSULTA,
   ]);
   if (error) return error;

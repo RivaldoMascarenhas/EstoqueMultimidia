@@ -17,6 +17,7 @@ import {
   User,
   Camera
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 
@@ -33,6 +34,11 @@ interface SearchEntry {
 
 export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const userRole = (session?.user?.role || "OPERADOR") as string;
+  const isEventosRole = userRole === "EVENTOS";
+  const isAcademicRole = userRole === "ACADEMIC_SUPPORT";
+
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{
     items: any[];
@@ -55,43 +61,53 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Flattened entries list for arrow navigation
+  // Flattened entries list for arrow navigation (filtered by Role)
   const flatEntries: SearchEntry[] = [
-    ...results.events.map((event) => ({
+    ...(results.events || []).map((event) => ({
       type: "EVENT" as const,
       url: `/eventos/${event.id}`,
       data: event,
     })),
-    ...results.people.map((person) => ({
+    ...(results.people || []).map((person) => ({
       type: "PERSON" as const,
       url: `/biometria/pessoas?search=${encodeURIComponent(person.name)}`,
       data: person,
     })),
-    ...results.assets.map((asset) => ({
-      type: "ASSET" as const,
-      url: `/patrimonio?search=${encodeURIComponent(asset.assetTag)}`,
-      data: asset,
-    })),
-    ...results.items.map((item) => ({
-      type: "ITEM" as const,
-      url: `/estoque?search=${encodeURIComponent(item.sku || item.name)}`,
-      data: item,
-    })),
-    ...results.boxes.map((box) => ({
-      type: "BOX" as const,
-      url: `/caixas/${box.code}`,
-      data: box,
-    })),
-    ...results.loans.map((loan) => ({
-      type: "LOAN" as const,
-      url: `/emprestimos?search=${encodeURIComponent(loan.borrowerName)}`,
-      data: loan,
-    })),
-    ...results.maintenances.map((m) => ({
-      type: "MAINTENANCE" as const,
-      url: `/manutencao?search=${encodeURIComponent(m.orderNumber || m.asset?.assetTag || "")}`,
-      data: m,
-    })),
+    ...(!isEventosRole
+      ? (results.assets || []).map((asset) => ({
+          type: "ASSET" as const,
+          url: `/patrimonio?search=${encodeURIComponent(asset.assetTag)}`,
+          data: asset,
+        }))
+      : []),
+    ...(!isEventosRole
+      ? (results.items || []).map((item) => ({
+          type: "ITEM" as const,
+          url: `/estoque?search=${encodeURIComponent(item.sku || item.name)}`,
+          data: item,
+        }))
+      : []),
+    ...(!isEventosRole && !isAcademicRole
+      ? (results.boxes || []).map((box) => ({
+          type: "BOX" as const,
+          url: `/caixas/${box.code}`,
+          data: box,
+        }))
+      : []),
+    ...(!isEventosRole && !isAcademicRole
+      ? (results.loans || []).map((loan) => ({
+          type: "LOAN" as const,
+          url: `/emprestimos?search=${encodeURIComponent(loan.borrowerName)}`,
+          data: loan,
+        }))
+      : []),
+    ...(!isEventosRole && !isAcademicRole
+      ? (results.maintenances || []).map((m) => ({
+          type: "MAINTENANCE" as const,
+          url: `/manutencao?search=${encodeURIComponent(m.orderNumber || m.asset?.assetTag || "")}`,
+          data: m,
+        }))
+      : []),
   ];
 
   // Foco automático ao abrir
@@ -233,7 +249,13 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
             value={query}
             onKeyDown={handleKeyDown}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar patrimônio (#123458), item, caixa, evento, pessoa ou OS..."
+            placeholder={
+              isEventosRole
+                ? "Buscar eventos acadêmicos, participantes, alunos ou biometria..."
+                : isAcademicRole
+                ? "Buscar materiais, projetores e equipamentos disponíveis..."
+                : "Buscar patrimônio (#123458), item, caixa, evento, pessoa ou OS..."
+            }
             className="w-full bg-transparent px-2 py-4 text-sm font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
           {query && (
@@ -264,7 +286,11 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           {isLoading ? (
             <div className="p-8 text-center text-xs text-muted-foreground space-y-2">
               <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              <p>Buscando no inventário e cadastros...</p>
+              <p>
+                {isEventosRole
+                  ? "Buscando em eventos e participantes..."
+                  : "Buscando no inventário e cadastros..."}
+              </p>
             </div>
           ) : query.length >= 2 && totalResults === 0 ? (
             <div className="p-8 text-center space-y-2">
@@ -272,20 +298,33 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                 Nenhum resultado para &quot;{query}&quot;
               </p>
               <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                Verifique o número do tombamento (#123458), nome do material, evento ou pessoa.
+                {isEventosRole
+                  ? "Verifique o nome do evento, participante, matrícula ou CPF."
+                  : "Verifique o número do tombamento (#123458), nome do material, evento ou pessoa."}
               </p>
             </div>
           ) : query.length < 2 ? (
             <div className="p-6 text-center space-y-3">
               <div className="flex items-center justify-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
-                Busca Global Inteligente • UniFAP
+                {isEventosRole
+                  ? "Busca Rápida de Eventos & Biometria • UniFAP"
+                  : "Busca Global Inteligente • UniFAP"}
               </div>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
-                Digite 2 ou mais caracteres para pesquisar instantaneamente entre patrimônios, materiais, armários, eventos, pessoas e ordens de serviço.
+                {isEventosRole
+                  ? "Digite 2 ou mais caracteres para pesquisar instantaneamente entre eventos acadêmicos, participantes e cadastros biométricos."
+                  : isAcademicRole
+                  ? "Digite 2 ou mais caracteres para pesquisar materiais e equipamentos multimídia disponíveis."
+                  : "Digite 2 ou mais caracteres para pesquisar instantaneamente entre patrimônios, materiais, armários, eventos, pessoas e ordens de serviço."}
               </p>
               <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-                {["Projetor", "Semana TI", "Rivaldo", "C001", "Cabo HDMI", "Manutenção"].map((tag) => (
+                {(isEventosRole
+                  ? ["Semana Acadêmica", "Pedro", "Paloma", "Auditório Principal", "Engenharia", "Kindle"]
+                  : isAcademicRole
+                  ? ["Projetor", "Cabo HDMI", "Caixa de Som", "Adaptador", "Microfone"]
+                  : ["Projetor", "Semana TI", "Rivaldo", "C001", "Cabo HDMI", "Manutenção"]
+                ).map((tag) => (
                   <button
                     key={tag}
                     type="button"

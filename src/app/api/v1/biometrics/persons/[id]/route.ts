@@ -13,6 +13,7 @@ export async function GET(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
     Role.CONSULTA,
   ]);
   if (error) return error;
@@ -42,6 +43,7 @@ export async function PATCH(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 

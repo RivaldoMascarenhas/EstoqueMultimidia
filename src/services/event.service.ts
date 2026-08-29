@@ -948,4 +948,22 @@ export class EventService {
 
     return prize;
   }
+
+  /**
+   * EVENTS: Deletes an Event
+   */
+  public static async deleteEvent(id: string, operatorUserId?: string, ipAddress?: string) {
+    const event = await prisma.event.delete({ where: { id } });
+
+    await safeAuditLog({
+      userId: operatorUserId,
+      action: "DELETE_EVENT",
+      entity: "Event",
+      entityId: id,
+      details: { name: event.name, slug: event.slug },
+      ipAddress,
+    });
+
+    return event;
+  }
 }

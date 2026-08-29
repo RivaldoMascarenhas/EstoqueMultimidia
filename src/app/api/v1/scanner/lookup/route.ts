@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { LoanStatus, MaintenanceStatus } from "@prisma/client";
+import { LoanStatus, MaintenanceStatus, Role } from "@prisma/client";
 import { requireSession } from "@/lib/api-guard";
+import { sanitizeLoanForRole } from "@/lib/maskData";
 
 export async function POST(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession([
+      Role.ADMIN,
+      Role.GESTOR,
+      Role.OPERADOR,
+      Role.CONSULTA,
+    ]);
     if (error) return error;
     const body = await req.json();
     const rawInput = body.code?.trim() || "";
@@ -93,7 +99,7 @@ export async function POST(req: NextRequest) {
         entityType: "ASSET",
         data: {
           asset,
-          activeLoan,
+          activeLoan: sanitizeLoanForRole(activeLoan, session?.user?.role),
           activeMaintenance,
         },
       });
@@ -155,7 +161,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           entityType: "LOAN",
-          data: loan,
+          data: sanitizeLoanForRole(loan, session?.user?.role),
         });
       }
     }
@@ -233,8 +239,9 @@ export async function POST(req: NextRequest) {
     }, { status: 404 });
 
   } catch (error: any) {
+    console.error("Erro interno no scanner lookup:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Erro no processamento do scanner." },
+      { success: false, error: "Erro ao processar a leitura do scanner." },
       { status: 500 }
     );
   }

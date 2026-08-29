@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
 
 export interface PresentationAuthResult {
   isAuthorized: boolean;
   event?: any;
   errorResponse?: NextResponse;
+}
+
+function safeCompareTokens(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 /**
@@ -57,7 +66,17 @@ export async function requirePresentationToken(
     };
   }
 
-  if (event.presentationToken !== token) {
+  if (event.status === "CANCELLED") {
+    return {
+      isAuthorized: false,
+      errorResponse: NextResponse.json(
+        { success: false, error: "Este evento foi cancelado." },
+        { status: 403 }
+      ),
+    };
+  }
+
+  if (!safeCompareTokens(event.presentationToken, token)) {
     return {
       isAuthorized: false,
       errorResponse: NextResponse.json(

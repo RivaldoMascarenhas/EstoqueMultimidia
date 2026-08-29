@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Trophy, Play, Calendar, Users, Gift, RefreshCw, ChevronRight } from "lucide-react";
+import { Trophy, Play, Calendar, Users, Gift, RefreshCw, ChevronRight, Tv } from "lucide-react";
 
 export default function SorteiosIndexPage() {
   const [events, setEvents] = useState<any[]>([]);
@@ -66,7 +66,7 @@ export default function SorteiosIndexPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-border/80 flex items-center justify-between">
+              <div className="pt-3 border-t border-border/80 flex flex-wrap items-center justify-between gap-2">
                 <Link
                   href={`/eventos/${ev.id}`}
                   className="text-xs font-semibold text-muted-foreground hover:text-foreground"
@@ -75,12 +75,24 @@ export default function SorteiosIndexPage() {
                 </Link>
 
                 <div className="flex items-center gap-2">
+                  <a
+                    href={`/presentation/${ev.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-foreground bg-muted/60 hover:bg-muted border border-border transition-all"
+                    title="Abrir Telão de Projeção Interativo"
+                  >
+                    <Tv className="h-3.5 w-3.5 text-amber-500" />
+                    Telão
+                  </a>
+
                   <Link
                     href={`/eventos/${ev.id}/sorteio`}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-600 shadow-xs transition-all"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-600 shadow-xs transition-all"
+                    title="Abrir Painel do Operador de Sorteios"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
-                    Operar
+                    Operador de Sorteios
                   </Link>
                 </div>
               </div>

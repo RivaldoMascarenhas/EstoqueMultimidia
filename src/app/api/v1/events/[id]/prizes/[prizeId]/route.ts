@@ -4,6 +4,7 @@ import { EventService } from "@/services/event.service";
 import { updatePrizeSchema } from "@/schemas/prize.schema";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { canDeletePrize, canEditPrize } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -31,8 +33,9 @@ export async function GET(
 
     return NextResponse.json({ success: true, prize });
   } catch (err: any) {
+    console.error("Erro ao buscar prêmio:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao buscar prêmio." },
+      { success: false, error: "Erro ao buscar prêmio." },
       { status: 500 }
     );
   }
@@ -46,6 +49,7 @@ export async function PUT(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -61,12 +65,13 @@ export async function PUT(
       );
     }
 
-    // RBAC Rule: Only ADMIN can edit already drawn/delivered prizes
-    if (existing.status !== "AVAILABLE" && session.user.role !== Role.ADMIN) {
+    // Regra RBAC & Estado: prêmios sorteados não podem ser alterados por OPERADOR/EVENTOS
+    const userRole = (session?.user?.role || Role.OPERADOR) as Role;
+    if (!canEditPrize(userRole, existing)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Apenas administradores podem alterar prêmios que já foram sorteados.",
+          error: "Este prêmio já foi sorteado e não pode ser alterado.",
         },
         { status: 403 }
       );
@@ -85,11 +90,12 @@ export async function PUT(
     const prize = await EventService.updatePrize(
       params.prizeId,
       parsed.data,
-      session.user.id
+      session?.user?.id
     );
 
     return NextResponse.json({ success: true, prize });
   } catch (err: any) {
+    console.error("Erro ao atualizar prêmio:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao atualizar prêmio." },
       { status: 400 }
@@ -105,6 +111,7 @@ export async function DELETE(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -120,21 +127,23 @@ export async function DELETE(
       );
     }
 
-    // RBAC Rule: Only ADMIN can delete already drawn/delivered prizes
-    if (existing.status !== "AVAILABLE" && session.user.role !== Role.ADMIN) {
+    // Regra Crítica: EVENTOS só pode excluir prêmio se status === "AVAILABLE"
+    const userRole = (session?.user?.role || Role.OPERADOR) as Role;
+    if (!canDeletePrize(userRole, existing)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Apenas administradores podem excluir prêmios que já foram sorteados.",
+          error: "Este prêmio já foi sorteado e não pode ser excluído.",
         },
         { status: 403 }
       );
     }
 
-    await EventService.deletePrize(params.prizeId, session.user.id);
+    await EventService.deletePrize(params.prizeId, session?.user?.id);
 
     return NextResponse.json({ success: true, message: "Prêmio excluído com sucesso." });
   } catch (err: any) {
+    console.error("Erro ao excluir prêmio:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao excluir prêmio." },
       { status: 400 }

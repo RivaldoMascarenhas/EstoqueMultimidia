@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -29,8 +30,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
+    console.error("Erro ao listar eventos:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao listar eventos." },
+      { success: false, error: "Erro ao listar eventos." },
       { status: 500 }
     );
   }
@@ -41,6 +43,7 @@ export async function POST(req: NextRequest) {
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -62,6 +65,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, event }, { status: 201 });
   } catch (err: any) {
+    console.error("Erro ao criar evento:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao criar evento." },
       { status: 400 }

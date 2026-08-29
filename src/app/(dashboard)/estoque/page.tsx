@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
   Package, 
   Plus, 
@@ -21,6 +22,10 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 export default function EstoquePage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [allBoxes, setAllBoxes] = useState<any[]>([]);
@@ -94,22 +99,29 @@ export default function EstoquePage() {
             <Badge variant="normal" className="text-[11px] font-semibold px-2 py-0.5">
               SSOT Ativa
             </Badge>
+            {isReadOnly && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Modo Consulta
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Controle de saldo, caixas físicas, entradas, saídas e transferências com rastreabilidade total.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button
-            onClick={() => setIsItemFormOpen(true)}
-            size="sm"
-            className="w-full sm:w-auto gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white h-10 sm:h-9 text-xs font-semibold justify-center"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Cadastrar Novo Item</span>
-          </Button>
-        </div>
+        {!isReadOnly && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => setIsItemFormOpen(true)}
+              size="sm"
+              className="w-full sm:w-auto gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white h-10 sm:h-9 text-xs font-semibold justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Cadastrar Novo Item</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards Rápidos */}
@@ -368,8 +380,8 @@ export default function EstoquePage() {
                             </Link>
                           </Button>
 
-                          {/* Botão Saída */}
-                          {item.itemType === "ASSET_EQUIPMENT" ? (
+                          {/* Botões de Mutação de Estoque (Apenas para Operador, Gestor e Admin) */}
+                          {!isReadOnly && item.itemType === "ASSET_EQUIPMENT" && (
                             <Tooltip
                               content="Equipamento de patrimônio — saída registrada via Empréstimo ou vinculação em Sala"
                               side="top"
@@ -384,7 +396,9 @@ export default function EstoquePage() {
                                 <span>Saída</span>
                               </Button>
                             </Tooltip>
-                          ) : (
+                          )}
+
+                          {!isReadOnly && item.itemType !== "ASSET_EQUIPMENT" && (
                             <Tooltip
                               content={
                                 !firstBox || firstBoxQty <= 0
@@ -420,7 +434,7 @@ export default function EstoquePage() {
                           )}
 
                           {/* Botão Entrada */}
-                          {allBoxes.length > 0 && (
+                          {!isReadOnly && allBoxes.length > 0 && (
                             <Button
                               size="sm"
                               variant="ghost"

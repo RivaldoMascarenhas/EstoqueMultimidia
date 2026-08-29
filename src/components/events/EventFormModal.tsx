@@ -24,6 +24,7 @@ import {
   Sliders,
   Building,
   Check,
+  Activity,
 } from "lucide-react";
 import { normalizeImageUrl } from "@/lib/formatImageUrl";
 import { toast } from "sonner";
@@ -294,23 +295,23 @@ export function EventFormModal({
               </div>
 
               {/* Data, Horário e Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-4">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span>Data</span>
                   </label>
                   <input
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
+                    className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-4">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span>Horário</span>
                   </label>
                   <input
@@ -318,16 +319,19 @@ export function EventFormModal({
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     placeholder="Ex: 19:00"
-                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
+                    className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">Status do Evento</label>
+                  <label className="text-xs font-bold text-foreground flex items-center gap-1.5 h-4">
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span>Status do Evento</span>
+                  </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"
+                    className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none truncate cursor-pointer"
                   >
                     <option value="PUBLISHED">Agendado (Inscrições Abertas)</option>
                     <option value="OPEN">Aberto (Check-in & Sorteios Ao Vivo)</option>

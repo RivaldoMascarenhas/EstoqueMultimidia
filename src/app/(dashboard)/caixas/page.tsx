@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
   Package, 
   Search, 
@@ -22,6 +23,10 @@ import { BoxFormModal } from "@/components/cabinet/box-form-modal";
 import { toast } from "sonner";
 
 export default function CaixasIndexPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [doors, setDoors] = useState<any[]>([]);
   const [boxes, setBoxes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,6 +112,11 @@ export default function CaixasIndexPage() {
             <Badge variant="normal" className="text-xs">
               {boxes.length} Caixas Ativas
             </Badge>
+            {isReadOnly && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Modo Consulta
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             Listagem de todas as caixas numeradas do armário com acesso direto e geração de QR Code.
@@ -123,15 +133,17 @@ export default function CaixasIndexPage() {
             <span>Escanear QR Code</span>
           </Button>
 
-          <Button
-            onClick={() => setIsBoxModalOpen(true)}
-            size="sm"
-            variant="emerald"
-            className="gap-1.5 rounded-xl"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nova Caixa</span>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              onClick={() => setIsBoxModalOpen(true)}
+              size="sm"
+              variant="emerald"
+              className="gap-1.5 rounded-xl"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nova Caixa</span>
+            </Button>
+          )}
 
           <Button
             onClick={() => {

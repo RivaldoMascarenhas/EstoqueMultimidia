@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { 
   Wrench, 
   Plus, 
@@ -38,6 +39,10 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function ManutencaoPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [maintenances, setMaintenances] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({
     activeCount: 0,
@@ -196,6 +201,11 @@ export default function ManutencaoPage() {
             <Badge variant="maintenance" className="text-[11px] font-semibold px-2 py-0.5">
               {metrics.activeCount} Em Aberto
             </Badge>
+            {isReadOnly && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Modo Consulta
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Controle de chamados de bancada interna, assistências externas, laudos e reintegração física ao armário.
@@ -203,14 +213,16 @@ export default function ManutencaoPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button
-            size="sm"
-            onClick={() => setIsFormOpen(true)}
-            className="flex-1 sm:flex-none gap-1.5 rounded-xl text-xs h-10 sm:h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md shadow-blue-500/20 justify-center cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Abrir Chamado / OS</span>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              size="sm"
+              onClick={() => setIsFormOpen(true)}
+              className="flex-1 sm:flex-none gap-1.5 rounded-xl text-xs h-10 sm:h-9 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md shadow-blue-500/20 justify-center cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Abrir Chamado / OS</span>
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -613,7 +625,7 @@ export default function ManutencaoPage() {
                       <TableCell className="py-4 px-4 align-middle text-center w-[230px]">
                         <div className="flex items-center justify-center gap-1.5">
                           
-                          {/* Imprimir OS */}
+                          {/* Imprimir OS / Ver Laudo */}
                           <Button
                             variant="outline"
                             size="sm"
@@ -621,28 +633,31 @@ export default function ManutencaoPage() {
                               setSelectedMaintenance(m);
                               setIsOsOpen(true);
                             }}
-                            className="h-8 w-8 p-0 rounded-lg text-muted-foreground hover:text-foreground shadow-xs"
-                            title="Imprimir Ordem de Serviço"
+                            className="h-8 px-2.5 rounded-lg text-xs gap-1 text-muted-foreground hover:text-foreground shadow-xs"
+                            title="Visualizar ou Imprimir Ordem de Serviço"
                           >
                             <Printer className="w-3.5 h-3.5" />
+                            <span>OS</span>
                           </Button>
 
-                          {/* WhatsApp */}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedMaintenance(m);
-                              setIsWhatsAppOpen(true);
-                            }}
-                            className="h-8 w-8 p-0 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 shadow-xs"
-                            title="Enviar WhatsApp"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </Button>
+                          {/* WhatsApp (Apenas para operadores) */}
+                          {!isReadOnly && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedMaintenance(m);
+                                setIsWhatsAppOpen(true);
+                              }}
+                              className="h-8 w-8 p-0 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 shadow-xs"
+                              title="Enviar WhatsApp"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
 
                           {/* Editar / Atualizar */}
-                          {m.isActive && (
+                          {!isReadOnly && m.isActive && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -658,7 +673,7 @@ export default function ManutencaoPage() {
                           )}
 
                           {/* Concluir / Laudo */}
-                          {m.isActive && (
+                          {!isReadOnly && m.isActive && (
                             <Button
                               size="sm"
                               onClick={() => {
@@ -674,7 +689,7 @@ export default function ManutencaoPage() {
                           )}
 
                           {/* Cancelar */}
-                          {m.isActive && (
+                          {!isReadOnly && m.isActive && (
                             <Button
                               variant="ghost"
                               size="sm"

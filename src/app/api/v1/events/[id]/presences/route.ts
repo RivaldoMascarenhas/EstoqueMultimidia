@@ -15,6 +15,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -34,8 +35,9 @@ export async function GET(
       ...result,
     });
   } catch (err: any) {
+    console.error("Erro ao listar presenças recentes:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao listar presenças recentes." },
+      { success: false, error: "Erro ao listar presenças recentes." },
       { status: 500 }
     );
   }
@@ -49,6 +51,7 @@ export async function POST(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -77,8 +80,9 @@ export async function POST(
 
     return NextResponse.json(result);
   } catch (err: any) {
+    console.error("Erro ao registrar presença manual:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao registrar presença manual." },
+      { success: false, error: "Erro ao registrar presença manual." },
       { status: 400 }
     );
   }

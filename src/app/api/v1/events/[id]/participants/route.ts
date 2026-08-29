@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/api-guard";
 import { EventService } from "@/services/event.service";
 import { addParticipantSchema } from "@/schemas/event.schema";
 import { Role } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { canDeleteParticipant } from "@/lib/event-permissions";
 
 export async function GET(
   req: NextRequest,
@@ -13,6 +15,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -47,8 +50,9 @@ export async function GET(
 
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
+    console.error("Erro ao listar participantes:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao listar participantes." },
+      { success: false, error: "Erro ao listar participantes." },
       { status: 500 }
     );
   }
@@ -62,6 +66,7 @@ export async function POST(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -92,6 +97,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, participant }, { status: 201 });
   } catch (err: any) {
+    console.error("Erro ao adicionar participante:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao adicionar participante." },
       { status: 400 }
@@ -107,6 +113,7 @@ export async function DELETE(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -127,9 +134,47 @@ export async function DELETE(
       );
     }
 
+    // 1. Consultar participante e presenças no banco de dados
+    const participant = await prisma.eventParticipant.findUnique({
+      where: {
+        eventId_personId: { eventId, personId },
+      },
+      include: {
+        person: {
+          include: {
+            presences: {
+              where: { eventId },
+            },
+          },
+        },
+      },
+    });
+
+    if (!participant) {
+      return NextResponse.json(
+        { success: false, error: "Inscrição do participante não encontrada." },
+        { status: 404 }
+      );
+    }
+
+    const hasPresence = participant.person.presences.length > 0;
+
+    // 2. Aplicar regra de estado e RBAC
+    const userRole = (session?.user?.role || Role.OPERADOR) as Role;
+    if (!canDeleteParticipant(userRole, { hasPresence })) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Este participante já possui presença confirmada e não pode ser removido.",
+        },
+        { status: 403 }
+      );
+    }
+
     await EventService.removeParticipant(eventId, personId, session?.user?.id);
-    return NextResponse.json({ success: true, message: "Participante removido do evento." });
+    return NextResponse.json({ success: true, message: "Participante removido do evento com sucesso." });
   } catch (err: any) {
+    console.error("Erro ao remover participante:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao remover participante." },
       { status: 400 }

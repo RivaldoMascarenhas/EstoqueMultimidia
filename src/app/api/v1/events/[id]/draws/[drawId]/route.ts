@@ -13,9 +13,13 @@ export async function DELETE(
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
-    Role.OPERADOR,
   ]);
-  if (error) return error;
+  if (error) {
+    return NextResponse.json(
+      { success: false, error: "Apenas administradores e gestores podem anular ou invalidar sorteios realizados." },
+      { status: 403 }
+    );
+  }
 
   try {
     let reason = "Ausente no momento do sorteio";

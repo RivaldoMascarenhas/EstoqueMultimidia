@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR, Role.CONSULTA]);
     if (error) return error;
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || undefined;

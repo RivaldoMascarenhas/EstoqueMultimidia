@@ -112,88 +112,136 @@ export function Sidebar({
     }
   }, [pathname]);
 
-  const navSections: NavSection[] = [
-    {
-      title: "PRINCIPAL",
-      items: [
+  const isEventosRole = userRole === "EVENTOS";
+
+  const navSections: NavSection[] = isEventosRole
+    ? [
         {
-          title: "Dashboard",
-          href: "/dashboard",
-          icon: LayoutDashboard,
+          title: "MÓDULO DE EVENTOS",
+          items: [
+            {
+              title: "Dashboard",
+              href: "/dashboard",
+              icon: LayoutDashboard,
+            },
+            {
+              title: "Meus Eventos",
+              href: "/eventos",
+              icon: Sparkles,
+              badge: "Hub",
+            },
+            {
+              title: "Presenças & Check-in",
+              href: "/presenca",
+              icon: ScanFace,
+            },
+            {
+              title: "Sorteios",
+              href: "/sorteios",
+              icon: Trophy,
+            },
+            {
+              title: "Pessoas & Participantes",
+              href: "/biometria/pessoas",
+              icon: Users,
+            },
+            {
+              title: "Relatórios de Eventos",
+              href: "/relatorios",
+              icon: BarChart3,
+            },
+            {
+              title: "Privacidade & LGPD",
+              href: "/privacidade",
+              icon: ShieldCheck,
+            },
+          ],
         },
+      ]
+    : [
         {
-          title: "Scanner Operacional",
-          href: "/scanner",
-          icon: Camera,
-          badge: "QR",
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-        },
-        {
-          title: "Agenda Operacional",
-          href: "/agenda",
-          icon: CalendarDays,
-          badge: "Turnos",
-        },
-        {
-          title: "Salas & Infra",
-          href: "/salas",
-          icon: School,
-        },
-      ],
-    },
-    {
-      title: "OPERAÇÃO",
-      items: [
-        {
-          title: "Estoque",
-          icon: Package,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-          subItems: [
-            { title: "Catálogo de Itens", href: "/estoque" },
-            { title: "Armário Físico", href: "/armario" },
-            { title: "Caixas & QR Code", href: "/caixas" },
-            { title: "Movimentações", href: "/movimentacoes" },
+          title: "PRINCIPAL",
+          items: [
+            {
+              title: "Dashboard",
+              href: "/dashboard",
+              icon: LayoutDashboard,
+            },
+            {
+              title: "Scanner Operacional",
+              href: "/scanner",
+              icon: Camera,
+              badge: "QR",
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"],
+            },
+            {
+              title: "Agenda Operacional",
+              href: "/agenda",
+              icon: CalendarDays,
+              badge: "Turnos",
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "ACADEMIC_SUPPORT", "CONSULTA"],
+            },
+            {
+              title: "Salas & Infra",
+              href: "/salas",
+              icon: School,
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "ACADEMIC_SUPPORT", "CONSULTA"],
+            },
           ],
         },
         {
-          title: "Patrimônio",
-          icon: Monitor,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-          subItems: [
-            { title: "Equipamentos", href: "/patrimonio" },
-            { title: "Empréstimos", href: "/emprestimos" },
-            { title: "Manutenções (OS)", href: "/manutencao" },
+          title: "OPERAÇÃO",
+          items: [
+            {
+              title: "Estoque",
+              icon: Package,
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"],
+              subItems: [
+                { title: "Catálogo de Itens", href: "/estoque" },
+                { title: "Armário Físico", href: "/armario" },
+                { title: "Caixas & QR Code", href: "/caixas" },
+                { title: "Movimentações", href: "/movimentacoes" },
+              ],
+            },
+            {
+              title: "Patrimônio",
+              icon: Monitor,
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"],
+              subItems: [
+                { title: "Equipamentos", href: "/patrimonio" },
+                { title: "Empréstimos", href: "/emprestimos" },
+                { title: "Manutenções (OS)", href: "/manutencao" },
+              ],
+            },
+            {
+              title: "Eventos & Biometria",
+              icon: ScanFace,
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"],
+              subItems: [
+                { title: "Hub de Eventos", href: "/eventos" },
+                { title: "Pessoas & Biometria", href: "/biometria/pessoas" },
+                { title: "Laboratório Facial", href: "/biometria/testar", roles: ["ADMIN", "GESTOR"] },
+              ],
+            },
           ],
         },
         {
-          title: "Eventos & Biometria",
-          icon: ScanFace,
-          roles: ["ADMIN", "GESTOR", "OPERADOR"],
-          subItems: [
-            { title: "Hub de Eventos", href: "/eventos" },
-            { title: "Pessoas & Biometria", href: "/biometria/pessoas" },
-            { title: "Laboratório Facial", href: "/biometria/testar", roles: ["ADMIN", "GESTOR"] },
+          title: "GESTÃO & SISTEMA",
+          items: [
+            {
+              title: "Administração",
+              icon: SlidersHorizontal,
+              roles: ["ADMIN", "GESTOR", "CONSULTA"],
+              subItems: [
+                { title: "Relatórios & KPIs", href: "/relatorios" },
+                { title: "Gestão de Usuários", href: "/usuarios", roles: ["ADMIN"] },
+                { title: "Configurações", href: "/configuracoes", roles: ["ADMIN"] },
+                { title: "Privacidade & LGPD", href: "/privacidade" },
+              ],
+            },
           ],
         },
-      ],
-    },
-    {
-      title: "GESTÃO & SISTEMA",
-      items: [
-        {
-          title: "Administração",
-          icon: SlidersHorizontal,
-          roles: ["ADMIN", "GESTOR"],
-          subItems: [
-            { title: "Relatórios & KPIs", href: "/relatorios" },
-            { title: "Gestão de Usuários", href: "/usuarios", roles: ["ADMIN"] },
-            { title: "Configurações", href: "/configuracoes", roles: ["ADMIN"] },
-            { title: "Privacidade & LGPD", href: "/privacidade" },
-          ],
-        },
-      ],
-    },
-  ];
+      ];
 
   const renderSidebarContent = (isMobileView: boolean) => {
     const collapsed = isMobileView ? false : isCollapsed;

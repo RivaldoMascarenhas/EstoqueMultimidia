@@ -84,6 +84,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
       case "ADMIN": return "admin";
       case "GESTOR": return "gestor";
       case "OPERADOR": return "operador";
+      case "EVENTOS": return "eventos";
       case "ACADEMIC_SUPPORT": return "academic";
       default: return "consulta";
     }
@@ -122,10 +123,16 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
         {/* Global Quick Search Button */}
         <button
           onClick={onOpenSearch}
-          className="hidden sm:flex items-center gap-2 rounded-xl border border-input bg-card/60 px-3 py-1.5 text-xs text-muted-foreground shadow-sm hover:border-border hover:bg-card/90 transition-all"
+          className="hidden sm:flex items-center gap-2 rounded-xl border border-input bg-card/60 px-3 py-1.5 text-xs text-muted-foreground shadow-sm hover:border-border hover:bg-card/90 transition-all cursor-pointer"
         >
           <Search className="h-3.5 w-3.5 text-primary" />
-          <span>Buscar itens, patrimônio, caixas...</span>
+          <span>
+            {userRole === "EVENTOS"
+              ? "Buscar eventos, participantes, biometria..."
+              : userRole === "ACADEMIC_SUPPORT"
+              ? "Buscar recursos para agendamento..."
+              : "Buscar itens, patrimônio, caixas..."}
+          </span>
           <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
             <span className="text-xs">⌘</span>K
           </kbd>
@@ -282,7 +289,7 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
                   {userName}
                 </span>
                 <span className="text-[10px] text-muted-foreground mt-0.5 capitalize">
-                  {userRole === "ACADEMIC_SUPPORT" ? "Apoio Acadêmico" : userRole.toLowerCase()}
+                  {userRole === "ACADEMIC_SUPPORT" ? "Acadêmico" : userRole.toLowerCase()}
                 </span>
               </div>
             </button>
@@ -294,8 +301,8 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
                   <p className="text-xs font-semibold text-foreground leading-none">
                     {userName}
                   </p>
-                  <Badge variant={getRoleVariant(userRole)} className="text-[10px] px-1.5 py-0">
-                    {userRole === "ACADEMIC_SUPPORT" ? "APOIO ACADÊMICO" : userRole}
+                  <Badge variant={getRoleVariant(userRole)} className="text-[10px] px-1.5 py-0 font-bold">
+                    {userRole === "ACADEMIC_SUPPORT" ? "ACADÊMICO" : userRole}
                   </Badge>
                 </div>
                 <p className="text-[11px] leading-none text-muted-foreground truncate">

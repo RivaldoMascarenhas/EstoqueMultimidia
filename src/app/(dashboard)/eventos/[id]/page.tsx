@@ -52,6 +52,9 @@ import { toast } from "sonner";
 
 export default function EventHubPage() {
   const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const params = useParams();
   const router = useRouter();
   const eventId = (Array.isArray(params?.id) ? params.id[0] : params?.id) as string;
@@ -296,8 +299,13 @@ export default function EventHubPage() {
 
   // Handle Delete Prize with Custom Modal & RBAC check
   const handleDeletePrize = (prize: any) => {
-    if (prize.status !== "AVAILABLE" && session?.user?.role !== "ADMIN") {
-      toast.error("Apenas administradores podem excluir prêmios que já foram sorteados.");
+    if (prize.status !== "AVAILABLE" && session?.user?.role === "EVENTOS") {
+      toast.error("Este prêmio já foi sorteado e não pode ser excluído.");
+      return;
+    }
+
+    if (prize.status !== "AVAILABLE" && session?.user?.role !== "ADMIN" && session?.user?.role !== "GESTOR") {
+      toast.error("Apenas administradores e gestores podem excluir prêmios que já foram sorteados.");
       return;
     }
 
@@ -329,6 +337,11 @@ export default function EventHubPage() {
 
   // Handle Cancel/Invalidate Draw with Custom Modal
   const handleCancelDrawFromTable = (winner: any) => {
+    if (session?.user?.role === "EVENTOS" || session?.user?.role === "OPERADOR") {
+      toast.error("Apenas administradores e gestores podem anular ou invalidar sorteios já realizados.");
+      return;
+    }
+
     const drawId = winner.drawId || winner.draw?.id;
     if (!drawId) {
       toast.error("ID do sorteio não identificado.");
@@ -371,10 +384,15 @@ export default function EventHubPage() {
 
   // Handle Remove Participant with Custom Modal
   const handleRemoveParticipant = (participant: any) => {
+    if (participant.hasPresence && session?.user?.role === "EVENTOS") {
+      toast.error("Este participante não pode ser removido porque já possui presença confirmada.");
+      return;
+    }
+
     setConfirmModalState({
       isOpen: true,
       title: "Remover Participante do Evento",
-      description: `Tem certeza que deseja remover "${participant.name}" deste evento? A inscrição será cancelada e qualquer presença ou bilhete #${participant.ticketNumber} associado será removido.`,
+      description: `Tem certeza que deseja remover "${participant.name}" deste evento? A inscrição será cancelada e qualquer bilhete #${participant.ticketNumber} associado será removido.`,
       itemName: `👤 ${participant.name} • Bilhete #${participant.ticketNumber} (${participant.registration || "Sem Matrícula"})`,
       confirmText: "Remover Participante",
       variant: "danger",
@@ -385,7 +403,7 @@ export default function EventHubPage() {
           });
           const data = await res.json();
           if (!res.ok || !data.success) {
-            throw new Error(data.error || "Erro ao remover participante.");
+            throw new Error(data.error || "Este participante já possui presença confirmada e não pode ser removido.");
           }
           toast.success(`Participante "${participant.name}" removido do evento.`);
           fetchParticipants();
@@ -432,9 +450,13 @@ export default function EventHubPage() {
           <div className="flex items-start gap-4">
             {/* Event Logo Thumbnail */}
             <div
-              onClick={() => setIsEventEditModalOpen(true)}
-              className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-border bg-card p-2 shrink-0 flex items-center justify-center cursor-pointer shadow-xs hover:border-primary/60 transition group relative overflow-hidden"
-              title="Clique para alterar a logo do evento"
+              onClick={() => {
+                if (!isReadOnly) setIsEventEditModalOpen(true);
+              }}
+              className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-border bg-card p-2 shrink-0 flex items-center justify-center shadow-xs transition group relative overflow-hidden ${
+                !isReadOnly ? "cursor-pointer hover:border-primary/60" : ""
+              }`}
+              title={!isReadOnly ? "Clique para alterar a logo do evento" : undefined}
             >
               {event.logoUrl ? (
                 <img
@@ -494,6 +516,12 @@ export default function EventHubPage() {
                   </span>
                 )}
 
+                {isReadOnly && (
+                  <span className="inline-flex items-center rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                    Modo Consulta
+                  </span>
+                )}
+
                 {event.date && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
                     <Calendar className="h-3.5 w-3.5" />
@@ -547,42 +575,50 @@ export default function EventHubPage() {
               </>
             )}
 
-            <Link
-              href={`/eventos/${event.id}/sorteio`}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-md transition-all"
-            >
-              <Play className="h-4 w-4" />
-              Operar Sorteio (Projeção)
-            </Link>
+            {!isReadOnly && (
+              <Link
+                href={`/eventos/${event.id}/sorteio`}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-md transition-all"
+              >
+                <Play className="h-4 w-4" />
+                Operar Sorteio (Projeção)
+              </Link>
+            )}
 
-            <a
-              href={`/totem/${event.id}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl border border-emerald-500/30 transition-colors shadow-xs"
-              title="Abrir Totem de Presença Facial em Nova Janela para Segundo Monitor ou Kiosk"
-            >
-              <Camera className="h-4 w-4" />
-              <span>Totem Facial (2ª Tela)</span>
-              <ExternalLink className="h-3 w-3 opacity-70" />
-            </a>
+            {!isReadOnly && (
+              <a
+                href={`/totem/${event.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl border border-emerald-500/30 transition-colors shadow-xs"
+                title="Abrir Totem de Presença Facial em Nova Janela para Segundo Monitor ou Kiosk"
+              >
+                <Camera className="h-4 w-4" />
+                <span>Totem Facial (2ª Tela)</span>
+                <ExternalLink className="h-3 w-3 opacity-70" />
+              </a>
+            )}
 
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-muted/60 hover:bg-accent rounded-xl border border-border transition-colors"
-            >
-              <Upload className="h-4 w-4" />
-              Importar Lista
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => setIsImportModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-muted/60 hover:bg-accent rounded-xl border border-border transition-colors cursor-pointer"
+              >
+                <Upload className="h-4 w-4" />
+                Importar Lista
+              </button>
+            )}
 
-            <button
-              onClick={() => setIsEventEditModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-foreground bg-muted/60 hover:bg-accent rounded-xl border border-border transition-colors"
-              title="Configurações e Logo do Evento"
-            >
-              <ImageIcon className="h-4 w-4 text-[#EAA023]" />
-              <span>Editar Evento & Logo</span>
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => setIsEventEditModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-foreground bg-muted/60 hover:bg-accent rounded-xl border border-border transition-colors cursor-pointer"
+                title="Configurações e Logo do Evento"
+              >
+                <ImageIcon className="h-4 w-4 text-[#EAA023]" />
+                <span>Editar Evento & Logo</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -612,17 +648,19 @@ export default function EventHubPage() {
             Participantes ({event.stats?.participantsCount || 0})
           </button>
 
-          <button
-            onClick={() => setActiveTab("presence")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
-              activeTab === "presence"
-                ? "bg-primary text-white shadow-sm"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            }`}
-          >
-            <Camera className="h-4 w-4" />
-            Presença Facial ({event.stats?.presencesTotal || 0})
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => setActiveTab("presence")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+                activeTab === "presence"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <Camera className="h-4 w-4" />
+              Presença Facial ({event.stats?.presencesTotal || 0})
+            </button>
+          )}
 
           <button
             onClick={() => setActiveTab("prizes")}
@@ -708,39 +746,41 @@ export default function EventHubPage() {
           </div>
 
           {/* Quick Hub Navigator */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              onClick={() => setActiveTab("presence")}
-              className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-primary/50 cursor-pointer transition-all flex items-center justify-between group"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-primary font-bold text-sm">
-                  <Camera className="h-5 w-5" />
-                  Terminal de Presença Facial
+          {!isReadOnly && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div
+                onClick={() => setActiveTab("presence")}
+                className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-primary/50 cursor-pointer transition-all flex items-center justify-between group"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                    <Camera className="h-5 w-5" />
+                    Terminal de Presença Facial
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Abra a câmera MediaPipe e inicie a validação biométrica dos participantes em tempo real.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Abra a câmera MediaPipe e inicie a validação biométrica dos participantes em tempo real.
-                </p>
+                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
               </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </div>
 
-            <Link
-              href={`/eventos/${event.id}/sorteio`}
-              className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-amber-500/50 cursor-pointer transition-all flex items-center justify-between group"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-sm">
-                  <Trophy className="h-5 w-5" />
-                  Tela de Sorteio (Projeção Telão)
+              <Link
+                href={`/eventos/${event.id}/sorteio`}
+                className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-amber-500/50 cursor-pointer transition-all flex items-center justify-between group"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-sm">
+                    <Trophy className="h-5 w-5" />
+                    Tela de Sorteio (Projeção Telão)
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Modo apresentação full-screen com roleta, efeitos sonoros e confetes em tempo real.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Modo apresentação full-screen com roleta, efeitos sonoros e confetes em tempo real.
-                </p>
-              </div>
-              <ExternalLink className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
+                <ExternalLink className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
 
@@ -785,30 +825,34 @@ export default function EventHubPage() {
               <button
                 type="button"
                 onClick={() => setIsPrintAttendanceModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors shadow-xs cursor-pointer"
                 title="Visualizar ou imprimir folha oficial de presenças / PDF"
               >
                 <Printer className="h-4 w-4 text-primary" />
                 <span>Imprimir Lista / PDF</span>
               </button>
 
-              <button
-                onClick={() => setIsPersonModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors"
-                title="Cadastrar uma nova pessoa do zero"
-              >
-                <Plus className="h-4 w-4" />
-                Cadastrar Pessoa
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={() => setIsPersonModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors cursor-pointer"
+                  title="Cadastrar uma nova pessoa do zero"
+                >
+                  <Plus className="h-4 w-4" />
+                  Cadastrar Pessoa
+                </button>
+              )}
 
-              <button
-                onClick={() => setIsImportModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors"
-                title="Inscrever pessoas por Categoria, Busca na base ou Planilha"
-              >
-                <Users className="h-4 w-4" />
-                Inscrever Participantes
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
+                  title="Inscrever pessoas por Categoria, Busca na base ou Planilha"
+                >
+                  <Users className="h-4 w-4" />
+                  Inscrever Participantes
+                </button>
+              )}
             </div>
           </div>
 
@@ -874,29 +918,42 @@ export default function EventHubPage() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {!p.hasPresence ? (
-                            <button
-                              onClick={() => handleManualPresence(p.personId)}
-                              className="px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
-                              title="Confirmar presença manual"
-                            >
-                              Dar Presença
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-500/10 rounded-md">
-                              Confirmado
-                            </span>
-                          )}
+                        {isReadOnly ? (
+                          <span className="text-[10px] text-muted-foreground font-medium">Inscrito</span>
+                        ) : (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {!p.hasPresence ? (
+                              <button
+                                onClick={() => handleManualPresence(p.personId)}
+                                className="px-2.5 py-1 text-[10px] font-bold text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors cursor-pointer"
+                              >
+                                Marcar Presença
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-emerald-600 font-semibold px-2 py-0.5 bg-emerald-500/10 rounded-md">
+                                Confirmado
+                              </span>
+                            )}
 
-                          <button
-                            onClick={() => handleRemoveParticipant(p)}
-                            className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                            title="Remover participante deste evento"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                            {p.hasPresence && session?.user?.role === "EVENTOS" ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-semibold text-muted-foreground bg-muted/60 rounded-lg border border-border/60"
+                                title="Este participante não pode ser removido porque já possui presença confirmada."
+                              >
+                                <Lock className="h-3 w-3" />
+                                Presença Registrada
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleRemoveParticipant(p)}
+                                className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                                title="Remover participante deste evento"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -970,16 +1027,18 @@ export default function EventHubPage() {
             <p className="text-xs text-muted-foreground">
               Cadastre e gerencie os itens e brindes que serão sorteados neste evento.
             </p>
-            <button
-              onClick={() => {
-                setEditingPrize(null);
-                setIsPrizeModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Novo Prêmio
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => {
+                  setEditingPrize(null);
+                  setIsPrizeModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Novo Prêmio
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -987,7 +1046,11 @@ export default function EventHubPage() {
               <div className="col-span-full rounded-2xl border border-border bg-card p-12 text-center text-muted-foreground space-y-2">
                 <Gift className="h-8 w-8 mx-auto opacity-30" />
                 <p className="text-xs font-bold text-foreground">Nenhum prêmio cadastrado</p>
-                <p className="text-[11px]">Clique em "Novo Prêmio" para adicionar os brindes do evento.</p>
+                <p className="text-[11px]">
+                  {isReadOnly
+                    ? "Nenhum item de premiação disponível para este evento."
+                    : "Clique em \"Novo Prêmio\" para adicionar os brindes do evento."}
+                </p>
               </div>
             ) : (
               prizes.map((prize) => {
@@ -1050,42 +1113,44 @@ export default function EventHubPage() {
                     </div>
 
                     {/* Prize Action Buttons */}
-                    <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!canModify) {
-                            toast.error("Apenas Administradores podem alterar prêmios que já foram sorteados.");
-                            return;
-                          }
-                          setEditingPrize(prize);
-                          setIsPrizeModalOpen(true);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
-                          canModify
-                            ? "border-border bg-muted/40 hover:bg-accent text-foreground"
-                            : "border-border/50 bg-muted/20 text-muted-foreground/60 cursor-not-allowed"
-                        }`}
-                        title={!canModify ? "Apenas Administradores podem alterar prêmios sorteados" : "Editar Prêmio"}
-                      >
-                        {!canModify ? <Lock className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
-                        <span>Editar</span>
-                      </button>
+                    {!isReadOnly && (
+                      <div className="pt-3 border-t border-border flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!canModify) {
+                              toast.error("Apenas Administradores podem alterar prêmios que já foram sorteados.");
+                              return;
+                            }
+                            setEditingPrize(prize);
+                            setIsPrizeModalOpen(true);
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+                            canModify
+                              ? "border-border bg-muted/40 hover:bg-accent text-foreground"
+                              : "border-border/50 bg-muted/20 text-muted-foreground/60 cursor-not-allowed"
+                          }`}
+                          title={!canModify ? "Apenas Administradores podem alterar prêmios sorteados" : "Editar Prêmio"}
+                        >
+                          {!canModify ? <Lock className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+                          <span>Editar</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDeletePrize(prize)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
-                          canModify
-                            ? "border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400"
-                            : "border-border/50 bg-muted/20 text-muted-foreground/60 cursor-not-allowed"
-                        }`}
-                        title={!canModify ? "Apenas Administradores podem excluir prêmios sorteados" : "Excluir Prêmio"}
-                      >
-                        {!canModify ? <Lock className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
-                        <span>Excluir</span>
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePrize(prize)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+                            canModify
+                              ? "border-rose-500/20 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400"
+                              : "border-border/50 bg-muted/20 text-muted-foreground/60 cursor-not-allowed"
+                          }`}
+                          title={!canModify ? "Apenas Administradores podem excluir prêmios sorteados" : "Excluir Prêmio"}
+                        >
+                          {!canModify ? <Lock className="h-3 w-3" /> : <Trash2 className="h-3 w-3" />}
+                          <span>Excluir</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -1188,28 +1253,32 @@ export default function EventHubPage() {
                               setSelectedShareWinner(w);
                               setIsShareModalOpen(true);
                             }}
-                            className="px-2 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors flex items-center gap-1"
+                            className="px-2 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                             title="Notificar ganhador no WhatsApp"
                           >
                             <Smartphone className="w-3 h-3" />
                             <span>WhatsApp</span>
                           </button>
 
-                          <button
-                            onClick={() => handleToggleWinnerDelivered(w.id, w.delivered)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          >
-                            {w.delivered ? "Desfazer" : "Entregar"}
-                          </button>
+                          {!isReadOnly && (
+                            <>
+                              <button
+                                onClick={() => handleToggleWinnerDelivered(w.id, w.delivered)}
+                                className="px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                              >
+                                {w.delivered ? "Desfazer" : "Entregar"}
+                              </button>
 
-                          <button
-                            onClick={() => handleCancelDrawFromTable(w)}
-                            className="px-2 py-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg transition-colors flex items-center gap-1"
-                            title="Anular este sorteio e devolver o prêmio à fila de disponíveis"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>Anular</span>
-                          </button>
+                              <button
+                                onClick={() => handleCancelDrawFromTable(w)}
+                                className="px-2 py-1 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Anular este sorteio e devolver o prêmio à fila de disponíveis"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Anular</span>
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

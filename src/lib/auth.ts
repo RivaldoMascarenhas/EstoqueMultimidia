@@ -88,8 +88,9 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Informe o e-mail e a senha");
         }
 
-        const inputEmail = credentials.email.toLowerCase().trim();
-        const username = inputEmail.split("@")[0];
+        let rawInput = credentials.email.toLowerCase().trim();
+        let inputEmail = rawInput.includes("@") ? rawInput : `${rawInput}@fapce.edu.br`;
+        const username = rawInput.split("@")[0];
         const clientIp = getClientIp(req);
 
         const accountKey = `acc:${inputEmail}`;
@@ -121,13 +122,13 @@ export const authOptions: NextAuthOptions = {
           where: { email: inputEmail },
         });
 
-        // 2. Se não encontrar, tentar busca por prefixo (ex: rivaldo ou rivaldo.mascarenhas)
+        // 2. Se não encontrar, tentar busca por prefixo (ex: rivaldo ou rivaldo.mascarenhas em qualquer domínio cadastrado)
         if (!user) {
           user = await prisma.user.findFirst({
             where: {
               OR: [
-                { email: { startsWith: username + "@" } },
-                { email: { startsWith: username + "." } },
+                { email: { startsWith: username + "@", mode: "insensitive" } },
+                { email: { equals: rawInput, mode: "insensitive" } },
               ],
             },
           });

@@ -45,6 +45,8 @@ const badgeVariants = cva(
           "border-slate-500/40 bg-slate-500/20 text-slate-700 dark:text-slate-300",
         academic:
           "border-amber-500/40 bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold",
+        eventos:
+          "border-purple-500/40 bg-purple-500/20 text-purple-700 dark:text-purple-300 font-bold",
       },
     },
     defaultVariants: {
@@ -74,7 +76,7 @@ function Badge({ className, variant, dot = false, children, ...props }: BadgePro
               ? "bg-rose-500"
               : variant === "loaned" || variant === "gestor"
               ? "bg-blue-500"
-              : variant === "maintenance"
+              : variant === "maintenance" || variant === "eventos"
               ? "bg-purple-500"
               : "bg-primary"
           )}

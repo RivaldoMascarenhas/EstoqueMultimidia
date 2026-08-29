@@ -100,7 +100,8 @@ describe("Public Tokenized Events API & Security Hardening", () => {
 
     expect(res.status).toBe(200);
     expect(json.items).toHaveLength(1);
-    expect(json.items[0].name).toBe("Rivaldo Mascarenhas");
+    expect(json.items[0].name).toBe("Rivaldo M.");
+    expect(json.items[0].fullNameMasked).toBe(true);
     expect(json.items[0].cpf).toBeUndefined();
     expect(json.items[0].registration).toBeUndefined();
   });

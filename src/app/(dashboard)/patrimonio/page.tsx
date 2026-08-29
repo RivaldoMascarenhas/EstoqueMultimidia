@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
   Monitor, 
   Plus, 
@@ -25,6 +26,10 @@ import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function PatrimonioPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [assets, setAssets] = useState<any[]>([]);
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -130,6 +135,11 @@ export default function PatrimonioPage() {
             <Badge variant="normal" className="text-[11px] font-semibold px-2 py-0.5">
               {metrics.total} Ativos
             </Badge>
+            {isReadOnly && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Modo Consulta
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Controle unitário com tombamento, número de série, localização no armário e histórico individual.
@@ -137,14 +147,16 @@ export default function PatrimonioPage() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button
-            onClick={() => setIsFormOpen(true)}
-            size="sm"
-            className="flex-1 sm:flex-none gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white h-10 sm:h-9 text-xs font-semibold justify-center"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Equipamento</span>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              onClick={() => setIsFormOpen(true)}
+              size="sm"
+              className="flex-1 sm:flex-none gap-1.5 rounded-xl shadow-md shadow-primary/20 bg-gradient-to-r from-primary-600 to-indigo-600 text-white h-10 sm:h-9 text-xs font-semibold justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Equipamento</span>
+            </Button>
+          )}
 
           <Button
             onClick={() => {
@@ -431,7 +443,7 @@ export default function PatrimonioPage() {
                       <TableCell className="text-center w-[180px]">
                         <div className="flex items-center justify-center gap-1.5">
                           {/* Botão Emprestar Rápido quando Disponível e não em aula agora */}
-                          {asset.status === "AVAILABLE" && !isCurrentlyInClass && (
+                          {!isReadOnly && asset.status === "AVAILABLE" && !isCurrentlyInClass && (
                             <Link href={`/emprestimos?assetId=${asset.id}`}>
                               <Button
                                 size="sm"
@@ -467,7 +479,7 @@ export default function PatrimonioPage() {
                                 size="sm"
                                 variant="outline"
                                 className="h-8 px-2 text-xs rounded-xl gap-1 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
-                                title="Ver ou finalizar empréstimo"
+                                title="Ver histórico ou detalhes do empréstimo"
                               >
                                 <Handshake className="w-3.5 h-3.5" />
                                 <span>Ver Empréstimo</span>
@@ -476,24 +488,26 @@ export default function PatrimonioPage() {
                           )}
 
                           {/* Botão Alterar Status */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              setSelectedAssetForStatus({
-                                id: asset.id,
-                                assetTag: asset.assetTag,
-                                itemName: asset.item.name,
-                                currentStatus: asset.status,
-                                currentBoxId: asset.currentBoxId,
-                              })
-                            }
-                            className="h-8 px-2 text-xs rounded-xl gap-1"
-                            title="Alterar status ou localização"
-                          >
-                            <Wrench className="w-3.5 h-3.5 text-amber-500" />
-                            <span>Status</span>
-                          </Button>
+                          {!isReadOnly && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setSelectedAssetForStatus({
+                                  id: asset.id,
+                                  assetTag: asset.assetTag,
+                                  itemName: asset.item.name,
+                                  currentStatus: asset.status,
+                                  currentBoxId: asset.currentBoxId,
+                                })
+                              }
+                              className="h-8 px-2 text-xs rounded-xl gap-1"
+                              title="Alterar status ou localização"
+                            >
+                              <Wrench className="w-3.5 h-3.5 text-amber-500" />
+                              <span>Status</span>
+                            </Button>
+                          )}
 
                           {/* Botão Detalhes */}
                           <Link href={`/patrimonio/${asset.id}`}>

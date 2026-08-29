@@ -234,7 +234,11 @@ export default function UsuariosPage() {
                   <TableCell className="text-xs">
                     {user.role === "ACADEMIC_SUPPORT" ? (
                       <Badge variant="academic" className="text-[10px] font-bold">
-                        APOIO ACADÊMICO
+                        ACADÊMICO
+                      </Badge>
+                    ) : user.role === "EVENTOS" ? (
+                      <Badge variant="eventos" className="text-[10px] font-bold">
+                        EVENTOS
                       </Badge>
                     ) : user.role === "ADMIN" ? (
                       <Badge variant="admin" className="text-[10px] font-bold">
@@ -344,7 +348,7 @@ export default function UsuariosPage() {
         </CardHeader>
 
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
             
             {/* ADMIN */}
             <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/5 space-y-2">
@@ -391,10 +395,26 @@ export default function UsuariosPage() {
               </ul>
             </div>
 
+            {/* EVENTOS */}
+            <div className="p-4 rounded-2xl border border-purple-500/30 bg-purple-500/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="eventos" className="font-bold text-[10px]">EVENTOS</Badge>
+                <span className="text-[10px] text-muted-foreground font-mono">Nível 1.8</span>
+              </div>
+              <h4 className="text-xs font-bold text-foreground">Operador de Eventos</h4>
+              <ul className="text-[11px] text-muted-foreground space-y-1">
+                <li>✓ Gestão de eventos e participantes</li>
+                <li>✓ Presença facial e check-in manual</li>
+                <li>✓ Cadastro de prêmios e sorteios</li>
+                <li>✓ Operação de telão e relatórios</li>
+                <li>✗ Bloqueado para estoque e TI</li>
+              </ul>
+            </div>
+
             {/* ACADEMIC_SUPPORT */}
             <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-2">
               <div className="flex items-center justify-between">
-                <Badge variant="academic" className="font-bold text-[10px]">APOIO ACADÊMICO</Badge>
+                <Badge variant="academic" className="font-bold text-[10px]">ACADÊMICO</Badge>
                 <span className="text-[10px] text-muted-foreground font-mono">Nível 1.5</span>
               </div>
               <h4 className="text-xs font-bold text-foreground">Apoio Acadêmico / Secretaria</h4>

@@ -13,6 +13,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -26,8 +27,9 @@ export async function GET(
     const draws = await DrawService.listEventDraws(eventId);
     return NextResponse.json({ success: true, draws });
   } catch (err: any) {
+    console.error("Erro ao listar sorteios:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao listar sorteios." },
+      { success: false, error: "Erro ao listar sorteios." },
       { status: 500 }
     );
   }
@@ -41,6 +43,7 @@ export async function POST(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -73,6 +76,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, result }, { status: 201 });
   } catch (err: any) {
+    console.error("Erro ao executar sorteio:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao executar sorteio." },
       { status: 400 }

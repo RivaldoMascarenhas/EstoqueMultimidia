@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { AcademicSupportDashboard } from "@/components/dashboard/academic-support-dashboard";
+import { EventsDedicatedDashboard } from "@/components/dashboard/events-dedicated-dashboard";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -68,7 +69,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (userRole !== "ACADEMIC_SUPPORT") {
+    if (userRole !== "ACADEMIC_SUPPORT" && userRole !== "EVENTOS") {
       fetchDashboardData();
     }
   }, [userRole]);
@@ -76,6 +77,11 @@ export default function DashboardPage() {
   // Se o perfil for Apoio Acadêmico, renderiza o painel focado e simplificado para o solicitante
   if (userRole === "ACADEMIC_SUPPORT") {
     return <AcademicSupportDashboard userName={userName} userRole={userRole} />;
+  }
+
+  // Se o perfil for Eventos, renderiza o painel focado na operação de eventos e sorteios
+  if (userRole === "EVENTOS") {
+    return <EventsDedicatedDashboard userName={userName} userRole={userRole} />;
   }
 
   const getRoleVariant = (role: string) => {
@@ -106,14 +112,21 @@ export default function DashboardPage() {
               Painel Operacional • TI UniFAP
             </span>
             <Badge variant={getRoleVariant(userRole)} className="text-xs font-semibold px-2">
-              {userRole}
+              {userRole === "CONSULTA" ? "CONSULTA / AUDITORIA" : userRole}
             </Badge>
+            {userRole === "CONSULTA" && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Somente Leitura
+              </Badge>
+            )}
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
             Olá, {userName.split(" ")[0]}!
           </h1>
           <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
-            Visão unificada em tempo real do armário físico, materiais de estoque, patrimônios, empréstimos e chamados técnicos.
+            {userRole === "CONSULTA"
+              ? "Painel de consulta e auditoria em tempo real do armário físico, materiais, patrimônios, empréstimos e chamados técnicos."
+              : "Visão unificada em tempo real do armário físico, materiais de estoque, patrimônios, empréstimos e chamados técnicos."}
           </p>
         </div>
 
@@ -162,7 +175,7 @@ export default function DashboardPage() {
           >
             <Link href="/manutencao">
               <Wrench className="w-4 h-4 text-amber-500 shrink-0" />
-              <span className="truncate">Abrir OS</span>
+              <span className="truncate">{userRole === "CONSULTA" ? "Manutenções" : "Abrir OS"}</span>
             </Link>
           </Button>
 
@@ -229,7 +242,13 @@ export default function DashboardPage() {
                 }`}
               >
                 <Link href="/emprestimos">
-                  <span>{loans.overdueCount > 0 ? "Resolver Devoluções" : "Ver Empréstimos"}</span>
+                  <span>
+                    {userRole === "CONSULTA"
+                      ? "Consultar Empréstimos"
+                      : loans.overdueCount > 0
+                      ? "Resolver Devoluções"
+                      : "Ver Empréstimos"}
+                  </span>
                   <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Link>
               </Button>
@@ -268,7 +287,13 @@ export default function DashboardPage() {
                 }`}
               >
                 <Link href="/estoque">
-                  <span>{stock.criticalCount > 0 ? "Repor Estoque" : "Ver Catálogo"}</span>
+                  <span>
+                    {userRole === "CONSULTA"
+                      ? "Consultar Catálogo"
+                      : stock.criticalCount > 0
+                      ? "Repor Estoque"
+                      : "Ver Catálogo"}
+                  </span>
                   <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </Link>
               </Button>
@@ -905,20 +930,22 @@ export default function DashboardPage() {
                           {/* Ação */}
                           <TableCell className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleOpenWhatsAppModal(loan)}
-                                className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg gap-1"
-                                title="Notificar / Cobrar no WhatsApp"
-                              >
-                                <MessageSquare className="w-3.5 h-3.5" />
-                                <span className="hidden xl:inline">WhatsApp</span>
-                              </Button>
+                              {userRole !== "CONSULTA" && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenWhatsAppModal(loan)}
+                                  className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg gap-1"
+                                  title="Notificar / Cobrar no WhatsApp"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                  <span className="hidden xl:inline">WhatsApp</span>
+                                </Button>
+                              )}
                               <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-primary hover:bg-primary/10 rounded-lg">
                                 <Link href="/emprestimos">
-                                  <span>Devolver</span>
+                                  <span>{userRole === "CONSULTA" ? "Ver Detalhes" : "Devolver"}</span>
                                 </Link>
                               </Button>
                             </div>

@@ -66,7 +66,7 @@ export default function PresencaIndexPage() {
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-border/80 flex items-center justify-between">
+              <div className="pt-3 border-t border-border/80 flex flex-wrap items-center justify-between gap-2">
                 <Link
                   href={`/eventos/${ev.id}`}
                   className="text-xs font-semibold text-muted-foreground hover:text-foreground"
@@ -74,13 +74,27 @@ export default function PresencaIndexPage() {
                   Ver Detalhes
                 </Link>
 
-                <Link
-                  href={`/eventos/${ev.id}?tab=presence`}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary/90 shadow-md transition-all"
-                >
-                  <Camera className="h-3.5 w-3.5" />
-                  Abrir Terminal
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/eventos/${ev.id}?tab=presence`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-foreground bg-muted/60 hover:bg-muted border border-border transition-all"
+                    title="Mesa de Credenciamento e Check-in Manual"
+                  >
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    Mesa
+                  </Link>
+
+                  <a
+                    href={`/totem/${ev.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary/90 shadow-md transition-all"
+                    title="Abrir Totem de Presença Facial em Tela Cheia"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                    Abrir Totem
+                  </a>
+                </div>
               </div>
             </div>
           ))}

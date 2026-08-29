@@ -6,7 +6,7 @@ import { Role } from "@prisma/client";
 
 export async function GET() {
   try {
-    const { error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR, Role.CONSULTA]);
     if (error) return error;
 
     const boxes = await CabinetService.getAllBoxes();

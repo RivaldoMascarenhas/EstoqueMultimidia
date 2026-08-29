@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { 
   Archive, 
   QrCode, 
@@ -70,6 +71,10 @@ interface PhysicalCabinetViewProps {
 }
 
 export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewProps) {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [selectedDoorFilter, setSelectedDoorFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -98,53 +103,49 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
   // Filter doors and boxes
   const filteredDoors = doors
     .filter((d) => selectedDoorFilter === "ALL" || d.code === selectedDoorFilter)
-    .map((door) => {
-      if (!searchTerm.trim()) return door;
-
-      const term = searchTerm.toLowerCase();
-      const matchingBoxes = door.boxes.filter((box) => {
-        const matchesBox =
-          box.code.toLowerCase().includes(term) ||
-          box.name.toLowerCase().includes(term) ||
-          (box.description && box.description.toLowerCase().includes(term));
-
-        const matchesItems = box.inventories.some(
+    .map((d) => {
+      const matchingBoxes = d.boxes.filter((b) => {
+        if (!searchTerm) return true;
+        const q = searchTerm.toLowerCase();
+        const matchCode = b.code.toLowerCase().includes(q);
+        const matchName = b.name.toLowerCase().includes(q);
+        const matchItem = b.inventories.some(
           (inv) =>
-            inv.item.name.toLowerCase().includes(term) ||
-            inv.item.sku.toLowerCase().includes(term)
+            inv.item.name.toLowerCase().includes(q) ||
+            inv.item.sku.toLowerCase().includes(q)
         );
-
-        const matchesAssets = box.assets.some(
+        const matchAsset = b.assets.some(
           (ast) =>
-            ast.assetTag.toLowerCase().includes(term) ||
-            ast.item.name.toLowerCase().includes(term)
+            ast.assetTag.toLowerCase().includes(q) ||
+            ast.item.name.toLowerCase().includes(q)
         );
-
-        return matchesBox || matchesItems || matchesAssets;
+        return matchCode || matchName || matchItem || matchAsset;
       });
 
       return {
-        ...door,
+        ...d,
         boxes: matchingBoxes,
+        hasMatches: matchingBoxes.length > 0,
       };
-    });
+    })
+    .filter((d) => !searchTerm || d.hasMatches);
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Top Action Bar: Search, QR Scanner, View All Boxes, New Box, New Door */}
-      <div className="space-y-3 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl bg-card border border-border/80 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-          <div className="flex-1">
+    <div className="space-y-6">
+      {/* Search & Actions Toolbar */}
+      <div className="flex flex-col gap-3 p-4 rounded-3xl border border-border/80 bg-card shadow-xs">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              icon={<Search className="w-4 h-4 text-primary" />}
-              placeholder="Buscar caixa, código ou item guardado..."
-              className="h-10 text-xs rounded-xl"
+              placeholder="Buscar por caixa (C001), item ou patrimônio (#123458)..."
+              className="pl-9 text-xs rounded-xl bg-background border-border/80 h-10 sm:h-9"
             />
           </div>
 
-          {/* Botão Escanear QR Code em destaque */}
+          {/* Scanner Button (Camera) */}
           <Button
             onClick={() => setIsScannerOpen(true)}
             size="sm"
@@ -170,26 +171,30 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
           </Link>
 
           {/* Botão Nova Caixa */}
-          <Button
-            onClick={() => setIsBoxModalOpen(true)}
-            size="sm"
-            variant="emerald"
-            className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="truncate">Nova Caixa</span>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              onClick={() => setIsBoxModalOpen(true)}
+              size="sm"
+              variant="emerald"
+              className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="truncate">Nova Caixa</span>
+            </Button>
+          )}
 
           {/* Botão Nova Porta */}
-          <Button
-            onClick={() => setIsDoorModalOpen(true)}
-            size="sm"
-            variant="outline"
-            className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
-          >
-            <Archive className="w-3.5 h-3.5 text-primary" />
-            <span className="truncate">Nova Porta</span>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              onClick={() => setIsDoorModalOpen(true)}
+              size="sm"
+              variant="outline"
+              className="w-full sm:w-auto gap-1.5 rounded-xl text-xs h-9"
+            >
+              <Archive className="w-3.5 h-3.5 text-primary" />
+              <span className="truncate">Nova Porta</span>
+            </Button>
+          )}
 
           {/* Botão Imprimir Etiquetas */}
           <Button

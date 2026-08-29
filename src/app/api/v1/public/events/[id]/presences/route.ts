@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePresentationToken } from "@/lib/presentation-guard";
 import { prisma } from "@/lib/prisma";
+import { maskName } from "@/lib/maskData";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,11 @@ export async function GET(
       }),
     ]);
 
-    // Sanitização estrita: apenas dados visuais públicos essenciais
+    // Sanitização estrita: dados públicos anonimizados (LGPD Art. 6º, III)
     const items = presences.map((p) => ({
       id: p.id,
-      name: p.person.name,
-      photoUrl: p.person.photoUrl,
+      name: maskName(p.person.name),
+      fullNameMasked: true,
       confidence: p.confidence ? Number(p.confidence) : 1.0,
       capturedAt: p.capturedAt,
     }));
@@ -52,10 +53,11 @@ export async function GET(
       total,
       items,
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar presenças públicas." },
-      { status: 500 }
-    );
-  }
+} catch (error: any) {
+  console.error("Erro em public presences:", error);
+  return NextResponse.json(
+    { success: false, error: "Erro ao consultar presenças do evento." },
+    { status: 500 }
+  );
+}
 }

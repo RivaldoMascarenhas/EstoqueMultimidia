@@ -20,14 +20,30 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { useSession } from "next-auth/react";
+import { Role } from "@prisma/client";
 import { ReportPrintableDocument } from "@/components/reports/report-printable-document";
 import { InventoryAuditModal } from "@/components/reports/inventory-audit-modal";
+import { EventReportsView } from "@/components/reports/event-reports-view";
 import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
 type ReportType = "INVENTORY" | "CRITICAL_STOCK" | "LOANS" | "MAINTENANCE" | "MOVEMENTS";
 
 export default function RelatoriosPage() {
+  const { data: session } = useSession();
+  const userRole = (session?.user?.role || Role.OPERADOR) as Role;
+  const isEventosRole = userRole === Role.EVENTOS;
+  const [activeModuleTab, setActiveModuleTab] = useState<"STOCK" | "EVENTS">(
+    isEventosRole ? "EVENTS" : "STOCK"
+  );
+
+  useEffect(() => {
+    if (isEventosRole) {
+      setActiveModuleTab("EVENTS");
+    }
+  }, [isEventosRole]);
+
   const [selectedReportType, setSelectedReportType] = useState<ReportType>("INVENTORY");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -206,8 +222,52 @@ export default function RelatoriosPage() {
     },
   ];
 
+  if (isEventosRole || activeModuleTab === "EVENTS") {
+    return (
+      <div className="space-y-6 animate-in fade-in-50 duration-300 pb-12">
+        {!isEventosRole && (
+          <div className="flex items-center gap-2 border-b border-border/80 pb-3">
+            <button
+              type="button"
+              onClick={() => setActiveModuleTab("STOCK")}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer"
+            >
+              📦 Módulo Estoque & Patrimônio
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveModuleTab("EVENTS")}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary shadow-xs transition-colors cursor-pointer"
+            >
+              🎉 Módulo Eventos Acadêmicos
+            </button>
+          </div>
+        )}
+        <EventReportsView />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in-50 duration-300 pb-12">
+      {!isEventosRole && (
+        <div className="flex items-center gap-2 border-b border-border/80 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveModuleTab("STOCK")}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-primary shadow-xs transition-colors cursor-pointer"
+          >
+            📦 Módulo Estoque & Patrimônio
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveModuleTab("EVENTS")}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/60 transition-colors cursor-pointer"
+          >
+            🎉 Módulo Eventos Acadêmicos
+          </button>
+        </div>
+      )}
       
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-sm">

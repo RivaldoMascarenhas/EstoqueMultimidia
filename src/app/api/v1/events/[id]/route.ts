@@ -13,6 +13,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -35,8 +36,9 @@ export async function GET(
     }
     return NextResponse.json({ success: true, event });
   } catch (err: any) {
+    console.error("Erro ao buscar evento:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao buscar evento." },
+      { success: false, error: "Erro ao buscar evento." },
       { status: 500 }
     );
   }
@@ -50,6 +52,7 @@ export async function PATCH(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -81,8 +84,45 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, event: updated });
   } catch (err: any) {
+    console.error("Erro ao atualizar evento:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao atualizar evento." },
+      { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } | Promise<{ id: string }> }
+) {
+  const { session, error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+  ]);
+  if (error) {
+    return NextResponse.json(
+      { success: false, error: "Apenas administradores e gestores podem excluir eventos do sistema." },
+      { status: 403 }
+    );
+  }
+
+  try {
+    const resolvedParams = await Promise.resolve(params);
+    const id = resolvedParams?.id;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID do evento ausente." },
+        { status: 400 }
+      );
+    }
+
+    await EventService.deleteEvent(id, session?.user?.id);
+    return NextResponse.json({ success: true, message: "Evento excluído com sucesso." });
+  } catch (err: any) {
+    console.error("Erro ao excluir evento:", err);
+    return NextResponse.json(
+      { success: false, error: err.message || "Erro ao excluir evento." },
       { status: 400 }
     );
   }

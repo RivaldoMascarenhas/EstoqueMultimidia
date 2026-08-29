@@ -18,6 +18,8 @@ import {
   PanelRightClose,
   PanelRightOpen,
   ShieldCheck,
+  Camera,
+  Lock,
 } from "lucide-react";
 import { PrivacyPolicyModal } from "@/components/legal/PrivacyPolicyModal";
 
@@ -36,6 +38,7 @@ function EventTotemContent() {
   const [recentPresences, setRecentPresences] = useState<any[]>([]);
   const [showLiveFeed, setShowLiveFeed] = useState(true);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
   // Bootstrap session cookie if token is provided
   useEffect(() => {
@@ -234,18 +237,64 @@ function EventTotemContent() {
 
       {/* Main Face Attendance Area + Live Feed Side Panel */}
       <main className="relative z-10 flex-1 flex items-center justify-center p-4 w-full max-w-7xl mx-auto min-h-0 overflow-hidden gap-4">
-        {/* Left / Center: Camera Stream */}
+        {/* Left / Center: Camera Stream or LGPD Consent Gate */}
         <div className="flex-1 h-full w-full max-h-full flex items-center justify-center min-h-0 overflow-hidden">
-          <FaceAttendanceCamera
-            eventId={eventId}
-            eventName={event?.name || "Evento"}
-            isKioskMode={true}
-            className="h-full max-h-full w-full"
-            onPresenceRecorded={() => {
-              setPresentCount((prev) => prev + 1);
-              fetchRecentPresences();
-            }}
-          />
+          {!isCameraActive ? (
+            <div className="w-full max-w-xl p-8 rounded-3xl border border-slate-800 bg-[#091124]/95 backdrop-blur-xl shadow-2xl text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+                <ShieldCheck className="w-8 h-8 text-emerald-400" />
+              </div>
+
+              <div className="space-y-2">
+                <h2 className="text-xl font-black text-white tracking-tight">
+                  Validação de Presença Facial Inteligente
+                </h2>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Sistema oficial da UniFAP para confirmação rápida e segura de frequência em eventos institucionais.
+                </p>
+              </div>
+
+              {/* LGPD Consent Card */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 text-left space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Aviso de Privacidade & LGPD (Art. 11, II)</span>
+                </div>
+                <p className="text-[11px] text-zinc-300 leading-relaxed">
+                  Ao iniciar, sua câmera será ativada para reconhecimento facial em tempo real. Os dados biométricos são processados exclusivamente para registro de presença e frequência neste evento, em estrita conformidade com a LGPD e políticas institucionais da UniFAP.
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCameraActive(true)}
+                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-sm shadow-[0_0_25px_rgba(16,185,129,0.35)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Concordar & Iniciar Totem</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrivacyModalOpen(true)}
+                  className="w-full sm:w-auto px-4 py-3.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-zinc-300 text-xs font-semibold transition"
+                >
+                  Ver Termos Completos
+                </button>
+              </div>
+            </div>
+          ) : (
+            <FaceAttendanceCamera
+              eventId={eventId}
+              eventName={event?.name || "Evento"}
+              isKioskMode={true}
+              className="h-full max-h-full w-full"
+              onPresenceRecorded={() => {
+                setPresentCount((prev) => prev + 1);
+                fetchRecentPresences();
+              }}
+            />
+          )}
         </div>
 
         {/* Right: Live Presences Feed (Sincronizado em tempo real) */}

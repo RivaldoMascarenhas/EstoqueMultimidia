@@ -35,11 +35,17 @@ function LoginForm() {
       return;
     }
 
+    // Se o usuário digitou apenas o nome de usuário sem '@' (ex: rivaldo.mascarenhas), assume @fapce.edu.br
+    let formattedEmail = email.trim().toLowerCase();
+    if (!formattedEmail.includes("@")) {
+      formattedEmail = `${formattedEmail}@fapce.edu.br`;
+    }
+
     try {
       setIsLoading(true);
       const res = await signIn("credentials", {
         redirect: false,
-        email: email.trim(),
+        email: formattedEmail,
         password,
         callbackUrl,
       });
@@ -69,19 +75,26 @@ function LoginForm() {
 
       <form onSubmit={handleLogin} className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-            <Mail className="w-3.5 h-3.5 text-primary" />
-            E-mail Institucional
+          <label className="text-xs font-medium text-foreground flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-primary" />
+              Usuário ou E-mail
+            </span>
+            <span className="text-[10px] text-muted-foreground font-normal">@fapce.edu.br automático</span>
           </label>
           <div className="relative">
             <input
-              type="email"
+              type="text"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="nome.sobrenome@fapce.edu.br"
+              placeholder="nome.sobrenome ou seu@email.com"
               required
-              autoComplete="email"
-              className="w-full px-4 py-2.5 text-sm bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              autoComplete="username"
+              className="w-full px-4 py-2.5 text-sm bg-background border border-input rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all font-medium"
             />
           </div>
         </div>

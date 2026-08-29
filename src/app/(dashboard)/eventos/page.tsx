@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   Calendar,
   Plus,
@@ -19,6 +20,10 @@ import { EventFormModal } from "@/components/events/EventFormModal";
 import { toast } from "sonner";
 
 export default function EventosPage() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,25 +116,34 @@ export default function EventosPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Calendar className="h-6 w-6 text-primary" />
-            Eventos & Sorteios Institucionais
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Calendar className="h-6 w-6 text-primary" />
+              Eventos & Sorteios Institucionais
+            </h1>
+            {isReadOnly && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                Modo Consulta
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Gestão unificada de palestras, semanas acadêmicas, controle biométrico de presença e sorteios de prêmios.
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setSelectedEvent(null);
-            setIsFormOpen(true);
-          }}
-          className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Evento
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => {
+              setSelectedEvent(null);
+              setIsFormOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            Novo Evento
+          </button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}

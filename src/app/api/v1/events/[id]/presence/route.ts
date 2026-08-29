@@ -12,11 +12,12 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  // 1. Exigir autenticação obrigatória de operador/gestor/admin
+  // 1. Exigir autenticação obrigatória de operador/gestor/admin/eventos
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -95,7 +96,7 @@ export async function POST(
           { status: 404 }
         );
       }
-    } else if (personId && (session.user.role === Role.ADMIN || session.user.role === Role.GESTOR || session.user.role === Role.OPERADOR)) {
+    } else if (personId && (session.user.role === Role.ADMIN || session.user.role === Role.GESTOR || session.user.role === Role.OPERADOR || session.user.role === Role.EVENTOS)) {
       // Registro manual explícito por operador autenticado
       recognizedPersonId = personId;
     } else {

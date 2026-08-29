@@ -13,6 +13,7 @@ export async function GET(
     Role.GESTOR,
     Role.OPERADOR,
     Role.CONSULTA,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -26,8 +27,9 @@ export async function GET(
     const winners = await DrawService.listEventWinners(eventId);
     return NextResponse.json({ success: true, winners });
   } catch (err: any) {
+    console.error("Erro ao buscar vencedores:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao buscar vencedores." },
+      { success: false, error: "Erro ao buscar vencedores." },
       { status: 500 }
     );
   }
@@ -41,6 +43,7 @@ export async function PATCH(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
@@ -67,6 +70,7 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, winner });
   } catch (err: any) {
+    console.error("Erro ao atualizar entrega de prêmio:", err);
     return NextResponse.json(
       { success: false, error: err.message || "Erro ao atualizar entrega de prêmio." },
       { status: 400 }

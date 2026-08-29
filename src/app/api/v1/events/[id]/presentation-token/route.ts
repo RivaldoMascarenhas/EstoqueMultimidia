@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
+import { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "GESTOR")) {
-      return NextResponse.json({ success: false, error: "Apenas administradores e gestores podem visualizar tokens de apresentação." }, { status: 403 });
-    }
+  const { session, error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.OPERADOR,
+    Role.EVENTOS,
+  ]);
+  if (error) return error;
 
+  try {
     const resolvedParams = await Promise.resolve(params);
     const eventId = resolvedParams?.id;
     if (!eventId) {
@@ -28,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ success: false, error: "Evento não encontrado" }, { status: 404 });
     }
 
-    // If no token exists yet, generate one automatically
+    // If no token exists yet, generate one automatically with cryptographic security
     let token = event.presentationToken;
     if (!token) {
       token = crypto.randomBytes(32).toString("base64url");
@@ -46,20 +49,20 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       presentationUrl,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message || "Erro ao buscar token" }, { status: 500 });
+    console.error("Erro ao buscar token de apresentação:", error);
+    return NextResponse.json({ success: false, error: "Erro ao buscar token de apresentação." }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session || (session.user.role !== "ADMIN" && session.user.role !== "GESTOR")) {
-      return NextResponse.json(
-        { success: false, error: "Apenas administradores e gestores podem revogar ou regenerar tokens de apresentação" },
-        { status: 403 }
-      );
-    }
+  const { session, error } = await requireSession([
+    Role.ADMIN,
+    Role.GESTOR,
+    Role.EVENTOS,
+  ]);
+  if (error) return error;
 
+  try {
     const resolvedParams = await Promise.resolve(params);
     const eventId = resolvedParams?.id;
     if (!eventId) {
@@ -81,6 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       message: "Token de apresentação regenerado com sucesso.",
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Erro ao regenerar token" }, { status: 400 });
+    console.error("Erro ao regenerar token de apresentação:", error);
+    return NextResponse.json({ success: false, error: "Erro ao regenerar token de apresentação." }, { status: 400 });
   }
 }

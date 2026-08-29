@@ -26,7 +26,7 @@ export function AttendancePrintModal({
   participants,
   onDownloadCsv,
 }: AttendancePrintModalProps) {
-  const [filter, setFilter] = useState<"all" | "present" | "absent">("present");
+  const [filter, setFilter] = useState<"all" | "present" | "absent">("all");
 
   const filteredList = participants.filter((p) => {
     const isPresent = Boolean(
@@ -42,7 +42,8 @@ export function AttendancePrintModal({
   ).length;
 
   const handlePrint = () => {
-    const printUrl = `/api/v1/events/${event?.id}/export?type=${filter === "present" ? "presences" : "participants"}&format=html`;
+    const typeParam = filter === "present" ? "presences" : filter === "absent" ? "absent" : "participants";
+    const printUrl = `/api/v1/events/${event?.id}/export?type=${typeParam}&format=html`;
     const printWindow = window.open(printUrl, "_blank");
     if (printWindow) {
       printWindow.focus();
@@ -70,16 +71,16 @@ export function AttendancePrintModal({
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as any)}
-              className="rounded-xl border border-input bg-background px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none"
+              className="rounded-xl border border-input bg-background px-3 py-1.5 text-xs text-foreground font-semibold focus:outline-none cursor-pointer"
             >
-              <option value="present">Apenas Presentes ({presentCount})</option>
               <option value="all">Todos os Inscritos ({participants.length})</option>
+              <option value="present">Apenas Presentes ({presentCount})</option>
               <option value="absent">Apenas Ausentes ({participants.length - presentCount})</option>
             </select>
 
             <button
               onClick={() => onDownloadCsv(filter === "present")}
-              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-border bg-background hover:bg-accent text-foreground transition flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-border bg-background hover:bg-accent text-foreground transition flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="h-3.5 w-3.5 text-primary" />
               <span>Excel / CSV</span>

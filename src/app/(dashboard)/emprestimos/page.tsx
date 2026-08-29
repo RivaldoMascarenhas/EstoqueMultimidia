@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { 
   Handshake, 
   Plus, 
@@ -44,6 +45,10 @@ import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 function EmprestimosContent() {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const isReadOnly = userRole === "CONSULTA";
+
   const searchParams = useSearchParams();
   const initialAssetId = searchParams.get("assetId") || undefined;
   const initialSearch = searchParams.get("search") || "";
@@ -180,6 +185,11 @@ function EmprestimosContent() {
             <Badge variant="loaned" className="text-[11px] font-semibold px-2 py-0.5">
               {metrics.activeLoans} Ativos
             </Badge>
+            {isReadOnly && (
+              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+                Modo Consulta
+              </Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
             Controle de retiradas, devoluções, prazos e Termo de Responsabilidade.
@@ -187,14 +197,16 @@ function EmprestimosContent() {
         </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Button
-            onClick={() => setIsFormOpen(true)}
-            size="sm"
-            className="flex-1 sm:flex-none gap-1.5 rounded-xl h-10 sm:h-9 text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary/20 justify-center"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Empréstimo</span>
-          </Button>
+          {!isReadOnly && (
+            <Button
+              onClick={() => setIsFormOpen(true)}
+              size="sm"
+              className="flex-1 sm:flex-none gap-1.5 rounded-xl h-10 sm:h-9 text-xs font-semibold bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary/20 justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Empréstimo</span>
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -546,7 +558,7 @@ function EmprestimosContent() {
                       {/* Ações */}
                       <TableCell className="py-3.5 px-4 text-center w-[170px]">
                         <div className="flex items-center justify-center gap-1.5">
-                          {isActive && (
+                          {!isReadOnly && isActive && (
                             <Button
                               onClick={() => setSelectedLoanForReturn(loan)}
                               size="sm"
@@ -557,52 +569,65 @@ function EmprestimosContent() {
                             </Button>
                           )}
 
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl hover:bg-muted">
-                                <MoreHorizontal className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1.5">
-                              {isActive && (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() => setSelectedLoanForReturn(loan)}
-                                    className="gap-2 text-xs rounded-xl cursor-pointer text-emerald-600 dark:text-emerald-400 font-medium"
-                                  >
-                                    <PackageCheck className="w-4 h-4" />
-                                    <span>Devolver Equipamento</span>
-                                  </DropdownMenuItem>
+                          {isReadOnly ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedLoanForReceipt(loan)}
+                              className="h-8 px-2.5 rounded-xl text-xs gap-1 text-primary hover:text-primary shadow-xs"
+                              title="Visualizar Termo de Cautela"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>Termo</span>
+                            </Button>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-xl hover:bg-muted">
+                                  <MoreHorizontal className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1.5">
+                                {isActive && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={() => setSelectedLoanForReturn(loan)}
+                                      className="gap-2 text-xs rounded-xl cursor-pointer text-emerald-600 dark:text-emerald-400 font-medium"
+                                    >
+                                      <PackageCheck className="w-4 h-4" />
+                                      <span>Devolver Equipamento</span>
+                                    </DropdownMenuItem>
 
-                                  <DropdownMenuItem
-                                    onClick={() => setSelectedLoanForRenew(loan)}
-                                    className="gap-2 text-xs rounded-xl cursor-pointer text-amber-600 dark:text-amber-400"
-                                  >
-                                    <CalendarClock className="w-4 h-4" />
-                                    <span>Prorrogar Prazo</span>
-                                  </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => setSelectedLoanForRenew(loan)}
+                                      className="gap-2 text-xs rounded-xl cursor-pointer text-amber-600 dark:text-amber-400"
+                                    >
+                                      <CalendarClock className="w-4 h-4" />
+                                      <span>Prorrogar Prazo</span>
+                                    </DropdownMenuItem>
 
-                                  <DropdownMenuSeparator />
-                                </>
-                              )}
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
 
-                              <DropdownMenuItem
-                                onClick={() => setSelectedLoanForReceipt(loan)}
-                                className="gap-2 text-xs rounded-xl cursor-pointer"
-                              >
-                                <Printer className="w-4 h-4 text-primary" />
-                                <span>Termo de Cautela (A4)</span>
-                              </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setSelectedLoanForReceipt(loan)}
+                                  className="gap-2 text-xs rounded-xl cursor-pointer"
+                                >
+                                  <Printer className="w-4 h-4 text-primary" />
+                                  <span>Termo de Cautela (A4)</span>
+                                </DropdownMenuItem>
 
-                              <DropdownMenuItem
-                                onClick={() => setSelectedLoanForWhatsApp(loan)}
-                                className="gap-2 text-xs rounded-xl cursor-pointer text-emerald-600 dark:text-emerald-400"
-                              >
-                                <MessageSquare className="w-4 h-4" />
-                                <span>Cobrança / WhatsApp</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                <DropdownMenuItem
+                                  onClick={() => setSelectedLoanForWhatsApp(loan)}
+                                  className="gap-2 text-xs rounded-xl cursor-pointer text-emerald-600 dark:text-emerald-400"
+                                >
+                                  <MessageSquare className="w-4 h-4" />
+                                  <span>Cobrança / WhatsApp</span>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
