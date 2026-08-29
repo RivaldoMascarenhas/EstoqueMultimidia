@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir setuptools==69.5.1 wheel && \
-    pip install --no-cache-dir git+https://github.com/ageitgey/face_recognition_models.git@d1b849e6231e360f7e193798cf0c897f1f7d9834 && \
+    pip install --no-cache-dir face_recognition_models && \
     pip install --no-cache-dir -r requirements.txt
 
 COPY . .
