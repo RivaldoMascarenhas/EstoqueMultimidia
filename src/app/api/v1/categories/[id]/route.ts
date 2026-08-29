@@ -6,14 +6,14 @@ import { Role } from "@prisma/client";
 // PUT /api/v1/categories/[id] - Atualizar Categoria
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(
@@ -65,14 +65,14 @@ export async function PUT(
 // DELETE /api/v1/categories/[id] - Excluir / Desativar Categoria
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(

@@ -6,14 +6,14 @@ import { Role } from "@prisma/client";
 // PATCH /api/v1/api-keys/[id] - Ativar/Desativar ou revogar chave de API
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(
@@ -75,14 +75,14 @@ export async function PATCH(
 // DELETE /api/v1/api-keys/[id] - Excluir definitivamente chave de API
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(

@@ -6,8 +6,9 @@ import { Role } from "@prisma/client";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; taskId: string } }
+  { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
+  const { id, taskId } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -20,8 +21,8 @@ export async function PATCH(
     const validated = requestTaskToggleSchema.parse(body);
 
     const updated = await RequestService.toggleTask(
-      params.id,
-      params.taskId,
+      id,
+      taskId,
       validated.completed,
       session.user.id
     );
@@ -41,8 +42,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string; taskId: string } }
+  { params }: { params: Promise<{ id: string; taskId: string }> }
 ) {
+  const { id, taskId } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -52,8 +54,8 @@ export async function DELETE(
     if (error) return error;
 
     const updated = await RequestService.deleteTask(
-      params.id,
-      params.taskId,
+      id,
+      taskId,
       session.user.id
     );
 

@@ -17,7 +17,17 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Iniciando Seed do Banco de Dados UniFAP...');
 
-  // 1. Limpeza de dados antigos para seed idempotente
+  // 1. Validação de pré-condições de segurança ANTES de qualquer operação destrutiva (SEC-07)
+  if (process.env.NODE_ENV === "production" && !process.env.SEED_DEFAULT_PASSWORD) {
+    throw new Error(
+      "Erro de Segurança (SEC-07): Em ambiente de produção, é obrigatório definir a variável de ambiente SEED_DEFAULT_PASSWORD antes de executar o seed inicial."
+    );
+  }
+
+  const seedPasswordRaw = process.env.SEED_DEFAULT_PASSWORD || `UniFAP@${Math.floor(100000 + Math.random() * 900000)}!`;
+  const defaultPassword = await bcrypt.hash(seedPasswordRaw, 10);
+
+  // 2. Limpeza de dados antigos para seed idempotente
   await prisma.winner.deleteMany();
   await prisma.draw.deleteMany();
   await prisma.prize.deleteMany();
@@ -47,16 +57,7 @@ async function main() {
   await prisma.apiKey.deleteMany();
   await prisma.user.deleteMany();
 
-  // 2. Usuários iniciais com senhas com hash seguro e troca obrigatória no primeiro login
-  if (process.env.NODE_ENV === "production" && !process.env.SEED_DEFAULT_PASSWORD) {
-    throw new Error(
-      "Erro de Segurança: Em ambiente de produção, é obrigatório definir a variável de ambiente SEED_DEFAULT_PASSWORD antes de executar o seed inicial."
-    );
-  }
-
-  const seedPasswordRaw = process.env.SEED_DEFAULT_PASSWORD || `UniFAP@${Math.floor(100000 + Math.random() * 900000)}!`;
-  const defaultPassword = await bcrypt.hash(seedPasswordRaw, 10);
-
+  // 3. Criação de usuários com credenciais seguras e troca forçada no primeiro acesso
   console.log(`🔐 Configuração de credenciais iniciais:`);
   console.log(`   (Todos os usuários foram criados com 'mustChangePassword: true' para troca forçada no primeiro acesso)`);
 

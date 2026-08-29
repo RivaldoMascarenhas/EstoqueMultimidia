@@ -12,8 +12,9 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   // 1. Exigir autenticação obrigatória de operador/gestor/admin/eventos
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -24,8 +25,8 @@ export async function POST(
   if (error) return error;
 
   try {
-    const resolvedParams = await Promise.resolve(params);
-    const eventId = resolvedParams?.id;
+    
+    const eventId = id;
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }

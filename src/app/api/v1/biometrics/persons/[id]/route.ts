@@ -7,8 +7,9 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -19,7 +20,7 @@ export async function GET(
   if (error) return error;
 
   try {
-    const person = await PersonService.getPersonById(params.id);
+    const person = await PersonService.getPersonById(id);
     if (!person) {
       return NextResponse.json(
         { success: false, error: "Pessoa não encontrada." },
@@ -37,8 +38,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -59,7 +61,7 @@ export async function PATCH(
     }
 
     const updated = await PersonService.updatePerson(
-      params.id,
+      id,
       parsed.data,
       session?.user?.id
     );
@@ -75,18 +77,19 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([Role.ADMIN]);
   if (error) return error;
 
   try {
     await BiometricApiService.deleteFace({
-      personId: params.id,
+      personId: id,
       operatorUserId: session?.user?.id,
     }).catch(() => {});
 
-    const deleted = await PersonService.deletePerson(params.id, session?.user?.id);
+    const deleted = await PersonService.deletePerson(id, session?.user?.id);
     return NextResponse.json({ success: true, person: deleted });
   } catch (err: any) {
     return NextResponse.json(

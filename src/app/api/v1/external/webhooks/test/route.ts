@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiRequest, requireApiPermission } from "@/lib/api-auth";
-import { validateSafeUrl } from "@/lib/ssrf";
+import { safeFetch, getWebhookAllowedHosts, validateSafeUrlAsync } from "@/lib/ssrf";
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,15 +20,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validação estrita anti-SSRF (bloquear endereços locais e faixas privadas)
-    const ssrfCheck = validateSafeUrl(targetWebhookUrl);
+    // Validação estrita anti-SSRF com resolução de DNS e suporte a allowlist configurável
+    const allowedHosts = getWebhookAllowedHosts();
+    const ssrfCheck = await validateSafeUrlAsync(targetWebhookUrl, {
+      allowedHostSuffixes: allowedHosts,
+      allowedProtocols: ["http:", "https:"],
+    });
+
     if (!ssrfCheck.isSafe || !ssrfCheck.parsedUrl) {
       return NextResponse.json(
-        { success: false, error: ssrfCheck.error || "Endereços locais, privados ou de metadados internos não são permitidos para disparos de webhook por motivos de segurança." },
+        {
+          success: false,
+          error:
+            ssrfCheck.error ||
+            "Endereços locais, redes privadas ou metadados de nuvem são estritamente proibidos para disparo de webhooks (Anti-SSRF).",
+        },
         { status: 400 }
       );
     }
-    const parsedUrl = ssrfCheck.parsedUrl;
 
     const mockPayloads: Record<string, any> = {
       LOAN_OVERDUE_ALERT: {
@@ -75,20 +84,18 @@ export async function POST(req: NextRequest) {
 
     const payloadToSend = mockPayloads[eventType || "LOAN_OVERDUE_ALERT"] || mockPayloads.LOAN_OVERDUE_ALERT;
 
-    // Disparar requisição HTTP POST para a URL do Webhook com timeout de 10s
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(parsedUrl.toString(), {
+    // Disparo seguro com safeFetch (valida DNS, IPs e saltos de redirecionamento contra SSRF)
+    const response = await safeFetch(targetWebhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "UniFAP-Inventory-Webhook-Dispatcher/1.0",
       },
       body: JSON.stringify(payloadToSend),
-      redirect: "manual",
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeoutId));
+      allowedHostSuffixes: allowedHosts,
+      timeoutMs: 10000,
+      maxRedirects: 3,
+    });
 
     const responseStatus = response.status;
 
@@ -97,7 +104,7 @@ export async function POST(req: NextRequest) {
       message: `Evento de teste disparado com sucesso para o webhook!`,
       statusReceived: responseStatus,
       sentPayload: payloadToSend,
-      targetWebhookUrl: parsedUrl.toString(),
+      targetWebhookUrl: ssrfCheck.parsedUrl.toString(),
     });
 
   } catch (error: any) {
@@ -107,7 +114,7 @@ export async function POST(req: NextRequest) {
         success: false, 
         error: isTimeout
           ? "Tempo limite de conexão (10s) excedido ao tentar contatar o Webhook."
-          : `Falha ao conectar com o Webhook: ${error.message}. Verifique se a URL do n8n está acessível.` 
+          : `Falha ao conectar com o Webhook: ${error.message}. Verifique se a URL do n8n está acessível e atende às diretrizes de segurança.` 
       },
       { status: 500 }
     );

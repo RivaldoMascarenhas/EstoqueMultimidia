@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { safeCompareTokens } from "@/lib/presentation-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
       select: { id: true, presentationToken: true, name: true },
     });
 
-    if (!event || event.presentationToken !== token.trim()) {
+    if (!event || !safeCompareTokens(event.presentationToken, token)) {
       return NextResponse.json(
         { success: false, error: "Token de apresentação inválido." },
         { status: 401 }

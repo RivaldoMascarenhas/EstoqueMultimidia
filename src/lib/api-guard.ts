@@ -3,16 +3,30 @@ import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { validateRequestOrigin } from "@/lib/request-security";
 
 export interface RequireSessionOptions {
   allowPendingPasswordChange?: boolean;
   refreshFromDatabase?: boolean;
+  req?: Request | { method: string; headers: Headers; url?: string };
 }
 
 export async function requireSession(
   allowedRoles?: Role[],
   options: RequireSessionOptions = {}
 ) {
+  // 1. Validação de CSRF / Origem de requisições mutantes
+  if (options.req) {
+    const csrfError = validateRequestOrigin(options.req as any);
+    if (csrfError) {
+      return {
+        session: null,
+        error: csrfError,
+        user: null,
+      };
+    }
+  }
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
@@ -108,3 +122,8 @@ export function requireRole(userRole: Role, allowedRoles: Role[]) {
   }
   return null;
 }
+
+export function requireSafeOrigin(req: Request | any) {
+  return validateRequestOrigin(req);
+}
+

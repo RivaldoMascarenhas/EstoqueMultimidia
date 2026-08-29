@@ -6,8 +6,9 @@ import { Role } from "@prisma/client";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -21,7 +22,7 @@ export async function PATCH(
     const validated = requestLegacyConfirmSchema.parse(body);
 
     const confirmed = await RequestService.confirmReview(
-      params.id,
+      id,
       validated,
       { id: session.user.id, role: session.user.role as Role }
     );

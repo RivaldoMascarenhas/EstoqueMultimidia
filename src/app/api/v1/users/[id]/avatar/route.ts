@@ -5,14 +5,14 @@ import { requireSession } from "@/lib/api-guard";
 // GET /api/v1/users/[id]/avatar - Servir imagem do avatar diretamente do banco de dados (Base64 -> Buffer binário)
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { error: sessionError } = await requireSession();
     if (sessionError) return sessionError;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return new NextResponse("User ID required", { status: 400 });

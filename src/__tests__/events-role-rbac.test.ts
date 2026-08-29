@@ -188,7 +188,7 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         method: "DELETE",
       });
 
-      const res = await deleteParticipantRoute(req, { params: { id: "ev-1" } });
+      const res = await deleteParticipantRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.success).toBe(false);
@@ -222,7 +222,7 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         method: "DELETE",
       });
 
-      const res = await deleteParticipantRoute(req, { params: { id: "ev-1" } });
+      const res = await deleteParticipantRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
@@ -253,7 +253,7 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         method: "DELETE",
       });
 
-      const res = await deletePrizeRoute(req, { params: { id: "ev-1", prizeId: "prize-100" } });
+      const res = await deletePrizeRoute(req, { params: Promise.resolve({ id: "ev-1", prizeId: "prize-100" }) });
       expect(res.status).toBe(403);
       const json = await res.json();
       expect(json.success).toBe(false);
@@ -283,7 +283,7 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         method: "DELETE",
       });
 
-      const res = await deletePrizeRoute(req, { params: { id: "ev-1", prizeId: "prize-101" } });
+      const res = await deletePrizeRoute(req, { params: Promise.resolve({ id: "ev-1", prizeId: "prize-101" }) });
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
@@ -306,7 +306,7 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         method: "DELETE",
       });
 
-      const res = await deleteDrawRoute(req, { params: { id: "ev-1", drawId: "draw-999" } });
+      const res = await deleteDrawRoute(req, { params: Promise.resolve({ id: "ev-1", drawId: "draw-999" }) });
       expect(res.status).toBe(403);
     });
   });
@@ -327,7 +327,7 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         method: "DELETE",
       });
 
-      const res = await deleteEventRoute(req, { params: { id: "ev-1" } });
+      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
       expect(res.status).toBe(403);
     });
   });

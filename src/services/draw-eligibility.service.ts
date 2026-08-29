@@ -94,7 +94,10 @@ export class DrawEligibilityService {
           continue;
         }
 
-        if (requireFacialPresenceOnly && presence.method !== PresenceMethod.FACE) {
+        if (
+          requireFacialPresenceOnly &&
+          (presence.method !== PresenceMethod.FACE || presence.confidence === null || presence.confidence <= 0)
+        ) {
           continue;
         }
       }

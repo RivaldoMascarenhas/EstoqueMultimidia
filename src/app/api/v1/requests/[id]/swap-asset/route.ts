@@ -6,8 +6,9 @@ import { Role } from "@prisma/client";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -20,7 +21,7 @@ export async function POST(
     const validated = requestSwapAssetSchema.parse(body);
 
     const updated = await RequestService.swapAsset(
-      params.id,
+      id,
       validated.itemId,
       validated.newAssetId,
       validated.reason,

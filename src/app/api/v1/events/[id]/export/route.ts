@@ -8,8 +8,9 @@ import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -20,7 +21,7 @@ export async function GET(
   if (error) return error;
 
   try {
-    const access = await assertEventAccess(params.id, session.user, {
+    const access = await assertEventAccess(id, session.user, {
       requiredPermission: EVENT_PERMISSIONS.REPORTS_VIEW,
     });
     if (!access.authorized) return access.errorResponse!;
@@ -29,14 +30,14 @@ export async function GET(
     const type = searchParams.get("type") || "participants"; // participants | presences | winners
     const format = searchParams.get("format") || "csv"; // csv | xlsx | html
 
-    const event = await prisma.event.findUnique({ where: { id: params.id } });
+    const event = await prisma.event.findUnique({ where: { id } });
     if (!event) {
       return NextResponse.json({ success: false, error: "Evento não encontrado." }, { status: 404 });
     }
 
     if (type === "winners") {
       const winners = await prisma.winner.findMany({
-        where: { eventId: params.id },
+        where: { eventId: id },
         orderBy: { drawDate: "asc" },
         include: { person: true, prize: true, draw: true },
       });
@@ -91,12 +92,12 @@ export async function GET(
 
     // Default: participants export
     const participants = await prisma.eventParticipant.findMany({
-      where: { eventId: params.id },
+      where: { eventId: id },
       orderBy: { ticketNumber: "asc" },
       include: {
         person: {
           include: {
-            presences: { where: { eventId: params.id } },
+            presences: { where: { eventId: id } },
             faceEmbeddings: { where: { active: true } },
           },
         },

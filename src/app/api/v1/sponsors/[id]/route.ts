@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
-import { safeAuditLog } from "@/lib/audit";
+import { safeAuditLog, getClientIp } from "@/lib/audit";
 import { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -21,7 +22,7 @@ export async function GET(
 
   try {
     const sponsor = await prisma.sponsor.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         prizes: {
           include: { event: { select: { id: true, name: true } } },
@@ -47,8 +48,9 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -62,7 +64,7 @@ export async function PUT(
     const { name, logoUrl, description, website, instagram, phone, email, notes } = body;
 
     const sponsor = await prisma.sponsor.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: name !== undefined ? name.trim() : undefined,
         logoUrl: logoUrl !== undefined ? (logoUrl || null) : undefined,
@@ -75,7 +77,7 @@ export async function PUT(
       },
     });
 
-    const ipAddress = req.headers.get("x-forwarded-for") || req.ip || undefined;
+    const ipAddress = getClientIp(req);
     await safeAuditLog({
       userId: session?.user?.id,
       action: "UPDATE_SPONSOR",
@@ -96,8 +98,9 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -106,15 +109,15 @@ export async function DELETE(
 
   try {
     const sponsor = await prisma.sponsor.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
-    const ipAddress = req.headers.get("x-forwarded-for") || req.ip || undefined;
+    const ipAddress = getClientIp(req);
     await safeAuditLog({
       userId: session?.user?.id,
       action: "DELETE_SPONSOR",
       entity: "Sponsor",
-      entityId: params.id,
+      entityId: id,
       details: { name: sponsor.name },
       ipAddress,
     });

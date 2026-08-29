@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -20,7 +21,7 @@ export async function POST(
   if (error) return error;
 
   try {
-    const access = await assertEventAccess(params.id, session.user, {
+    const access = await assertEventAccess(id, session.user, {
       requiredPermission: EVENT_PERMISSIONS.PARTICIPANTS_CREATE,
       isMutation: true,
     });
@@ -37,7 +38,7 @@ export async function POST(
     }
 
     const result = await EventService.enrollBatch({
-      eventId: params.id,
+      eventId: id,
       personIds,
       operatorUserId: session?.user?.id,
     });

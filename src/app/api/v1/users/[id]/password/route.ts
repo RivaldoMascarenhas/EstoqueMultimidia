@@ -8,14 +8,14 @@ import { validatePasswordPolicy } from "@/lib/password-policy";
 // PATCH /api/v1/users/[id]/password - Redefinir senha de acesso
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession(undefined, { allowPendingPasswordChange: true });
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(

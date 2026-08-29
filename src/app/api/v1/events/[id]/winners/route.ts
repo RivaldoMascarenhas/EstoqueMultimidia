@@ -5,11 +5,13 @@ import { deliverPrizeSchema } from "@/schemas/draw.schema";
 import { Role } from "@prisma/client";
 import { assertEventAccess } from "@/lib/event-access";
 import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { getClientIp } from "@/lib/audit";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -20,8 +22,8 @@ export async function GET(
   if (error) return error;
 
   try {
-    const resolvedParams = await Promise.resolve(params);
-    const eventId = resolvedParams?.id;
+    
+    const eventId = id;
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
@@ -44,8 +46,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -55,8 +58,8 @@ export async function PATCH(
   if (error) return error;
 
   try {
-    const resolvedParams = await Promise.resolve(params);
-    const eventId = resolvedParams?.id;
+    
+    const eventId = id;
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
@@ -77,7 +80,7 @@ export async function PATCH(
       );
     }
 
-    const ipAddress = req.headers.get("x-forwarded-for") || req.ip || undefined;
+    const ipAddress = getClientIp(req);
 
     const winner = await DrawService.deliverPrize({
       winnerId: parsed.data.winnerId,

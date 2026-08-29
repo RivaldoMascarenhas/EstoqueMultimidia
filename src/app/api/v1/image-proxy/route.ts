@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateSafeUrl } from "@/lib/ssrf";
+import { validateSafeUrlAsync } from "@/lib/ssrf";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,7 @@ async function fetchSafeImage(initialUrl: string): Promise<Response> {
   let redirectsCount = 0;
 
   while (redirectsCount <= MAX_REDIRECTS) {
-    const validation = validateSafeUrl(currentUrl, {
+    const validation = await validateSafeUrlAsync(currentUrl, {
       allowedProtocols: ["http:", "https:"],
       allowedHostSuffixes: ALLOWED_IMAGE_DOMAINS,
     });

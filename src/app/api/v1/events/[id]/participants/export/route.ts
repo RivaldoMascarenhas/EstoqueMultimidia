@@ -9,8 +9,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -21,7 +22,7 @@ export async function GET(
   if (error) return error;
 
   try {
-    const eventId = params.id;
+    const eventId = id;
     const access = await assertEventAccess(eventId, session.user, {
       requiredPermission: EVENT_PERMISSIONS.REPORTS_VIEW,
     });

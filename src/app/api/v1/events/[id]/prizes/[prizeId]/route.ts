@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string; prizeId: string } }
+  { params }: { params: Promise<{ id: string; prizeId: string }> }
 ) {
+  const { id, prizeId } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -23,17 +24,17 @@ export async function GET(
   if (error) return error;
 
   try {
-    const access = await assertEventAccess(params.id, session.user, {
+    const access = await assertEventAccess(id, session.user, {
       requiredPermission: EVENT_PERMISSIONS.PRIZES_VIEW,
     });
     if (!access.authorized) return access.errorResponse!;
 
     const prize = await prisma.prize.findUnique({
-      where: { id: params.prizeId },
+      where: { id: prizeId },
       include: { sponsor: true, winners: true },
     });
 
-    if (!prize || prize.eventId !== params.id) {
+    if (!prize || prize.eventId !== id) {
       return NextResponse.json({ error: "Prêmio não encontrado" }, { status: 404 });
     }
 
@@ -49,8 +50,9 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string; prizeId: string } }
+  { params }: { params: Promise<{ id: string; prizeId: string }> }
 ) {
+  const { id, prizeId } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -60,17 +62,17 @@ export async function PUT(
   if (error) return error;
 
   try {
-    const access = await assertEventAccess(params.id, session.user, {
+    const access = await assertEventAccess(id, session.user, {
       requiredPermission: EVENT_PERMISSIONS.PRIZES_EDIT,
       isMutation: true,
     });
     if (!access.authorized) return access.errorResponse!;
 
     const existing = await prisma.prize.findUnique({
-      where: { id: params.prizeId },
+      where: { id: prizeId },
     });
 
-    if (!existing || existing.eventId !== params.id) {
+    if (!existing || existing.eventId !== id) {
       return NextResponse.json(
         { success: false, error: "Prêmio não encontrado." },
         { status: 404 }
@@ -100,7 +102,7 @@ export async function PUT(
     }
 
     const prize = await EventService.updatePrize(
-      params.prizeId,
+      prizeId,
       parsed.data,
       session?.user?.id
     );
@@ -117,8 +119,9 @@ export async function PUT(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string; prizeId: string } }
+  { params }: { params: Promise<{ id: string; prizeId: string }> }
 ) {
+  const { id, prizeId } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -128,17 +131,17 @@ export async function DELETE(
   if (error) return error;
 
   try {
-    const access = await assertEventAccess(params.id, session.user, {
+    const access = await assertEventAccess(id, session.user, {
       requiredPermission: EVENT_PERMISSIONS.PRIZES_DELETE,
       isMutation: true,
     });
     if (!access.authorized) return access.errorResponse!;
 
     const existing = await prisma.prize.findUnique({
-      where: { id: params.prizeId },
+      where: { id: prizeId },
     });
 
-    if (!existing || existing.eventId !== params.id) {
+    if (!existing || existing.eventId !== id) {
       return NextResponse.json(
         { success: false, error: "Prêmio não encontrado." },
         { status: 404 }
@@ -157,7 +160,7 @@ export async function DELETE(
       );
     }
 
-    await EventService.deletePrize(params.prizeId, session?.user?.id);
+    await EventService.deletePrize(prizeId, session?.user?.id);
 
     return NextResponse.json({ success: true, message: "Prêmio excluído com sucesso." });
   } catch (err: any) {

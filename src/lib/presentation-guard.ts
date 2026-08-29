@@ -8,10 +8,12 @@ export interface PresentationAuthResult {
   errorResponse?: NextResponse;
 }
 
-function safeCompareTokens(a?: string | null, b?: string | null): boolean {
+export function safeCompareTokens(a?: string | null, b?: string | null): boolean {
   if (!a || !b) return false;
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
+  const strA = String(a).trim();
+  const strB = String(b).trim();
+  const bufA = Buffer.from(strA, "utf8");
+  const bufB = Buffer.from(strB, "utf8");
   if (bufA.length !== bufB.length) return false;
   return crypto.timingSafeEqual(bufA, bufB);
 }

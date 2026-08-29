@@ -7,11 +7,16 @@ import { prisma } from "@/lib/prisma";
 import { realtimeService, RealtimePayload } from "@/services/realtime.service";
 import { assertEventAccess } from "@/lib/event-access";
 import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { safeCompareTokens } from "@/lib/presentation-guard";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const eventId = params.id;
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const eventId = id;
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
   const isPoll = searchParams.get("poll") === "true";
@@ -20,10 +25,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   let isAuthorized = false;
 
   if (token && token.trim().length > 0) {
-    const event = await prisma.event.findFirst({
-      where: { id: eventId, presentationToken: token.trim() },
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { presentationToken: true },
     });
-    if (event) isAuthorized = true;
+    if (event && safeCompareTokens(event.presentationToken, token)) {
+      isAuthorized = true;
+    }
   }
 
   if (!isAuthorized) {
@@ -120,7 +128,11 @@ const realtimePublishSchema = z.object({
   volume: z.number().min(0).max(1).optional(),
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } | Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -130,8 +142,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     ]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const eventId = resolvedParams?.id;
+    
+    const eventId = id;
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }

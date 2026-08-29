@@ -69,7 +69,29 @@ export async function assertEventAccess(
     return { authorized: true, event };
   }
 
-  // 3. Bloqueio de mutação para perfil CONSULTA
+  // 3. Bloqueio de papéis não autorizados no módulo de eventos (ex: ACADEMIC_SUPPORT)
+  if (user.role === Role.ACADEMIC_SUPPORT) {
+    return {
+      authorized: false,
+      errorResponse: NextResponse.json(
+        { success: false, error: "Permissão insuficiente para o módulo de eventos." },
+        { status: 403 }
+      ),
+    };
+  }
+
+  // 4. Verificação estrita de permissão funcional na matriz de roles (P2 defensivo)
+  if (options.requiredPermission && !hasPermission(user.role, options.requiredPermission)) {
+    return {
+      authorized: false,
+      errorResponse: NextResponse.json(
+        { success: false, error: "Permissão insuficiente para esta operação." },
+        { status: 403 }
+      ),
+    };
+  }
+
+  // 5. Bloqueio de mutação para perfil CONSULTA
   if (user.role === Role.CONSULTA) {
     if (options.isMutation) {
       return {
@@ -81,28 +103,6 @@ export async function assertEventAccess(
       };
     }
     return { authorized: true, event };
-  }
-
-  // 4. Bloqueio de papéis não autorizados no módulo de eventos (ex: ACADEMIC_SUPPORT)
-  if (user.role === Role.ACADEMIC_SUPPORT) {
-    return {
-      authorized: false,
-      errorResponse: NextResponse.json(
-        { success: false, error: "Permissão insuficiente para o módulo de eventos." },
-        { status: 403 }
-      ),
-    };
-  }
-
-  // 5. Verificação de permissão funcional na matriz de roles
-  if (options.requiredPermission && !hasPermission(user.role, options.requiredPermission)) {
-    return {
-      authorized: false,
-      errorResponse: NextResponse.json(
-        { success: false, error: "Permissão insuficiente para esta operação." },
-        { status: 403 }
-      ),
-    };
   }
 
   // 6. GESTOR e OPERADOR possuem acesso aos eventos do sistema conforme suas permissões

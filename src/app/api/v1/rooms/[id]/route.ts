@@ -6,13 +6,14 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { error } = await requireSession();
     if (error) return error;
 
-    const room = await RoomService.getRoomById(params.id);
+    const room = await RoomService.getRoomById(id);
     return NextResponse.json({ success: true, data: room });
   } catch (error: any) {
     return NextResponse.json(
@@ -24,8 +25,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
     if (error) return error;
@@ -33,7 +35,7 @@ export async function PATCH(
     const body = await req.json();
     const validated = roomUpdateSchema.parse(body);
 
-    const updated = await RoomService.updateRoom(params.id, validated, session.user.id);
+    const updated = await RoomService.updateRoom(id, validated, session.user.id);
 
     return NextResponse.json({
       success: true,
@@ -50,13 +52,14 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
 
-    const deactivated = await RoomService.deactivateRoom(params.id, session.user.id);
+    const deactivated = await RoomService.deactivateRoom(id, session.user.id);
 
     return NextResponse.json({
       success: true,

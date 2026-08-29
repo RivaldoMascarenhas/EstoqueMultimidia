@@ -46,7 +46,7 @@ describe("Public Tokenized Events API & Security Hardening", () => {
 
   it("deve rejeitar acesso público a /api/v1/public/events/[id] sem presentationToken", async () => {
     const req = new NextRequest("http://localhost:3000/api/v1/public/events/ev-123");
-    const res = (await getPublicEvent(req, { params: { id: "ev-123" } }))!;
+    const res = (await getPublicEvent(req, { params: Promise.resolve({ id: "ev-123" }) }))!;
     const json = await res.json();
 
     expect(res.status).toBe(401);
@@ -65,7 +65,7 @@ describe("Public Tokenized Events API & Security Hardening", () => {
     } as any);
 
     const req = new NextRequest("http://localhost:3000/api/v1/public/events/ev-123?token=valid_secret_token_123");
-    const res = (await getPublicEvent(req, { params: { id: "ev-123" } }))!;
+    const res = (await getPublicEvent(req, { params: Promise.resolve({ id: "ev-123" }) }))!;
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -95,7 +95,7 @@ describe("Public Tokenized Events API & Security Hardening", () => {
     ] as any);
 
     const req = new NextRequest("http://localhost:3000/api/v1/public/events/ev-123/presences?token=valid_token");
-    const res = (await getPublicPresences(req, { params: { id: "ev-123" } }))!;
+    const res = (await getPublicPresences(req, { params: Promise.resolve({ id: "ev-123" }) }))!;
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -131,7 +131,7 @@ describe("Public Tokenized Events API & Security Hardening", () => {
     vi.mocked(getServerSession).mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost:3000/api/v1/events/ev-123/presences");
-    const res = (await getAdminPresences(req, { params: { id: "ev-123" } }))!;
+    const res = (await getAdminPresences(req, { params: Promise.resolve({ id: "ev-123" }) }))!;
 
     expect(res.status).toBe(401);
   });

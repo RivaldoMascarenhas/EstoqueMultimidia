@@ -6,8 +6,9 @@ import { Role } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -18,7 +19,7 @@ export async function GET(
     ]);
     if (error) return error;
 
-    const request = await RequestService.getRequestById(params.id);
+    const request = await RequestService.getRequestById(id);
     if (!request) {
       return NextResponse.json(
         { success: false, error: "Solicitação não encontrada." },
@@ -45,8 +46,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -60,7 +62,7 @@ export async function PATCH(
     const validated = requestUpdateSchema.parse(body);
 
     const updated = await RequestService.updateRequest(
-      params.id,
+      id,
       validated,
       session.user
     );
@@ -80,8 +82,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -95,7 +98,7 @@ export async function DELETE(
     const action = searchParams.get("action");
 
     if (action === "cancel") {
-      const cancelled = await RequestService.cancelRequest(params.id, session.user);
+      const cancelled = await RequestService.cancelRequest(id, session.user);
       return NextResponse.json({
         success: true,
         message: "Solicitação cancelada com sucesso!",
@@ -103,7 +106,7 @@ export async function DELETE(
       });
     }
 
-    const deleted = await RequestService.deleteRequest(params.id, session.user);
+    const deleted = await RequestService.deleteRequest(id, session.user);
 
     return NextResponse.json({
       success: true,

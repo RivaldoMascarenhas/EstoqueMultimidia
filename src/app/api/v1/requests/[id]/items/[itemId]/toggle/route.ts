@@ -5,8 +5,9 @@ import { Role } from "@prisma/client";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
+  const { id, itemId } = await params;
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
@@ -19,8 +20,8 @@ export async function PATCH(
     const separated = Boolean(body.separated);
 
     const updated = await RequestService.toggleItemSeparated(
-      params.id,
-      params.itemId,
+      id,
+      itemId,
       separated,
       session.user.id
     );

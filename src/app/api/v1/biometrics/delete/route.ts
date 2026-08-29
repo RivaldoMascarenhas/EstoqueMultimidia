@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { PersonService } from "@/services/person.service";
 import { Role } from "@prisma/client";
+import { getClientIp } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireSession([
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ipAddress = req.headers.get("x-forwarded-for") || req.ip || undefined;
+    const ipAddress = getClientIp(req);
 
     const result = await PersonService.deleteBiometrics(
       personId,

@@ -4,14 +4,14 @@ import { requireSession } from "@/lib/api-guard";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { code: string } | Promise<{ code: string }> }
+  { params }: { params: Promise<{ code: string }> }
 ) {
+  const { code } = await params;
   try {
     const { error } = await requireSession();
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const code = resolvedParams?.code;
+    
 
     if (!code) {
       return NextResponse.json(

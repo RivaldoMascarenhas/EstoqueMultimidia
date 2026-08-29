@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
-import { safeAuditLog } from "@/lib/audit";
+import { safeAuditLog, getClientIp } from "@/lib/audit";
 import { Role } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -20,13 +20,16 @@ export async function GET(_req: NextRequest) {
     const sponsors = await prisma.sponsor.findMany({
       orderBy: { name: "asc" },
       include: {
-        _count: { select: { prizes: true } },
+        _count: {
+          select: { prizes: true },
+        },
       },
     });
-    return NextResponse.json({ success: true, sponsors });
+
+    return NextResponse.json({ success: true, items: sponsors });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao buscar patrocinadores." },
+      { success: false, error: err.message || "Erro ao listar patrocinadores." },
       { status: 500 }
     );
   }
@@ -36,7 +39,6 @@ export async function POST(req: NextRequest) {
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
-    Role.OPERADOR,
     Role.EVENTOS,
   ]);
   if (error) return error;
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, logoUrl, description, website, instagram, phone, email, notes } = body;
 
-    if (!name || !name.trim()) {
+    if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json(
         { success: false, error: "Nome do patrocinador é obrigatório." },
         { status: 400 }
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const ipAddress = req.headers.get("x-forwarded-for") || req.ip || undefined;
+    const ipAddress = getClientIp(req);
     await safeAuditLog({
       userId: session?.user?.id,
       action: "CREATE_SPONSOR",

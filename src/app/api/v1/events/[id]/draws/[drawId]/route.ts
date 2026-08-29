@@ -5,13 +5,15 @@ import { realtimeService } from "@/services/realtime.service";
 import { Role } from "@prisma/client";
 import { assertEventAccess } from "@/lib/event-access";
 import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { getClientIp } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string; drawId: string } }
+  { params }: { params: Promise<{ id: string; drawId: string }> }
 ) {
+  const { id, drawId } = await params;
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
@@ -24,7 +26,7 @@ export async function DELETE(
   }
 
   try {
-    const access = await assertEventAccess(params.id, session.user, {
+    const access = await assertEventAccess(id, session.user, {
       requiredPermission: EVENT_PERMISSIONS.DRAW_INVALIDATE,
       isMutation: true,
     });
@@ -43,11 +45,11 @@ export async function DELETE(
       // JSON body might be empty on direct DELETE request
     }
 
-    const ipAddress = req.headers.get("x-forwarded-for") || req.ip || undefined;
+    const ipAddress = getClientIp(req);
 
     const result = await DrawService.cancelDraw({
-      drawId: params.drawId,
-      eventId: params.id,
+      drawId: drawId,
+      eventId: id,
       reason,
       disqualifyParticipant,
       operatorUserId: session?.user?.id,
@@ -55,7 +57,7 @@ export async function DELETE(
     });
 
     // Notificar telões e operadores imediatamente em tempo real
-    await realtimeService.publish(params.id, {
+    await realtimeService.publish(id, {
       type: "draw:cancel",
       state: "IDLE",
       winner: null,

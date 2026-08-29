@@ -6,14 +6,14 @@ import { requireSession } from "@/lib/api-guard";
 // PUT /api/v1/users/[id] - Atualizar usuário (apenas ADMIN)
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(
@@ -127,14 +127,14 @@ export async function PUT(
 // DELETE /api/v1/users/[id] - Desativar ou Excluir usuário (apenas ADMIN)
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
 
-    const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams?.id;
+    
 
     if (!id) {
       return NextResponse.json(
