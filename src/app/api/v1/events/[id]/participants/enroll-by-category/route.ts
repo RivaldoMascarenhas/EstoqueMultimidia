@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { EventService } from "@/services/event.service";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +15,17 @@ export async function POST(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) return error;
 
   try {
+    const access = await assertEventAccess(params.id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PARTICIPANTS_CREATE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const body = await req.json();
     const { categories = [], requireBiometricsOnly = false } = body;
 

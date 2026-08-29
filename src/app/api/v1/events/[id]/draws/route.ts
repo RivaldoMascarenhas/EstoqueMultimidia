@@ -3,12 +3,14 @@ import { requireSession } from "@/lib/api-guard";
 import { DrawService } from "@/services/draw.service";
 import { executeDrawSchema } from "@/schemas/draw.schema";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -23,6 +25,11 @@ export async function GET(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.DRAW_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const draws = await DrawService.listEventDraws(eventId);
     return NextResponse.json({ success: true, draws });
@@ -53,6 +60,12 @@ export async function POST(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.DRAW_OPERATE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const body = await req.json();
     const parsed = executeDrawSchema.safeParse({ ...body, eventId });

@@ -3,12 +3,14 @@ import { requireSession } from "@/lib/api-guard";
 import { EventService } from "@/services/event.service";
 import { updateEventSchema } from "@/schemas/event.schema";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -26,6 +28,11 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const access = await assertEventAccess(id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.EVENTS_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const event = await EventService.getEventById(id);
     if (!event) {
@@ -65,6 +72,12 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const access = await assertEventAccess(id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.EVENTS_EDIT,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const body = await req.json();
     const parsed = updateEventSchema.safeParse(body);
@@ -116,6 +129,12 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    const access = await assertEventAccess(id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.EVENTS_DELETE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     await EventService.deleteEvent(id, session?.user?.id);
     return NextResponse.json({ success: true, message: "Evento excluído com sucesso." });

@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 export async function GET() {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession([
+      Role.ADMIN,
+      Role.GESTOR,
+      Role.OPERADOR,
+      Role.ACADEMIC_SUPPORT,
+    ]);
     if (error) return error;
+
+    const createdById = session.user.role === Role.ACADEMIC_SUPPORT ? session.user.id : undefined;
 
     const pendingReview = await RequestService.getRequests({
       needsReview: true,
+      createdById,
     });
 
     return NextResponse.json({

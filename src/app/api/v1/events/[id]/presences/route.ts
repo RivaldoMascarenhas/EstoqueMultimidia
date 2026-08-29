@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/api-guard";
 import { EventService } from "@/services/event.service";
 import { manualPresenceSchema } from "@/schemas/event.schema";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -25,6 +27,11 @@ export async function GET(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRESENCE_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "15", 10);
@@ -61,6 +68,12 @@ export async function POST(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRESENCE_REGISTER,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const body = await req.json();
     const parsed = manualPresenceSchema.safeParse(body);

@@ -9,15 +9,12 @@ export async function PATCH(
   { params }: { params: { id: string; taskId: string } }
 ) {
   try {
-    const { session, error } = await requireSession();
-    if (error) return error;
-
-    const roleError = requireRole(session.user.role, [
+    const { session, error } = await requireSession([
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
     ]);
-    if (roleError) return roleError;
+    if (error) return error;
 
     const body = await req.json();
     const validated = requestTaskToggleSchema.parse(body);
@@ -47,15 +44,12 @@ export async function DELETE(
   { params }: { params: { id: string; taskId: string } }
 ) {
   try {
-    const { session, error } = await requireSession();
-    if (error) return error;
-
-    const roleError = requireRole(session.user.role, [
+    const { session, error } = await requireSession([
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
     ]);
-    if (roleError) return roleError;
+    if (error) return error;
 
     const updated = await RequestService.deleteTask(
       params.id,

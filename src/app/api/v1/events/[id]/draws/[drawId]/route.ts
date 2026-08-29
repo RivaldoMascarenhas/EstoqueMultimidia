@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/api-guard";
 import { DrawService } from "@/services/draw.service";
 import { realtimeService } from "@/services/realtime.service";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,12 @@ export async function DELETE(
   }
 
   try {
+    const access = await assertEventAccess(params.id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.DRAW_INVALIDATE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     let reason = "Ausente no momento do sorteio";
     let disqualifyParticipant = true;
 
@@ -39,6 +47,7 @@ export async function DELETE(
 
     const result = await DrawService.cancelDraw({
       drawId: params.drawId,
+      eventId: params.id,
       reason,
       disqualifyParticipant,
       operatorUserId: session?.user?.id,

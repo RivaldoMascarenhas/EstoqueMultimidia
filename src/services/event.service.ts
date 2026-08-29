@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { safeAuditLog } from "@/lib/audit";
 import { CreateEventInput, UpdateEventInput } from "@/schemas/event.schema";
 import { CreatePrizeInput, UpdatePrizeInput } from "@/schemas/prize.schema";
-import { EventStatus, ParticipantStatus, PresenceMethod, PrizeStatus, Prisma } from "@prisma/client";
+import { EventStatus, ParticipantStatus, PresenceMethod, PrizeStatus, Prisma, Role } from "@prisma/client";
 
 export class EventService {
   /**
@@ -58,6 +58,19 @@ export class EventService {
         presentationToken: crypto.randomBytes(32).toString("base64url"),
       },
     });
+
+    if (operatorUserId) {
+      try {
+        await prisma.eventUser.create({
+          data: {
+            eventId: event.id,
+            userId: operatorUserId,
+          },
+        });
+      } catch (err) {
+        // Ignora duplicidade
+      }
+    }
 
     await safeAuditLog({
       userId: operatorUserId,
@@ -259,6 +272,8 @@ export class EventService {
     query?: string;
     page?: number;
     limit?: number;
+    userId?: string;
+    role?: Role;
   }) {
     const page = Math.max(1, params.page || 1);
     const limit = Math.min(100, Math.max(1, params.limit || 15));
@@ -275,6 +290,15 @@ export class EventService {
         { description: { contains: q, mode: "insensitive" } },
         { location: { contains: q, mode: "insensitive" } },
       ];
+    }
+
+    // Isolamento contextual para perfil EVENTOS (apenas eventos em que é gestor)
+    if (params.role === Role.EVENTOS && params.userId) {
+      where.managers = {
+        some: {
+          userId: params.userId,
+        },
+      };
     }
 
     const [total, items] = await Promise.all([

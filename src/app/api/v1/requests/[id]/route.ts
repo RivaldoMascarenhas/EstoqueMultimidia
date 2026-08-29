@@ -2,16 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestUpdateSchema } from "@/schemas/request.schema";
 import { requireSession } from "@/lib/api-guard";
+import { Role } from "@prisma/client";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession([
+      Role.ADMIN,
+      Role.GESTOR,
+      Role.OPERADOR,
+      Role.CONSULTA,
+      Role.ACADEMIC_SUPPORT,
+    ]);
     if (error) return error;
 
     const request = await RequestService.getRequestById(params.id);
+    if (!request) {
+      return NextResponse.json(
+        { success: false, error: "Solicitação não encontrada." },
+        { status: 404 }
+      );
+    }
+
+    // Isolamento server-side para Apoio Acadêmico
+    if (session.user.role === Role.ACADEMIC_SUPPORT && request.createdById !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: "Solicitação não encontrada." },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json({ success: true, data: request });
   } catch (error: any) {
     return NextResponse.json(
@@ -26,7 +48,12 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { session, error } = await requireSession();
+    const { session, error } = await requireSession([
+      Role.ADMIN,
+      Role.GESTOR,
+      Role.OPERADOR,
+      Role.ACADEMIC_SUPPORT,
+    ]);
     if (error) return error;
 
     const body = await req.json();
@@ -56,7 +83,12 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { session, error } = await requireSession();
+    const { session, error } = await requireSession([
+      Role.ADMIN,
+      Role.GESTOR,
+      Role.OPERADOR,
+      Role.ACADEMIC_SUPPORT,
+    ]);
     if (error) return error;
 
     const { searchParams } = new URL(req.url);

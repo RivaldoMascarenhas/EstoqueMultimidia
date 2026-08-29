@@ -5,7 +5,7 @@ import { createEventSchema } from "@/schemas/event.schema";
 import { EventStatus, Role } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
       status,
       page,
       limit,
+      userId: session?.user?.id,
+      role: session?.user?.role as Role,
     });
 
     return NextResponse.json({ success: true, ...result });

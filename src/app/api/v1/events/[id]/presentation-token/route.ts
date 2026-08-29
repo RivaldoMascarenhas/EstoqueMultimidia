@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente" }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRESENTATION_MANAGE,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
@@ -58,6 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
+    Role.OPERADOR,
     Role.EVENTOS,
   ]);
   if (error) return error;
@@ -68,6 +76,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente" }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRESENTATION_MANAGE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const newToken = crypto.randomBytes(32).toString("base64url");
 
     const updated = await prisma.event.update({

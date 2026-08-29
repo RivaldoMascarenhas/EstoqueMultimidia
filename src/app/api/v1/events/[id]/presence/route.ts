@@ -5,6 +5,8 @@ import { safeAuditLog } from "@/lib/audit";
 import { requireSession } from "@/lib/api-guard";
 import { maskCpf } from "@/lib/maskData";
 import { PresenceMethod, ParticipantStatus, Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,13 @@ export async function POST(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRESENCE_REGISTER,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const body = await req.json();
     const { imageBase64, personId, method = "FACE" } = body;
 

@@ -4,13 +4,14 @@ import { EventService } from "@/services/event.service";
 import { addParticipantSchema } from "@/schemas/event.schema";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { canDeleteParticipant } from "@/lib/event-permissions";
+import { canDeleteParticipant, EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { assertEventAccess } from "@/lib/event-access";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -25,6 +26,11 @@ export async function GET(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PARTICIPANTS_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("query") || undefined;
@@ -77,6 +83,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
 
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PARTICIPANTS_CREATE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const body = await req.json();
     const parsed = addParticipantSchema.safeParse(body);
 
@@ -123,6 +135,12 @@ export async function DELETE(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PARTICIPANTS_DELETE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const { searchParams } = new URL(req.url);
     const personId = searchParams.get("personId");

@@ -3,12 +3,14 @@ import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { ExportService } from "@/services/export.service";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -18,6 +20,11 @@ export async function GET(
   if (error) return error;
 
   try {
+    const access = await assertEventAccess(params.id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.REPORTS_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type") || "participants"; // participants | presences | winners
     const format = searchParams.get("format") || "csv"; // csv | xlsx | html

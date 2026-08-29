@@ -9,15 +9,12 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { session, error } = await requireSession();
-    if (error) return error;
-
-    const roleError = requireRole(session.user.role, [
+    const { session, error } = await requireSession([
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
     ]);
-    if (roleError) return roleError;
+    if (error) return error;
 
     const body = await req.json();
     const validated = requestTaskCreateSchema.parse(body);

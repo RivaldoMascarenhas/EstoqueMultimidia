@@ -5,6 +5,8 @@ import { requireSession } from "@/lib/api-guard";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { realtimeService, RealtimePayload } from "@/services/realtime.service";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +28,12 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   if (!isAuthorized) {
     const session = await getServerSession(authOptions);
-    if (session) isAuthorized = true;
+    if (session?.user?.id) {
+      const access = await assertEventAccess(eventId, session.user as any, {
+        requiredPermission: EVENT_PERMISSIONS.EVENTS_VIEW,
+      });
+      if (access.authorized) isAuthorized = true;
+    }
   }
 
   if (!isAuthorized) {
@@ -119,6 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
+      Role.EVENTOS,
     ]);
     if (error) return error;
 
@@ -127,6 +135,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRESENTATION_MANAGE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const body = await req.json();
     const parsed = realtimePublishSchema.safeParse(body);

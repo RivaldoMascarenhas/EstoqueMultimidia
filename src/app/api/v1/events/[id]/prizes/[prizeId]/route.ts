@@ -4,7 +4,8 @@ import { EventService } from "@/services/event.service";
 import { updatePrizeSchema } from "@/schemas/prize.schema";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { canDeletePrize, canEditPrize } from "@/lib/event-permissions";
+import { canDeletePrize, canEditPrize, EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { assertEventAccess } from "@/lib/event-access";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string; prizeId: string } }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -22,6 +23,11 @@ export async function GET(
   if (error) return error;
 
   try {
+    const access = await assertEventAccess(params.id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRIZES_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const prize = await prisma.prize.findUnique({
       where: { id: params.prizeId },
       include: { sponsor: true, winners: true },
@@ -54,6 +60,12 @@ export async function PUT(
   if (error) return error;
 
   try {
+    const access = await assertEventAccess(params.id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRIZES_EDIT,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const existing = await prisma.prize.findUnique({
       where: { id: params.prizeId },
     });
@@ -116,6 +128,12 @@ export async function DELETE(
   if (error) return error;
 
   try {
+    const access = await assertEventAccess(params.id, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.PRIZES_DELETE,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const existing = await prisma.prize.findUnique({
       where: { id: params.prizeId },
     });

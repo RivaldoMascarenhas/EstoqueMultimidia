@@ -295,12 +295,21 @@ export class DrawService {
    */
   public static async deliverPrize(params: {
     winnerId: string;
+    eventId?: string;
     delivered?: boolean;
     notes?: string | null;
     operatorUserId?: string | null;
     ipAddress?: string | null;
   }) {
-    const { winnerId, delivered = true, notes, operatorUserId, ipAddress } = params;
+    const { winnerId, eventId, delivered = true, notes, operatorUserId, ipAddress } = params;
+
+    const existing = await prisma.winner.findUnique({
+      where: { id: winnerId },
+    });
+
+    if (!existing || (eventId && existing.eventId !== eventId)) {
+      throw new Error("Registro de premiação não encontrado.");
+    }
 
     let validOperatorUserId: string | null = null;
     if (operatorUserId) {
@@ -383,12 +392,13 @@ export class DrawService {
    */
   public static async cancelDraw(params: {
     drawId: string;
+    eventId?: string;
     reason?: string;
     disqualifyParticipant?: boolean;
     operatorUserId?: string;
     ipAddress?: string;
   }) {
-    const { drawId, reason, disqualifyParticipant, operatorUserId, ipAddress } = params;
+    const { drawId, eventId, reason, disqualifyParticipant, operatorUserId, ipAddress } = params;
 
     const draw = await prisma.draw.findUnique({
       where: { id: drawId },
@@ -400,7 +410,7 @@ export class DrawService {
       },
     });
 
-    if (!draw) {
+    if (!draw || (eventId && draw.eventId !== eventId)) {
       throw new Error("Sorteio não encontrado.");
     }
 

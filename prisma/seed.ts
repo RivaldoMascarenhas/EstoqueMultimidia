@@ -48,16 +48,17 @@ async function main() {
   await prisma.user.deleteMany();
 
   // 2. Usuários iniciais com senhas com hash seguro e troca obrigatória no primeiro login
+  if (process.env.NODE_ENV === "production" && !process.env.SEED_DEFAULT_PASSWORD) {
+    throw new Error(
+      "Erro de Segurança: Em ambiente de produção, é obrigatório definir a variável de ambiente SEED_DEFAULT_PASSWORD antes de executar o seed inicial."
+    );
+  }
+
   const seedPasswordRaw = process.env.SEED_DEFAULT_PASSWORD || `UniFAP@${Math.floor(100000 + Math.random() * 900000)}!`;
   const defaultPassword = await bcrypt.hash(seedPasswordRaw, 10);
 
   console.log(`🔐 Configuração de credenciais iniciais:`);
-  if (!process.env.SEED_DEFAULT_PASSWORD) {
-    console.log(`⚠️ SEED_DEFAULT_PASSWORD não definida no ambiente. Senha temporária gerada: ${seedPasswordRaw}`);
-    console.log(`   (Todos os usuários foram criados com 'mustChangePassword: true' para troca forçada no primeiro acesso)`);
-  } else {
-    console.log(`✅ Senha inicial configurada via SEED_DEFAULT_PASSWORD com 'mustChangePassword: true'.`);
-  }
+  console.log(`   (Todos os usuários foram criados com 'mustChangePassword: true' para troca forçada no primeiro acesso)`);
 
   const rivaldo = await prisma.user.create({
     data: {

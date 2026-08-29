@@ -53,6 +53,7 @@ export class RequestService {
     status?: RequestStatus;
     roomId?: string;
     assignedUserId?: string;
+    createdById?: string;
     needsReview?: boolean;
     origin?: RequestOrigin;
     search?: string;
@@ -63,6 +64,7 @@ export class RequestService {
       status,
       roomId,
       assignedUserId,
+      createdById,
       needsReview,
       origin,
       search,
@@ -82,6 +84,7 @@ export class RequestService {
     if (status) where.status = status;
     if (roomId) where.roomId = roomId;
     if (assignedUserId) where.assignedUserId = assignedUserId;
+    if (createdById) where.createdById = createdById;
     if (needsReview !== undefined) where.needsReview = needsReview;
     if (origin) where.origin = origin;
 
@@ -1056,6 +1059,13 @@ export class RequestService {
    */
   static async addTask(requestId: string, data: RequestTaskCreateInput, userId: string) {
     return await prisma.$transaction(async (tx) => {
+      const request = await tx.request.findUnique({
+        where: { id: requestId },
+      });
+      if (!request) {
+        throw new Error("Solicitação de atendimento não encontrada.");
+      }
+
       const count = await tx.requestTask.count({ where: { requestId } });
 
       const task = await tx.requestTask.create({
@@ -1088,6 +1098,14 @@ export class RequestService {
    */
   static async deleteTask(requestId: string, taskId: string, userId: string) {
     return await prisma.$transaction(async (tx) => {
+      const task = await tx.requestTask.findUnique({
+        where: { id: taskId },
+      });
+
+      if (!task || task.requestId !== requestId) {
+        throw new Error("Tarefa operacional não encontrada.");
+      }
+
       await tx.requestTask.delete({
         where: { id: taskId },
       });

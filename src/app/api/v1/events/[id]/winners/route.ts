@@ -3,12 +3,14 @@ import { requireSession } from "@/lib/api-guard";
 import { DrawService } from "@/services/draw.service";
 import { deliverPrizeSchema } from "@/schemas/draw.schema";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -24,6 +26,11 @@ export async function GET(
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
 
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.WINNERS_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const winners = await DrawService.listEventWinners(eventId);
     return NextResponse.json({ success: true, winners });
   } catch (err: any) {
@@ -37,7 +44,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
   const { session, error } = await requireSession([
     Role.ADMIN,
@@ -48,6 +55,18 @@ export async function PATCH(
   if (error) return error;
 
   try {
+    const resolvedParams = await Promise.resolve(params);
+    const eventId = resolvedParams?.id;
+    if (!eventId) {
+      return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
+    }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.WINNERS_DELIVER,
+      isMutation: true,
+    });
+    if (!access.authorized) return access.errorResponse!;
+
     const body = await req.json();
     const parsed = deliverPrizeSchema.safeParse(body);
 
@@ -62,6 +81,7 @@ export async function PATCH(
 
     const winner = await DrawService.deliverPrize({
       winnerId: parsed.data.winnerId,
+      eventId,
       delivered: parsed.data.delivered,
       notes: parsed.data.notes,
       operatorUserId: session?.user?.id,

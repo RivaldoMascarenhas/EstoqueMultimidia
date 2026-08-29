@@ -21,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
     event: { findUnique: vi.fn(), delete: vi.fn() },
+    eventUser: { findUnique: vi.fn() },
     eventParticipant: { findUnique: vi.fn(), delete: vi.fn() },
     presence: { deleteMany: vi.fn() },
     prize: { findUnique: vi.fn(), delete: vi.fn() },
@@ -148,6 +149,15 @@ describe("Event Permissions & State Validation Helpers", () => {
 describe("API Security Guard & State Rules for Role EVENTOS", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "ev-1",
+      name: "Evento Teste",
+    } as any);
+    vi.mocked(prisma.eventUser.findUnique).mockResolvedValue({
+      id: "eu-1",
+      userId: "u-eventos",
+      eventId: "ev-1",
+    } as any);
   });
 
   describe("DELETE /api/v1/events/[id]/participants (Exclusão com Validação de Presença)", () => {

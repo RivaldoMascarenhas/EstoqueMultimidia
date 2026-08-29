@@ -6,6 +6,18 @@ export function normalizeImageUrl(url: string | null | undefined): string {
   if (!url || typeof url !== "string") return "";
   let trimmed = url.trim();
 
+  // Bloqueio estrito de vetores XSS via esquema de URL malicioso
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith("javascript:") ||
+    lower.startsWith("vbscript:") ||
+    lower.startsWith("data:text/html") ||
+    lower.startsWith("data:application/") ||
+    lower.startsWith("data:image/svg+xml")
+  ) {
+    return "";
+  }
+
   // If already proxied, Base64 or local public asset, return as-is
   if (
     trimmed.startsWith("/api/v1/image-proxy") ||

@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { DrawEligibilityService } from "@/services/draw-eligibility.service";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } | Promise<{ id: string }> }
 ) {
-  const { error } = await requireSession([
+  const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
@@ -22,6 +24,11 @@ export async function GET(
     if (!eventId) {
       return NextResponse.json({ success: false, error: "ID do evento ausente." }, { status: 400 });
     }
+
+    const access = await assertEventAccess(eventId, session.user, {
+      requiredPermission: EVENT_PERMISSIONS.DRAW_VIEW,
+    });
+    if (!access.authorized) return access.errorResponse!;
 
     const { searchParams } = new URL(req.url);
     const requireRegistration = searchParams.get("requireRegistration") !== "false";
