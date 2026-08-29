@@ -25,6 +25,11 @@ import {
   UserCheck,
   Filter,
   Layers,
+  Cpu,
+  Clock,
+  Zap,
+  FileArchive,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -62,10 +67,60 @@ export function EnrollParticipantsModal({
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [enrollingPeople, setEnrollingPeople] = useState(false);
 
-  // Tab 3: CSV Import State
+  // Tab 3: CSV / ZIP Import State & Live Feedback
   const [file, setFile] = useState<File | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState<"uploading" | "processing" | "completed">("uploading");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [activeTipIndex, setActiveTipIndex] = useState(0);
   const [csvResult, setCsvResult] = useState<any | null>(null);
+
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const tipTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const tips = [
+    "Descompactando fotos e indexando metadados...",
+    "Localizando participantes por Matrícula e CPF...",
+    "Executando rede neural InsightFace para detecção de rostos...",
+    "Gerando vetores biométricos de 512 dimensões...",
+    "Inscrevendo participantes no evento e gerando bilhetes...",
+    "Quase concluído, aplicando checagem de integridade...",
+  ];
+
+  // Elapsed time and tips rotation during import
+  useEffect(() => {
+    if (importingCsv) {
+      setElapsedSeconds(0);
+      setActiveTipIndex(0);
+
+      timerRef.current = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+
+      tipTimerRef.current = setInterval(() => {
+        setActiveTipIndex((prev) => (prev + 1) % tips.length);
+      }, 4000);
+
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = "A importação ainda está em andamento. Deseja realmente sair?";
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+
+      return () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (tipTimerRef.current) clearInterval(tipTimerRef.current);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
+    }
+  }, [importingCsv]);
+
+  const formatTime = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
 
   // Fetch Categories
   const fetchCategories = async () => {
@@ -244,36 +299,63 @@ export function EnrollParticipantsModal({
     URL.revokeObjectURL(url);
   };
 
-  const handleProcessCsv = async () => {
+  const handleProcessCsv = () => {
     if (!file) return;
     setImportingCsv(true);
+    setProcessingStage("uploading");
+    setUploadProgress(0);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("filename", file.name);
-      formData.append("eventId", eventId);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("filename", file.name);
+    formData.append("eventId", eventId);
 
-      const res = await fetch("/api/v1/biometrics/import", {
-        method: "POST",
-        body: formData,
-      });
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/v1/biometrics/import");
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Falha na importação.");
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setUploadProgress(percent);
+        if (percent >= 100) {
+          setProcessingStage("processing");
+        }
       }
+    };
 
-      setCsvResult(data);
-      toast.success(
-        `Importação concluída! ${data.enrolledInEvent} participantes inscritos no evento.`
-      );
-      if (onSuccess) onSuccess();
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao processar planilha.");
-    } finally {
+    xhr.onload = () => {
       setImportingCsv(false);
-    }
+      setProcessingStage("completed");
+
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+          setCsvResult(data);
+          if (data.totalPhotos !== undefined) {
+            toast.success(
+              `Pacote concluído! ${data.photosEnrolled || 0} biometrias e ${data.enrolledInEvent || 0} participantes inscritos.`
+            );
+          } else {
+            toast.success(
+              `Importação concluída! ${data.enrolledInEvent || 0} participantes inscritos no evento.`
+            );
+          }
+          if (onSuccess) onSuccess();
+        } else {
+          toast.error(data.error || "Falha ao processar arquivo no servidor.");
+        }
+      } catch {
+        toast.error("Erro inesperado na resposta do servidor.");
+      }
+    };
+
+    xhr.onerror = () => {
+      setImportingCsv(false);
+      setProcessingStage("completed");
+      toast.error("Erro de conexão durante o envio do arquivo.");
+    };
+
+    xhr.send(formData);
   };
 
   return (
@@ -583,22 +665,28 @@ export function EnrollParticipantsModal({
           </div>
         )}
 
-        {/* TAB 3: CSV IMPORT */}
+        {/* TAB 3: CSV & ZIP IMPORT */}
         {activeTab === "csv" && (
           <div className="p-5 space-y-4">
-            {!csvResult ? (
+            {/* ESTADO 1: FORMULÁRIO DE SELEÇÃO */}
+            {!importingCsv && !csvResult && (
               <>
-                <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/80 bg-muted/10 p-6 text-center hover:bg-muted/20 transition-colors">
-                  <Upload className="h-9 w-9 text-muted-foreground mb-2" />
+                <div className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border/80 bg-muted/10 p-6 text-center hover:bg-muted/20 transition-all">
+                  {file?.name.toLowerCase().endsWith(".zip") ? (
+                    <FileArchive className="h-10 w-10 text-primary mb-2 animate-bounce" />
+                  ) : (
+                    <Upload className="h-9 w-9 text-muted-foreground mb-2" />
+                  )}
                   <p className="text-xs font-semibold text-foreground">
-                    {file ? file.name : "Clique para selecionar ou arraste o arquivo CSV / XLSX"}
+                    {file ? file.name : "Clique para selecionar ou arraste o arquivo (.CSV, .XLSX ou .ZIP)"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Colunas aceitas: Nome, Matrícula, CPF, Email, Telefone, Categoria.
+                  <p className="text-[11px] text-muted-foreground mt-1 max-w-sm">
+                    <strong>Planilha:</strong> Nome, Categoria e (Matrícula ou CPF).<br />
+                    <strong>Pacote ZIP:</strong> Fotos 3x4 nomeadas por Matrícula ou CPF com inscrição automática neste evento.
                   </p>
                   <input
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv,.xlsx,.xls,.zip"
                     onChange={(e) => {
                       if (e.target.files?.[0]) setFile(e.target.files[0]);
                     }}
@@ -615,21 +703,182 @@ export function EnrollParticipantsModal({
                     <Download className="h-3.5 w-3.5" />
                     Baixar planilha modelo (.CSV)
                   </button>
+
+                  {file && (
+                    <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
+                      <FileText className="h-3 w-3" />
+                      {(file.size / (1024 * 1024)).toFixed(2)} MB
+                    </span>
+                  )}
                 </div>
               </>
-            ) : (
-              <div className="space-y-3">
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-center gap-3">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                      Importação Finalizada!
+            )}
+
+            {/* ESTADO 2: PROCESSAMENTO EM ANDAMENTO */}
+            {importingCsv && (
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 space-y-5 animate-in fade-in-50 duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                      <Cpu className="h-5 w-5 animate-spin" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        {processingStage === "uploading"
+                          ? "Enviando arquivo para o servidor..."
+                          : "Processando lote e inscrevendo participantes..."}
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Por favor, aguarde. Não feche nem recarregue a página.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-muted-foreground bg-background px-3 py-1.5 rounded-lg border border-border">
+                    <Clock className="h-3.5 w-3.5 text-primary" />
+                    {formatTime(elapsedSeconds)}
+                  </div>
+                </div>
+
+                {/* Barra de Progresso */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs font-medium text-foreground">
+                    <span>
+                      {processingStage === "uploading"
+                        ? `Upload: ${uploadProgress}%`
+                        : "IA Biometria & Inscrição no Evento"}
+                    </span>
+                    <span className="text-muted-foreground font-mono">
+                      {processingStage === "uploading" ? `${uploadProgress}%` : "Em execução..."}
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60">
+                    {processingStage === "uploading" ? (
+                      <div
+                        className="h-full bg-primary transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    ) : (
+                      <div className="h-full bg-gradient-to-r from-primary via-blue-500 to-emerald-500 w-full animate-pulse" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Etapas do Pipeline */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-primary/10 text-center">
+                  <div className="rounded-xl bg-background/80 border border-border p-2.5">
+                    <div className="flex items-center justify-center gap-1 text-emerald-600 mb-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-bold">1. Upload</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {uploadProgress >= 100 ? "Concluído" : `${uploadProgress}%`}
                     </p>
-                    <p className="text-[11px] text-emerald-600/90 dark:text-emerald-400/90">
-                      {csvResult.enrolledInEvent} participantes inscritos neste evento.
+                  </div>
+
+                  <div className="rounded-xl bg-background/80 border border-border p-2.5">
+                    <div className="flex items-center justify-center gap-1 text-primary mb-1">
+                      <Zap className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-bold">2. Análise IA</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {processingStage === "uploading" ? "Aguardando" : "InsightFace 512D"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-background/80 border border-border p-2.5">
+                    <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-bold">3. Inscrição</span>
+                    </div>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {processingStage === "uploading" ? "Aguardando" : "Bilhetes & Banco"}
                     </p>
                   </div>
                 </div>
+
+                {/* Mensagem rotativa de feedback */}
+                <div className="rounded-xl bg-background/60 p-3 border border-border/60 text-center">
+                  <p className="text-xs text-foreground font-medium transition-all duration-300">
+                    💡 {tips[activeTipIndex]}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ESTADO 3: RESULTADO APÓS CONCLUSÃO */}
+            {!importingCsv && csvResult && (
+              <div className="space-y-4 animate-in fade-in-50 duration-300">
+                <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-center gap-3">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                      Importação e Inscrição Finalizadas com Sucesso!
+                    </p>
+                    <p className="text-[11px] text-emerald-600/90 dark:text-emerald-400/90">
+                      {csvResult.enrolledInEvent || 0} participantes foram vinculados e inscritos neste evento.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Métricas do Pacote */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                  {csvResult.totalPhotos !== undefined && (
+                    <>
+                      <div className="rounded-xl bg-card border border-border p-3">
+                        <p className="text-[10px] text-muted-foreground">Fotos no ZIP</p>
+                        <p className="text-base font-bold text-foreground">{csvResult.totalPhotos}</p>
+                      </div>
+                      <div className="rounded-xl bg-card border border-border p-3">
+                        <p className="text-[10px] text-muted-foreground">Biometrias Geradas</p>
+                        <p className="text-base font-bold text-emerald-600">{csvResult.photosEnrolled || 0}</p>
+                      </div>
+                    </>
+                  )}
+                  <div className="rounded-xl bg-card border border-border p-3">
+                    <p className="text-[10px] text-muted-foreground">Inscritos no Evento</p>
+                    <p className="text-base font-bold text-primary">{csvResult.enrolledInEvent || 0}</p>
+                  </div>
+                  <div className="rounded-xl bg-card border border-border p-3">
+                    <p className="text-[10px] text-muted-foreground">Novas Pessoas</p>
+                    <p className="text-base font-bold text-emerald-600">{csvResult.createdPersons || 0}</p>
+                  </div>
+                </div>
+
+                {/* Erros / Inconsistências de Planilha */}
+                {csvResult.errors && csvResult.errors.length > 0 && (
+                  <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 space-y-1">
+                    <p className="text-xs font-bold text-rose-600 flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4" />
+                      {csvResult.errors.length} avisos na planilha
+                    </p>
+                    <div className="max-h-24 overflow-y-auto text-[11px] text-muted-foreground space-y-0.5 font-mono">
+                      {csvResult.errors.map((e: any, idx: number) => (
+                        <p key={idx}>
+                          Linha {e.row}: {e.error}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Erros / Inconsistências de Fotos */}
+                {csvResult.photoErrors && csvResult.photoErrors.length > 0 && (
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 space-y-1">
+                    <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <Camera className="h-4 w-4" />
+                      {csvResult.photoErrors.length} fotos não vinculadas
+                    </p>
+                    <div className="max-h-24 overflow-y-auto text-[11px] text-muted-foreground space-y-0.5 font-mono">
+                      {csvResult.photoErrors.map((e: any, idx: number) => (
+                        <p key={idx}>
+                          {e.filename}: {e.error}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -637,7 +886,8 @@ export function EnrollParticipantsModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent rounded-xl"
+                disabled={importingCsv}
+                className="px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-accent rounded-xl transition-colors disabled:opacity-40"
               >
                 {csvResult ? "Concluir" : "Cancelar"}
               </button>
@@ -647,14 +897,14 @@ export function EnrollParticipantsModal({
                   type="button"
                   disabled={!file || importingCsv}
                   onClick={handleProcessCsv}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition disabled:opacity-50"
                 >
                   {importingCsv ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Upload className="h-4 w-4" />
                   )}
-                  <span>Importar e Inscrever</span>
+                  <span>{importingCsv ? "Processando no Servidor..." : "Importar e Inscrever"}</span>
                 </button>
               ) : (
                 <button
@@ -662,10 +912,12 @@ export function EnrollParticipantsModal({
                   onClick={() => {
                     setFile(null);
                     setCsvResult(null);
+                    setUploadProgress(0);
+                    setProcessingStage("uploading");
                   }}
-                  className="px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 rounded-xl transition-colors"
                 >
-                  Importar Outro
+                  Importar Outro Pacote
                 </button>
               )}
             </div>

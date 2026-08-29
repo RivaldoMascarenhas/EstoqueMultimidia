@@ -61,6 +61,14 @@ export function PersonFormModal({
       toast.error("Nome completo é obrigatório.");
       return;
     }
+    if (!category.trim()) {
+      toast.error("Categoria é obrigatória.");
+      return;
+    }
+    if (!registration.trim() && !cpf.trim()) {
+      toast.error("Informe ao menos a Matrícula ou o CPF para identificação única da pessoa.");
+      return;
+    }
 
     setIsSubmitting(true);
     try {

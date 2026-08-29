@@ -12,6 +12,21 @@ export class PersonService {
     operatorUserId?: string,
     ipAddress?: string
   ) {
+    if (!data.name || data.name.trim().length < 2) {
+      throw new Error("O campo 'Nome' é obrigatório e deve ter no mínimo 2 caracteres.");
+    }
+
+    if (!data.category || data.category.trim().length === 0) {
+      throw new Error("O campo 'Categoria' é obrigatório (ex: Aluno, Professor, Técnico, Visitante).");
+    }
+
+    const hasReg = Boolean(data.registration && data.registration.trim().length > 0);
+    const hasCpf = Boolean(data.cpf && data.cpf.trim().length > 0);
+
+    if (!hasReg && !hasCpf) {
+      throw new Error("Informe ao menos a Matrícula ou o CPF para identificação única da pessoa.");
+    }
+
     // Check CPF or Registration uniqueness if provided
     if (data.cpf) {
       const existingCpf = await prisma.person.findUnique({

@@ -2,7 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { safeAuditLog } from "@/lib/audit";
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
+import JSZip from "jszip";
+import path from "path";
 import { ParticipantStatus } from "@prisma/client";
+import { BiometricApiService } from "@/services/biometric-api.service";
 
 export interface ParsedPersonRow {
   name: string;
@@ -21,6 +24,12 @@ export interface ImportResult {
   updatedPersons: number;
   enrolledInEvent: number;
   errors: Array<{ row: number; error: string; data?: any }>;
+}
+
+export interface ZipImportResult extends ImportResult {
+  totalPhotos: number;
+  photosEnrolled: number;
+  photoErrors: Array<{ filename: string; error: string }>;
 }
 
 export class ImportService {
@@ -211,20 +220,51 @@ export class ImportService {
       const row = rows[i];
       const rowNum = i + 1;
 
+      // 1. Validação estrita de campos obrigatórios
+      if (!row.name || row.name.trim().length < 2) {
+        result.errors.push({
+          row: rowNum,
+          error: "O campo 'Nome' é obrigatório e deve ter no mínimo 2 caracteres.",
+          data: row,
+        });
+        continue;
+      }
+
+      if (!row.category || row.category.trim().length === 0) {
+        result.errors.push({
+          row: rowNum,
+          error: "O campo 'Categoria' é obrigatório (ex: Aluno, Professor, Técnico, Visitante).",
+          data: row,
+        });
+        continue;
+      }
+
+      const hasReg = Boolean(row.registration && row.registration.trim().length > 0);
+      const hasCpf = Boolean(row.cpf && row.cpf.trim().length === 11);
+
+      if (!hasReg && !hasCpf) {
+        result.errors.push({
+          row: rowNum,
+          error: "Obrigatório informar ao menos a 'Matrícula' ou o 'CPF' para identificação única da pessoa.",
+          data: row,
+        });
+        continue;
+      }
+
       try {
         let person: any = null;
 
-        // 1. Try matching by CPF
+        // 1. Tentar encontrar por CPF
         if (row.cpf) {
           person = await prisma.person.findUnique({ where: { cpf: row.cpf } });
         }
 
-        // 2. Try matching by Registration
+        // 2. Tentar encontrar por Matrícula
         if (!person && row.registration) {
           person = await prisma.person.findUnique({ where: { registration: row.registration } });
         }
 
-        // 3. Try matching by Email
+        // 3. Tentar encontrar por Email
         if (!person && row.email) {
           person = await prisma.person.findFirst({
             where: { email: { equals: row.email, mode: "insensitive" } },
@@ -309,5 +349,154 @@ export class ImportService {
     });
 
     return result;
+  }
+
+  /**
+   * Processes a ZIP package containing photos (and optional embedded spreadsheet)
+   */
+  public static async processZipPackage(params: {
+    buffer: Buffer;
+    eventId?: string | null;
+    operatorUserId?: string | null;
+  }): Promise<ZipImportResult> {
+    const { buffer, eventId, operatorUserId } = params;
+    const loadedZip = await JSZip.loadAsync(buffer);
+
+    let spreadsheetFile: { name: string; buffer: Buffer } | null = null;
+    const imageFiles: Array<{ name: string; buffer: Buffer }> = [];
+
+    for (const [relativePath, file] of Object.entries(loadedZip.files)) {
+      if (file.dir) continue;
+      const lower = relativePath.toLowerCase();
+
+      // Ignora arquivos de sistema
+      if (lower.includes("__macosx") || lower.endsWith(".ds_store") || lower.startsWith(".")) continue;
+
+      if (lower.endsWith(".csv") || lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+        const fileBuf = await file.async("nodebuffer");
+        spreadsheetFile = { name: relativePath, buffer: fileBuf };
+      } else if (
+        lower.endsWith(".jpg") ||
+        lower.endsWith(".jpeg") ||
+        lower.endsWith(".png") ||
+        lower.endsWith(".webp")
+      ) {
+        const fileBuf = await file.async("nodebuffer");
+        imageFiles.push({ name: relativePath, buffer: fileBuf });
+      }
+    }
+
+    let importResult: ImportResult = {
+      totalRows: 0,
+      createdPersons: 0,
+      updatedPersons: 0,
+      enrolledInEvent: 0,
+      errors: [],
+    };
+
+    // 1. Processa planilha inclusa no ZIP (se houver)
+    if (spreadsheetFile) {
+      const parsedRows = await this.parseFile(spreadsheetFile.buffer, spreadsheetFile.name);
+      importResult = await this.processImport({
+        rows: parsedRows,
+        eventId,
+        operatorUserId,
+      });
+    }
+
+    const zipResult: ZipImportResult = {
+      ...importResult,
+      totalPhotos: imageFiles.length,
+      photosEnrolled: 0,
+      photoErrors: [],
+    };
+
+    // 2. Processa cada foto e vincula à pessoa correspondente
+    for (const img of imageFiles) {
+      const baseFilename = path.basename(img.name);
+      const nameWithoutExt = baseFilename.substring(0, baseFilename.lastIndexOf(".")).trim();
+      const cleanNumeric = nameWithoutExt.replace(/\D/g, "");
+
+      try {
+        let person: any = null;
+
+        // A) Tenta casar por Matrícula
+        person = await prisma.person.findUnique({
+          where: { registration: nameWithoutExt },
+        });
+
+        // B) Tenta casar por CPF (11 dígitos)
+        if (!person && cleanNumeric.length === 11) {
+          person = await prisma.person.findUnique({
+            where: { cpf: cleanNumeric },
+          });
+        }
+
+        // C) Tenta casar por E-mail
+        if (!person && nameWithoutExt.includes("@")) {
+          person = await prisma.person.findFirst({
+            where: { email: { equals: nameWithoutExt, mode: "insensitive" } },
+          });
+        }
+
+        // D) Tenta casar por Nome Exato
+        if (!person && nameWithoutExt.length >= 3) {
+          const formattedName = nameWithoutExt.replace(/[_\-]+/g, " ");
+          person = await prisma.person.findFirst({
+            where: { name: { equals: formattedName, mode: "insensitive" } },
+          });
+        }
+
+        if (!person) {
+          zipResult.photoErrors.push({
+            filename: baseFilename,
+            error: `Nenhuma pessoa encontrada com Matrícula ou CPF '${nameWithoutExt}'.`,
+          });
+          continue;
+        }
+
+        // Converte o buffer da foto para Blob e envia para o serviço biométrico
+        const ext = baseFilename.split(".").pop()?.toLowerCase() || "jpg";
+        const mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+        const blob = new Blob([new Uint8Array(img.buffer)], { type: mimeType });
+
+        await BiometricApiService.enrollFace({
+          personId: person.id,
+          imageBlob: blob,
+          isCrop: false,
+          operatorUserId,
+        });
+
+        // Salva photoUrl como base64 data URI para exibição visual imediata
+        const base64Data = `data:${mimeType};base64,${img.buffer.toString("base64")}`;
+        await prisma.person.update({
+          where: { id: person.id },
+          data: { photoUrl: base64Data },
+        });
+
+        zipResult.photosEnrolled++;
+      } catch (err: any) {
+        zipResult.photoErrors.push({
+          filename: baseFilename,
+          error: err.message || "Erro ao processar biometria facial.",
+        });
+      }
+    }
+
+    await safeAuditLog({
+      userId: operatorUserId,
+      action: "BATCH_IMPORT_ZIP_PACKAGE",
+      entity: "Person",
+      details: {
+        totalPhotos: zipResult.totalPhotos,
+        photosEnrolled: zipResult.photosEnrolled,
+        photoErrorsCount: zipResult.photoErrors.length,
+        createdPersons: zipResult.createdPersons,
+        updatedPersons: zipResult.updatedPersons,
+        eventId,
+      },
+    });
+
+    return zipResult;
   }
 }

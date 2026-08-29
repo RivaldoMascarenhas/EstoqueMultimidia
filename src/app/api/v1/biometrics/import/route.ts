@@ -25,10 +25,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validação de tamanho máximo (10 MB) para mitigação de DoS / Memory Exhaustion
-    if (file.size > 10 * 1024 * 1024) {
+    const isZip = filename.toLowerCase().endsWith(".zip");
+    const maxSizeBytes = isZip ? 250 * 1024 * 1024 : 25 * 1024 * 1024; // 250MB para ZIP com fotos, 25MB para planilhas
+
+    // Validação de tamanho máximo
+    if (file.size > maxSizeBytes) {
       return NextResponse.json(
-        { success: false, error: "O arquivo excede o limite máximo permitido de 10 MB." },
+        {
+          success: false,
+          error: `O arquivo excede o limite máximo permitido de ${isZip ? "250 MB" : "25 MB"}.`,
+        },
         { status: 400 }
       );
     }
@@ -36,6 +42,18 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // 1. Processamento de Pacote ZIP (Planilha + Fotos ou apenas Fotos)
+    if (isZip) {
+      const result = await ImportService.processZipPackage({
+        buffer,
+        eventId,
+        operatorUserId: session?.user?.id,
+      });
+
+      return NextResponse.json({ success: true, ...result });
+    }
+
+    // 2. Processamento de Planilha Tradicional (CSV / XLSX)
     const rows = await ImportService.parseFile(buffer, filename);
 
     if (rows.length === 0) {

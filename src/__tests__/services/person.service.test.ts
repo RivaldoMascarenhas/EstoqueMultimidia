@@ -22,7 +22,7 @@ describe("PersonService", () => {
     vi.clearAllMocks();
   });
 
-  it("should create a person successfully when CPF is unique", async () => {
+  it("should create a person successfully when CPF is unique and category is provided", async () => {
     vi.mocked(prisma.person.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.person.create).mockResolvedValue({
       id: "p-new-1",
@@ -45,6 +45,7 @@ describe("PersonService", () => {
       cpf: "12345678900",
       registration: "20269999",
       email: "gabriel@unifap.br",
+      category: "Aluno",
     });
 
     expect(person.id).toBe("p-new-1");
@@ -62,7 +63,26 @@ describe("PersonService", () => {
       PersonService.createPerson({
         name: "Outro Nome",
         cpf: "12345678900",
+        category: "Aluno",
       })
     ).rejects.toThrow(/Já existe uma pessoa cadastrada com o CPF/);
+  });
+
+  it("should throw an error when neither CPF nor registration is provided", async () => {
+    await expect(
+      PersonService.createPerson({
+        name: "Sem Documento",
+        category: "Aluno",
+      } as any)
+    ).rejects.toThrow(/Informe ao menos a Matrícula ou o CPF/);
+  });
+
+  it("should throw an error when category is missing", async () => {
+    await expect(
+      PersonService.createPerson({
+        name: "Sem Categoria",
+        cpf: "12345678900",
+      } as any)
+    ).rejects.toThrow(/O campo 'Categoria' é obrigatório/);
   });
 });
