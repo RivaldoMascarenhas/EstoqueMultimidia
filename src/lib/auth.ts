@@ -191,19 +191,22 @@ export const authOptions: NextAuthOptions = {
           : null;
       }
 
-      // O cliente pode solicitar apenas alterações de perfil visual não privilegiadas
-      if (trigger === "update" && session?.user) {
-        if (typeof session.user.name === "string" && session.user.name.trim()) {
-          token.name = session.user.name.trim();
-        }
-        if (session.user.avatarUrl !== undefined) {
-          token.avatarUrl = session.user.avatarUrl
-            ? session.user.avatarUrl.startsWith("data:")
+      // Quando a sessão é atualizada (ex: após troca de senha ou alteração de perfil)
+      if (trigger === "update" && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { name: true, role: true, mustChangePassword: true, avatarUrl: true },
+        });
+        if (dbUser) {
+          token.name = dbUser.name;
+          token.role = dbUser.role;
+          token.mustChangePassword = dbUser.mustChangePassword;
+          token.avatarUrl = dbUser.avatarUrl
+            ? dbUser.avatarUrl.startsWith("data:")
               ? `/api/v1/users/${token.id}/avatar?v=${Date.now()}`
-              : session.user.avatarUrl
+              : dbUser.avatarUrl
             : null;
         }
-        // Jamais aceitar token.role, token.mustChangePassword ou token.id do cliente
       }
       return token;
     },

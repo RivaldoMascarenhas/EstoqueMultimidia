@@ -53,15 +53,9 @@ export function ForceChangePasswordModal() {
 
       if (json.success) {
         toast.success("Sua senha pessoal foi atualizada com sucesso!");
-        // Atualizar sessão do NextAuth localmente
-        await update({
-          ...session,
-          user: {
-            ...session?.user,
-            mustChangePassword: false,
-          },
-        });
-        window.location.reload();
+        // Atualizar sessão do NextAuth consultando o status no banco
+        await update();
+        window.location.href = "/dashboard";
       } else {
         toast.error(json.error || "Erro ao atualizar senha.");
       }
