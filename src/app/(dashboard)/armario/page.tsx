@@ -9,36 +9,43 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PhysicalCabinetView } from "@/components/cabinet/physical-cabinet-view";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 export default function ArmarioPage() {
   const [doors, setDoors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDoors = async () => {
+  const fetchDoors = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
-      setError(null);
+      if (isInitial === true) {
+        setIsLoading(true);
+        setError(null);
+      }
       const res = await fetch("/api/v1/doors");
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        setError(json.error || "Erro ao carregar estrutura do armário.");
-        setIsLoading(false);
+        if (isInitial === true) setError(json.error || "Erro ao carregar estrutura do armário.");
         return;
       }
 
       setDoors(json.data);
-      setIsLoading(false);
     } catch (err: any) {
-      setError("Erro de conexão ao carregar portas do armário.");
-      setIsLoading(false);
+      if (isInitial === true) setError("Erro de conexão ao carregar portas do armário.");
+    } finally {
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDoors();
+    fetchDoors(true);
   }, []);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchDoors(false), {
+    intervalMs: 10000,
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">

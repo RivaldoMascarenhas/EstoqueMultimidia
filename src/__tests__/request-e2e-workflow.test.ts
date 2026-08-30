@@ -438,9 +438,9 @@ describe("E2E Operational Workflow & RBAC State Machine (16 Core Real Scenarios)
     });
 
     it("Cenário 21: Bloquear criação de agendamento aos domingos", async () => {
-      // 2026-08-30 é um domingo futuro
+      // 2026-09-06 é um domingo futuro
       const sundayInput = {
-        date: "2026-08-30",
+        date: "2026-09-06",
         startTime: "08:00",
         endTime: "10:00",
         roomId: "room-101",

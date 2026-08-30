@@ -21,6 +21,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { UserFormModal } from "@/components/users/user-form-modal";
 import { UserPasswordModal } from "@/components/users/user-password-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { toast } from "sonner";
 
 export default function UsuariosPage() {
@@ -35,23 +36,29 @@ export default function UsuariosPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
 
+  const isAnyModalOpen = isFormModalOpen || isPasswordModalOpen || isDeleteModalOpen;
+
   const fetchUsers = async () => {
     try {
       const res = await fetch("/api/v1/users");
       const json = await res.json();
       if (json.success) {
         setUsers(json.data);
-      } else {
-        toast.error("Erro ao carregar usuários.");
       }
     } catch (e) {
-      toast.error("Erro ao conectar com o servidor.");
+      console.error("Erro ao carregar usuários:", e);
     }
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Sincronização automática em segundo plano a cada 15s
+  useAutoRefresh(fetchUsers, {
+    intervalMs: 15000,
+    enabled: !isAnyModalOpen,
+  });
 
   const handleOpenCreate = () => {
     setUserToEdit(null);

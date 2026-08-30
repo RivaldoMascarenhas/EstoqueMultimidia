@@ -35,6 +35,7 @@ import { MaintenanceCompleteModal } from "@/components/maintenance/maintenance-c
 import { MaintenanceUpdateModal } from "@/components/maintenance/maintenance-update-modal";
 import { MaintenanceOsModal } from "@/components/maintenance/maintenance-os-modal";
 import { MaintenanceWhatsAppModal } from "@/components/maintenance/maintenance-whatsapp-modal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -70,9 +71,16 @@ export default function ManutencaoPage() {
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
   const [selectedMaintenance, setSelectedMaintenance] = useState<any | null>(null);
 
-  const fetchData = async () => {
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelOrderTarget, setCancelOrderTarget] = useState<any | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const isAnyModalOpen = isFormOpen || isCompleteOpen || isUpdateOpen || isOsOpen || isWhatsAppOpen || isCancelModalOpen;
+
+  const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "ALL") params.append("status", statusFilter);
@@ -89,27 +97,27 @@ export default function ManutencaoPage() {
 
       if (listJson.success) setMaintenances(listJson.data);
       if (metricsJson.success) setMetrics(metricsJson.data);
-
-      setIsLoading(false);
     } catch (err: any) {
-      toast.error("Erro ao carregar ordens de serviço.");
-      setIsLoading(false);
+      if (isInitial === true) toast.error("Erro ao carregar ordens de serviço.");
+    } finally {
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [statusFilter, priorityFilter, typeFilter]);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchData(false), {
+    intervalMs: 10000,
+    enabled: !isAnyModalOpen,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchData();
+    fetchData(true);
   };
-
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [cancelOrderTarget, setCancelOrderTarget] = useState<any | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [isCancelling, setIsCancelling] = useState(false);
 
   const handleOpenCancelModal = (maintenance: any) => {
     setCancelOrderTarget(maintenance);

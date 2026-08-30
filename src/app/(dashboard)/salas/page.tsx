@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -90,9 +91,11 @@ export default function SalasPage() {
   const [addAssetModalOpen, setAddAssetModalOpen] = useState(false);
   const [extraAssetSearch, setExtraAssetSearch] = useState("");
 
-  const fetchRooms = async () => {
+  const isAnyModalOpen = modalOpen || isConfirmDeactivateOpen || addAssetModalOpen;
+
+  const fetchRooms = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const res = await fetch("/api/v1/rooms");
       const data = await res.json();
       if (data.success) {
@@ -100,28 +103,37 @@ export default function SalasPage() {
       }
     } catch (err) {
       console.error("Erro ao listar salas:", err);
-      toast.error("Erro ao carregar lista de salas.");
+      if (isInitial === true) toast.error("Erro ao carregar lista de salas.");
     } finally {
-      setIsLoading(false);
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
-  const fetchAssets = async () => {
+  const fetchAssets = async (isInitial: boolean | unknown = false) => {
     try {
-      const res = await fetch("/api/v1/assets");
+      const res = await fetch("/api/v1/assets?limit=100");
       const data = await res.json();
       if (data.success) {
         setAssets(data.data || []);
       }
     } catch (err) {
-      console.error("Erro ao carregar patrimônios:", err);
+      console.error("Erro ao carregar equipamentos patrimoniais:", err);
     }
   };
 
   useEffect(() => {
-    fetchRooms();
-    fetchAssets();
+    fetchRooms(true);
+    fetchAssets(true);
   }, []);
+
+  // Sincronização automática em segundo plano a cada 12s
+  useAutoRefresh(() => {
+    fetchRooms(false);
+    fetchAssets(false);
+  }, {
+    intervalMs: 12000,
+    enabled: !isAnyModalOpen,
+  });
 
   const handleOpenCreateModal = () => {
     setEditingRoom(null);

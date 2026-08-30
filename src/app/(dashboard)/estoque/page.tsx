@@ -19,6 +19,7 @@ import { StockExitModal } from "@/components/inventory/stock-exit-modal";
 import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
 import { ItemFormModal } from "@/components/inventory/item-form-modal";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { toast } from "sonner";
 
 export default function EstoquePage() {
@@ -42,9 +43,9 @@ export default function EstoquePage() {
   const [selectedItemForExit, setSelectedItemForExit] = useState<any | null>(null);
   const [selectedItemForEntry, setSelectedItemForEntry] = useState<any | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (selectedCategory !== "ALL") params.append("categoryId", selectedCategory);
@@ -64,17 +65,22 @@ export default function EstoquePage() {
       if (itemsJson.success) setItems(itemsJson.data);
       if (catJson.success) setCategories(catJson.data);
       if (boxesJson.success) setAllBoxes(boxesJson.data);
-
-      setIsLoading(false);
     } catch (err: any) {
-      toast.error("Erro ao carregar dados de estoque.");
-      setIsLoading(false);
+      if (isInitial === true) toast.error("Erro ao carregar dados de estoque.");
+    } finally {
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [selectedCategory, selectedBox, selectedStatus]);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchData(false), {
+    intervalMs: 10000,
+    enabled: !isItemFormOpen && !selectedItemForExit && !selectedItemForEntry,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

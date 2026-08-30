@@ -22,6 +22,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate } from "@/lib/utils";
 
 interface EventsDedicatedDashboardProps {
@@ -42,9 +43,9 @@ export function EventsDedicatedDashboard({ userName, userRole }: EventsDedicated
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchEventsData = async () => {
+  const fetchEventsData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const res = await fetch("/api/v1/events?limit=10");
       const data = await res.json();
 
@@ -82,13 +83,18 @@ export function EventsDedicatedDashboard({ userName, userRole }: EventsDedicated
     } catch (err) {
       console.error("Erro ao carregar dashboard de eventos:", err);
     } finally {
-      setIsLoading(false);
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEventsData();
+    fetchEventsData(true);
   }, []);
+
+  // Sincronização automática em segundo plano
+  useAutoRefresh(() => fetchEventsData(false), {
+    intervalMs: 12000,
+  });
 
   const getStatusBadge = (status: string) => {
     switch (status) {

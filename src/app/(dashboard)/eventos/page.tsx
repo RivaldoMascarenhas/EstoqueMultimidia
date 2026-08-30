@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { EventFormModal } from "@/components/events/EventFormModal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { toast } from "sonner";
 
 export default function EventosPage() {
@@ -35,8 +36,8 @@ export default function EventosPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
 
-  const fetchEvents = async () => {
-    setLoading(true);
+  const fetchEvents = async (isInitial: boolean | unknown = false) => {
+    if (isInitial === true) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) params.append("query", search);
@@ -52,15 +53,21 @@ export default function EventosPage() {
         setTotalEvents(data.total);
       }
     } catch {
-      toast.error("Erro ao carregar eventos.");
+      if (isInitial === true) toast.error("Erro ao carregar eventos.");
     } finally {
-      setLoading(false);
+      if (isInitial === true) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEvents();
+    fetchEvents(true);
   }, [page, statusFilter]);
+
+  // Sincronização automática em segundo plano (a cada 10s e ao focar na janela)
+  useAutoRefresh(() => fetchEvents(false), {
+    intervalMs: 10000,
+    enabled: !isFormOpen,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

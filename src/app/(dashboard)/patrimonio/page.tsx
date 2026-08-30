@@ -22,6 +22,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { AssetFormModal } from "@/components/assets/asset-form-modal";
 import { AssetStatusModal } from "@/components/assets/asset-status-modal";
 import { AssetLabelPrinter } from "@/components/assets/asset-label-printer";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -54,9 +55,9 @@ export default function PatrimonioPage() {
   const [selectedAssetForStatus, setSelectedAssetForStatus] = useState<any | null>(null);
   const [selectedAssetForLabel, setSelectedAssetForLabel] = useState<string | undefined>(undefined);
 
-  const fetchData = async () => {
+  const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (statusFilter !== "ALL") params.append("status", statusFilter);
@@ -81,17 +82,22 @@ export default function PatrimonioPage() {
       if (catJson.success) setCategories(catJson.data);
       if (boxesJson.success) setAllBoxes(boxesJson.data);
       if (metricsJson.success) setMetrics(metricsJson.data);
-
-      setIsLoading(false);
     } catch (err: any) {
-      toast.error("Erro ao carregar equipamentos patrimoniais.");
-      setIsLoading(false);
+      if (isInitial === true) toast.error("Erro ao carregar equipamentos patrimoniais.");
+    } finally {
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [statusFilter, boxFilter]);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchData(false), {
+    intervalMs: 10000,
+    enabled: !isFormOpen && !isPrinterOpen && !selectedAssetForStatus && !selectedAssetForLabel,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -23,6 +23,7 @@ import { BiometricEnrollModal } from "@/components/biometria/BiometricEnrollModa
 import { TestBiometricModal } from "@/components/biometria/TestBiometricModal";
 import { ImportParticipantsModal } from "@/components/biometria/ImportParticipantsModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { toast } from "sonner";
 
 function PessoasContent() {
@@ -49,6 +50,8 @@ function PessoasContent() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<any | null>(null);
 
+  const isAnyModalOpen = isFormOpen || isEnrollOpen || isTestOpen || isImportOpen;
+
   // Custom Delete Confirm State
   const [confirmModalState, setConfirmModalState] = useState<{
     isOpen: boolean;
@@ -65,8 +68,8 @@ function PessoasContent() {
     onConfirm: () => {},
   });
 
-  const fetchPersons = async () => {
-    setLoading(true);
+  const fetchPersons = async (isInitial: boolean | unknown = false) => {
+    if (isInitial === true) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery) params.append("query", searchQuery);
@@ -84,20 +87,26 @@ function PessoasContent() {
         setTotalItems(data.total);
       }
     } catch {
-      toast.error("Erro ao carregar lista de participantes.");
+      if (isInitial === true) toast.error("Erro ao carregar lista de participantes.");
     } finally {
-      setLoading(false);
+      if (isInitial === true) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPersons();
+    fetchPersons(true);
   }, [page, hasFaceFilter, categoryFilter]);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchPersons(false), {
+    intervalMs: 10000,
+    enabled: !isAnyModalOpen && !confirmModalState.isOpen,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchPersons();
+    fetchPersons(true);
   };
 
   const handleDeletePerson = (person: any) => {
@@ -249,7 +258,7 @@ function PessoasContent() {
             <thead>
               <tr className="border-b border-border/80 bg-muted/40 text-muted-foreground font-semibold">
                 <th className="py-3 px-4">Participante</th>
-                <th className="py-3 px-4">Matrícula / CPF</th>
+                <th className="py-3 px-4">Matrícula</th>
                 <th className="py-3 px-4">Categoria</th>
                 <th className="py-3 px-4 text-center">Status Facial</th>
                 <th className="py-3 px-4 text-center">Eventos</th>
@@ -277,13 +286,11 @@ function PessoasContent() {
                     <td className="py-3 px-4 font-medium text-foreground">
                       <div>
                         <p className="font-bold">{person.name}</p>
-                        {person.email && <p className="text-[11px] text-muted-foreground">{person.email}</p>}
                       </div>
                     </td>
                     <td className="py-3 px-4 font-mono text-muted-foreground">
                       <div>
                         <p className="font-semibold text-foreground">{person.registration || "—"}</p>
-                        {person.cpf && <p className="text-[10px]">CPF: {person.cpf}</p>}
                       </div>
                     </td>
                     <td className="py-3 px-4">

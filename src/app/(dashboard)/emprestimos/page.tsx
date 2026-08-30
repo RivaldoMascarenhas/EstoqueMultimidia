@@ -42,6 +42,7 @@ import { LoanReturnModal } from "@/components/loans/loan-return-modal";
 import { LoanRenewModal } from "@/components/loans/loan-renew-modal";
 import { LoanReceiptModal } from "@/components/loans/loan-receipt-modal";
 import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 function EmprestimosContent() {
@@ -77,9 +78,11 @@ function EmprestimosContent() {
   const [selectedLoanForReceipt, setSelectedLoanForReceipt] = useState<any | null>(null);
   const [selectedLoanForWhatsApp, setSelectedLoanForWhatsApp] = useState<any | null>(null);
 
-  const fetchData = async () => {
+  const isAnyModalOpen = isFormOpen || !!selectedLoanForReturn || !!selectedLoanForRenew || !!selectedLoanForReceipt || !!selectedLoanForWhatsApp;
+
+  const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
       if (statusTab !== "ALL") params.append("status", statusTab);
@@ -101,17 +104,22 @@ function EmprestimosContent() {
       if (metricsJson && metricsJson.success && metricsJson.data) {
         setMetrics(metricsJson.data);
       }
-
-      setIsLoading(false);
     } catch (err) {
       setLoans([]);
-      setIsLoading(false);
+    } finally {
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, [statusTab]);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchData(false), {
+    intervalMs: 10000,
+    enabled: !isAnyModalOpen,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

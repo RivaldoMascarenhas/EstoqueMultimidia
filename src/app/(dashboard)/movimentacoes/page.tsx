@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -35,9 +36,15 @@ export default function MovimentacoesPage() {
 
   const isFilterActive = searchTerm.trim() !== "" || typeFilter !== "ALL" || startDate !== "" || endDate !== "";
 
-  const fetchMovements = async (overrideSearch?: string, overrideType?: string, overrideStart?: string, overrideEnd?: string) => {
+  const fetchMovements = async (
+    isInitial = false,
+    overrideSearch?: string,
+    overrideType?: string,
+    overrideStart?: string,
+    overrideEnd?: string
+  ) => {
     try {
-      setIsLoading(true);
+      if (isInitial) setIsLoading(true);
       const params = new URLSearchParams();
       
       const sTerm = overrideSearch !== undefined ? overrideSearch : searchTerm;
@@ -56,22 +63,27 @@ export default function MovimentacoesPage() {
       if (json.success) {
         setMovements(json.data);
       } else {
-        toast.error(json.error || "Erro ao carregar histórico.");
+        if (isInitial) toast.error(json.error || "Erro ao carregar histórico.");
       }
     } catch (err) {
-      toast.error("Erro na comunicação com o servidor.");
+      if (isInitial) toast.error("Erro na comunicação com o servidor.");
     } finally {
-      setIsLoading(false);
+      if (isInitial) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMovements();
+    fetchMovements(true);
   }, [typeFilter, startDate, endDate]);
+
+  // Sincronização automática em segundo plano a cada 12s
+  useAutoRefresh(() => fetchMovements(false), {
+    intervalMs: 12000,
+  });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchMovements();
+    fetchMovements(true);
   };
 
   const handleClearFilters = () => {
@@ -79,7 +91,7 @@ export default function MovimentacoesPage() {
     setTypeFilter("ALL");
     setStartDate("");
     setEndDate("");
-    fetchMovements("", "ALL", "", "");
+    fetchMovements(true, "", "ALL", "", "");
   };
 
   // Exportar para CSV formatado com UTF-8 BOM

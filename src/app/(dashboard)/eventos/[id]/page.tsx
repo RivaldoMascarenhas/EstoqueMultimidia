@@ -108,11 +108,11 @@ export default function EventHubPage() {
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Fetch Event Details
-  const fetchEvent = async () => {
+  const fetchEvent = async (isInitial: boolean | unknown = false) => {
     if (!eventId || eventId === "undefined") return;
 
     try {
-      setLoading(true);
+      if (isInitial === true) setLoading(true);
       const res = await fetch(`/api/v1/events/${eventId}`);
       if (!res.ok) {
         toast.error("Evento não encontrado.");
@@ -129,7 +129,7 @@ export default function EventHubPage() {
     } catch {
       toast.error("Erro ao carregar dados do evento.");
     } finally {
-      setLoading(false);
+      if (isInitial === true) setLoading(false);
     }
 
     // Carregar presentation-token de forma silenciosa e resiliente
@@ -219,7 +219,7 @@ export default function EventHubPage() {
 
   useEffect(() => {
     if (eventId && eventId !== "undefined") {
-      fetchEvent();
+      fetchEvent(true);
       fetchPrizes();
       fetchWinners();
     }

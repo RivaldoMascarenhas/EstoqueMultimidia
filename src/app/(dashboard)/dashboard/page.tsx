@@ -28,6 +28,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { AcademicSupportDashboard } from "@/components/dashboard/academic-support-dashboard";
 import { EventsDedicatedDashboard } from "@/components/dashboard/events-dedicated-dashboard";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -48,9 +49,9 @@ export default function DashboardPage() {
     setWhatsappModalOpen(true);
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const [summaryRes, activeLoansRes] = await Promise.all([
         fetch("/api/v1/dashboard/summary"),
         fetch("/api/v1/loans?status=ACTIVE"),
@@ -64,15 +65,21 @@ export default function DashboardPage() {
     } catch (err) {
       console.error("Erro ao carregar dados do dashboard:", err);
     } finally {
-      setIsLoading(false);
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     if (userRole !== "ACADEMIC_SUPPORT" && userRole !== "EVENTOS") {
-      fetchDashboardData();
+      fetchDashboardData(true);
     }
   }, [userRole]);
+
+  // Sincronização automática em segundo plano a cada 12s
+  useAutoRefresh(() => fetchDashboardData(false), {
+    intervalMs: 12000,
+    enabled: !whatsappModalOpen && userRole !== "ACADEMIC_SUPPORT" && userRole !== "EVENTOS",
+  });
 
   // Se o perfil for Apoio Acadêmico, renderiza o painel focado e simplificado para o solicitante
   if (userRole === "ACADEMIC_SUPPORT") {

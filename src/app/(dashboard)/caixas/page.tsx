@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { QrScannerModal } from "@/components/scanner/qr-scanner-modal";
 import { LabelPrinterModal } from "@/components/cabinet/label-printer";
 import { BoxFormModal } from "@/components/cabinet/box-form-modal";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { toast } from "sonner";
 
 export default function CaixasIndexPage() {
@@ -38,15 +39,14 @@ export default function CaixasIndexPage() {
   const [isBoxModalOpen, setIsBoxModalOpen] = useState(false);
   const [selectedBoxForLabel, setSelectedBoxForLabel] = useState<string | undefined>(undefined);
 
-  const fetchData = async () => {
+  const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const res = await fetch("/api/v1/doors");
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        toast.error("Erro ao carregar caixas.");
-        setIsLoading(false);
+        if (isInitial === true) toast.error("Erro ao carregar caixas.");
         return;
       }
 
@@ -61,16 +61,22 @@ export default function CaixasIndexPage() {
       );
 
       setBoxes(flattenedBoxes);
-      setIsLoading(false);
     } catch (err: any) {
-      toast.error("Erro de conexão com o servidor.");
-      setIsLoading(false);
+      if (isInitial === true) toast.error("Erro de conexão com o servidor.");
+    } finally {
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(true);
   }, []);
+
+  // Sincronização automática em segundo plano a cada 10s
+  useAutoRefresh(() => fetchData(false), {
+    intervalMs: 10000,
+    enabled: !isScannerOpen && !isPrinterOpen && !isBoxModalOpen,
+  });
 
   const doorOptions = doors.map((d) => ({
     id: d.id,

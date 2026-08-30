@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate, formatDateInput } from "@/lib/utils";
 
 interface AcademicSupportDashboardProps {
@@ -31,9 +32,9 @@ export function AcademicSupportDashboard({ userName, userRole }: AcademicSupport
   const [shiftConfigs, setShiftConfigs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchAcademicData = async () => {
+  const fetchAcademicData = async (isInitial: boolean | unknown = false) => {
     try {
-      setIsLoading(true);
+      if (isInitial === true) setIsLoading(true);
       const [reqRes, roomRes, shiftRes] = await Promise.all([
         fetch("/api/v1/requests"),
         fetch("/api/v1/rooms?activeOnly=true"),
@@ -64,13 +65,18 @@ export function AcademicSupportDashboard({ userName, userRole }: AcademicSupport
       setRequests([]);
       setRooms([]);
     } finally {
-      setIsLoading(false);
+      if (isInitial === true) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAcademicData();
+    fetchAcademicData(true);
   }, []);
+
+  // Sincronização automática em segundo plano
+  useAutoRefresh(() => fetchAcademicData(false), {
+    intervalMs: 12000,
+  });
 
   const today = formatDateInput(new Date());
   const todayRequests = requests.filter((r) => r.date === today || (r.date && r.date.startsWith(today)));
