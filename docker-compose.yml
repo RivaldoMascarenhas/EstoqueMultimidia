@@ -146,9 +146,10 @@ services:
     security_opt:
       - no-new-privileges:true
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Defina a variavel CLOUDFLARE_TUNNEL_TOKEN no .env}
-    network_mode: "service:app"
     depends_on:
       - app
+    networks:
+      - unifap-network
     deploy:
       resources:
         limits:
