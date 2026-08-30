@@ -1,3 +1,4 @@
+from urllib.parse import quote, unquote
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config import settings
@@ -7,6 +8,16 @@ if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
 elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+"):
     db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+if "://" in db_url and "@" in db_url:
+    prefix, remainder = db_url.split("://", 1)
+    if "@" in remainder:
+        userinfo, hostinfo = remainder.rsplit("@", 1)
+        if ":" in userinfo:
+            user, pwd = userinfo.split(":", 1)
+            user_enc = quote(unquote(user), safe="")
+            pwd_enc = quote(unquote(pwd), safe="")
+            db_url = f"{prefix}://{user_enc}:{pwd_enc}@{hostinfo}"
 
 connect_args = {}
 if "sqlite" in db_url:

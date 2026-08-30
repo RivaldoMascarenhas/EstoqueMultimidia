@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   unifap-network:
     driver: bridge
@@ -21,7 +19,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-estoque_multimidia}
     # Portas vinculadas estritamente a 127.0.0.1 (Loopback) para blindagem de rede
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -80,11 +78,20 @@ services:
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
     environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina a variavel POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-estoque_multimidia}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
-    # Instala o prisma client temporariamente e roda a migração de banco
+      SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:-F@P-C&2017}
+      SEED_MOCK_DATA: ${SEED_MOCK_DATA:-false}
+      NODE_ENV: production
+    # Cria a extensão pgvector, instala prisma/tsx e sincroniza o schema e seed
     command: >
-      sh -c "npm install prisma @prisma/client &&
-             npx prisma migrate deploy"
+      sh -c "apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client &&
+             PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'CREATE EXTENSION IF NOT EXISTS vector;' &&
+             npm install prisma@5.18.0 @prisma/client@5.18.0 tsx@4.17.0 bcryptjs @types/bcryptjs &&
+             npx prisma db push --skip-generate --accept-data-loss &&
+             npx tsx prisma/seed.ts"
     depends_on:
       postgres:
         condition: service_healthy
@@ -133,16 +140,15 @@ services:
       start_period: 20s
 
   cloudflared:
-    image: cloudflare/cloudflared:2024.8.3
+    image: cloudflare/cloudflared:latest
     container_name: unifap-cloudflared
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Defina a variavel CLOUDFLARE_TUNNEL_TOKEN no .env}
+    network_mode: "service:app"
     depends_on:
       - app
-    networks:
-      - unifap-network
     deploy:
       resources:
         limits:
