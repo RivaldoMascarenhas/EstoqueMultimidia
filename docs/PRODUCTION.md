@@ -46,31 +46,59 @@ As variáveis de produção devem ser injetadas exclusivamente através do geren
 
 ---
 
-## 3. Deploy Contínuo com Coolify & Docker Compose
+## 3. Deploy Contínuo com Coolify (PaaS Auto-hospedado)
 
-O fluxo de entrega contínua segue o pipeline automatizado:
-```text
-GitHub (commit na main)
-   ↓
-GitHub Actions (Lint, Typecheck, Testes Vitest, Build Validation)
-   ↓
-Coolify (Webhook de Deploy Automático)
-   ↓
-docker compose pull / build --no-cache
-   ↓
-Prisma Migration Deploy
-   ↓
-Healthcheck Validation (service_healthy)
-   ↓
-Produção Ativa (Zero Downtime)
+O **Coolify** funciona como o seu próprio "Vercel / Heroku" auto-hospedado no PC do trabalho (24/7), automatizando compilações e deploys a cada `git push`.
+
+### 3.1. Instalação do Coolify no Servidor
+
+#### No Linux (Ubuntu Server ou Desktop):
+Execute no terminal da máquina:
+```bash
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 ```
 
-### Configuração no Coolify
-1. Crie uma nova **Application** no Coolify apontando para o repositório GitHub `RivaldoMascarenhas/EstoqueMultimidia`.
-2. Selecione o tipo de build: **Docker Compose** (`docker-compose.yml`).
-3. Adicione todas as variáveis de ambiente descritas na Seção 2 no painel **Environment Variables**.
-4. Configure a URL pública do domínio: `https://estoque.unifapce.edu.br`.
-5. Habilite a opção **Auto Deploy on Push to Branch: `main`**.
+#### No Windows (via WSL2 Ubuntu):
+1. No PowerShell como Administrador, instale o WSL2:
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+2. Abra o terminal do **Ubuntu** recém-instalado e execute:
+   ```bash
+   curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+   ```
+
+*(O Coolify iniciará seus containers e abrirá o painel web em `http://localhost:8000` ou `http://<IP-DO-SERVIDOR>:8000`).*
+
+---
+
+### 3.2. Configuração do Projeto no Coolify
+
+1. **Criar Conta**: Acesse `http://localhost:8000` e cadastre suas credenciais de Administrador.
+2. **Conectar GitHub**:
+   - Vá em **Sources > GitHub > Add New**.
+   - Conecte o **Coolify GitHub App** à sua conta do GitHub para sincronização de repositórios e webhooks automáticos.
+3. **Adicionar o Recurso**:
+   - Vá em **Projects > Default Project > + New Resource**.
+   - Selecione **Git Repository (via Docker Compose)**.
+   - Escolha o repositório `RivaldoMascarenhas/EstoqueMultimidia` e o branch `main`.
+4. **Configurar Variáveis de Ambiente**:
+   - Acesse a aba **Environment Variables** no Coolify e cole as variáveis do arquivo `.env` (ex: `POSTGRES_PASSWORD`, `NEXTAUTH_SECRET`, `BIOMETRIC_INTERNAL_TOKEN`, `CLOUDFLARE_TUNNEL_TOKEN`, `NEXTAUTH_URL=https://multimidia.rivaldo.uk`).
+5. **Ativar Deploy Automático**:
+   - Ative a opção **Auto Deploy on Push to Branch: `main`**.
+   - Clique em **Deploy**.
+
+---
+
+### 3.3. Fluxo de Trabalho Automatizado no Dia a Dia
+
+```text
+1. Você programa no computador de desenvolvimento (casa)
+2. git add . && git commit -m "feat: nova funcionalidade" && git push origin main
+3. GitHub aciona o Webhook do Coolify no PC do trabalho
+4. Coolify faz git pull, compila as imagens Docker e roda o init-db
+5. O Cloudflare Tunnel roteia o tráfego com zero downtime para https://multimidia.rivaldo.uk
+```
 
 ---
 

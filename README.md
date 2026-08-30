@@ -593,6 +593,14 @@ O sistema conta com folhas de estilo `@media print` otimizadas para gerar docume
 
 ---
 
+## 📚 Documentação de Produção & Deploy Contínuo
+
+- **Guia Completo de Produção & Coolify**: [docs/PRODUCTION.md](docs/PRODUCTION.md)
+- **Relatório de Auditoria de Segurança**: [docs/RELATORIO_AUDITORIA_SEGURANCA.md](docs/RELATORIO_AUDITORIA_SEGURANCA.md)
+- **Relatório de UX & Hardening**: [docs/RELATORIO_UX_E_HARDENING.md](docs/RELATORIO_UX_E_HARDENING.md)
+
+---
+
 ## 🏢 Instituição & Equipe
 
 - **Instituição**: [Centro Universitário Paraíso (UniFAP)](https://unifapce.edu.br/)
