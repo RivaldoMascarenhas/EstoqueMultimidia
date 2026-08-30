@@ -90,7 +90,7 @@ services:
       sh -c "apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client &&
              PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'CREATE EXTENSION IF NOT EXISTS vector;' &&
              npm install prisma@5.18.0 @prisma/client@5.18.0 tsx@4.17.0 bcryptjs @types/bcryptjs &&
-             npx prisma migrate deploy &&
+             npx prisma db push --accept-data-loss &&
              npx tsx prisma/seed.ts"
     depends_on:
       postgres:

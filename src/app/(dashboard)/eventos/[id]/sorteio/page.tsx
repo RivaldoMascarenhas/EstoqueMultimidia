@@ -243,18 +243,7 @@ export default function OperatorDrawPage() {
     toast.success("Logo do Evento projetada no Telão!");
   };
 
-  const handleShowLogoFullscreen = async () => {
-    setLatestWinner(null);
-    setRollingNumber("---");
-    setRollingName("");
-    await broadcastRealtime({
-      type: "logo:fullscreen",
-      state: "SHOWING_LOGO_FULLSCREEN",
-      event,
-      winner: null,
-    });
-    toast.success("Logo do Evento em TELA CHEIA projetada no Telão 4K!");
-  };
+
 
   const handleShowIdle = async () => {
     setLatestWinner(null);
@@ -614,14 +603,7 @@ export default function OperatorDrawPage() {
             <span>Logo</span>
           </button>
 
-          <button
-            onClick={handleShowLogoFullscreen}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold transition shadow-xs"
-            title="Exibir Logo / Banner do Evento em TELA CHEIA no Telão"
-          >
-            <Maximize className="w-3.5 h-3.5 text-amber-500" />
-            <span>Logo Tela Cheia</span>
-          </button>
+
 
           <button
             onClick={handleShowSponsorsSlideshow}
