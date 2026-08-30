@@ -272,7 +272,7 @@ export async function POST(
   } catch (err: any) {
     console.error("Erro ao registrar presença:", err);
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro interno ao registrar presença." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

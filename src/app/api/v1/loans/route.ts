@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao listar empréstimos." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

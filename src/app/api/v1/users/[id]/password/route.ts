@@ -119,7 +119,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao redefinir senha." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

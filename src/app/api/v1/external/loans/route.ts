@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao registrar empréstimo via API." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

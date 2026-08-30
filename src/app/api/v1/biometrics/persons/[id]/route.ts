@@ -30,7 +30,7 @@ export async function GET(
     return NextResponse.json({ success: true, person });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao buscar pessoa." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

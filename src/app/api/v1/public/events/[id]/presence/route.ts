@@ -239,7 +239,7 @@ export async function POST(
     );
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao processar presença." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

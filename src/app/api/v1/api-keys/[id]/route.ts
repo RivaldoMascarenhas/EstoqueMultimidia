@@ -66,7 +66,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao atualizar chave de API." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }
@@ -122,7 +122,7 @@ export async function DELETE(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao excluir chave de API." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

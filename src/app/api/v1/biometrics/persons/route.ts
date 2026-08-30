@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao listar pessoas." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

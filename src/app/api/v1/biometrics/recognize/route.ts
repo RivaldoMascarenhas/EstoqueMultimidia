@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro no reconhecimento biométrico." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

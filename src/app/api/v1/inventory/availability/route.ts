@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao consultar disponibilidade de estoque." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

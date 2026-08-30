@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ success: true, categories });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao buscar categorias." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

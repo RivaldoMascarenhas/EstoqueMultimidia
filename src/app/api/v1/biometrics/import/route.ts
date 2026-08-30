@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro na importação em lote." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }

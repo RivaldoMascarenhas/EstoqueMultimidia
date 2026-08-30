@@ -37,7 +37,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao listar chaves de API." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" || "Erro ao criar chave de API." },
+      { success: false, error: "Erro interno no servidor" },
       { status: 500 }
     );
   }
