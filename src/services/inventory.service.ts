@@ -12,8 +12,11 @@ export class InventoryService {
     boxId?: string;
     itemType?: ItemType;
     statusFilter?: "ALL" | "CRITICAL" | "LOW" | "NORMAL";
+    page?: number;
+    limit?: number;
   }) {
-    const { search, categoryId, boxId, itemType, statusFilter } = params || {};
+    const { search, categoryId, boxId, itemType, statusFilter, page = 1, limit = 50 } = params || {};
+    const skip = (page - 1) * limit;
 
     const whereClause: any = {
       active: true,
@@ -45,32 +48,32 @@ export class InventoryService {
       whereClause.itemType = itemType;
     }
 
-    const items = await prisma.item.findMany({
-      where: whereClause,
-      include: {
-        category: true,
-        inventories: {
-          include: {
-            box: {
-              include: {
-                door: true,
-              },
+    // Note: statusFilter cannot be fully applied at DB level since it's computed,
+    // so if statusFilter is active, we might need to fetch all matching the other clauses.
+    // However, to prevent OOM, we will apply pagination anyway.
+    const [totalCount, items] = await Promise.all([
+      prisma.item.count({ where: whereClause }),
+      prisma.item.findMany({
+        where: whereClause,
+        include: {
+          category: true,
+          inventories: {
+            include: {
+              box: { include: { door: true } },
+            },
+          },
+          assets: {
+            where: { active: true },
+            include: {
+              currentBox: { include: { door: true } },
             },
           },
         },
-        assets: {
-          where: { active: true },
-          include: {
-            currentBox: {
-              include: {
-                door: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { name: "asc" },
-    });
+        orderBy: { name: "asc" },
+        skip: statusFilter && statusFilter !== "ALL" ? undefined : skip,
+        take: statusFilter && statusFilter !== "ALL" ? undefined : limit,
+      }),
+    ]);
 
     // Mapear itens com cálculos de quantidade total e status
     const mappedItems = items.map((item) => {
@@ -100,10 +103,23 @@ export class InventoryService {
     });
 
     if (statusFilter && statusFilter !== "ALL") {
-      return mappedItems.filter((item) => item.statusLevel === statusFilter);
+      const filtered = mappedItems.filter((item) => item.statusLevel === statusFilter);
+      return {
+        items: filtered.slice(skip, skip + limit),
+        totalCount: filtered.length,
+        page,
+        limit,
+        totalPages: Math.ceil(filtered.length / limit),
+      };
     }
 
-    return mappedItems;
+    return {
+      items: mappedItems,
+      totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit),
+    };
   }
 
   /**

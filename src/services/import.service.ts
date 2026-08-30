@@ -80,14 +80,14 @@ export class ImportService {
       const worksheet = workbook.worksheets[0];
       if (worksheet) {
         const headers: string[] = [];
-        worksheet.getRow(1).eachCell((cell, colNumber) => {
+        worksheet.getRow(1).eachCell((cell: ExcelJS.Cell, colNumber: number) => {
           headers[colNumber] = String(cell.value || "").trim();
         });
 
-        worksheet.eachRow((row, rowNumber) => {
+        worksheet.eachRow((row: ExcelJS.Row, rowNumber: number) => {
           if (rowNumber === 1) return;
           const rowObj: Record<string, any> = {};
-          row.eachCell((cell, colNumber) => {
+          row.eachCell((cell: ExcelJS.Cell, colNumber: number) => {
             const header = headers[colNumber];
             if (header) {
               rowObj[header] = cell.value;
@@ -365,7 +365,8 @@ export class ImportService {
     let spreadsheetFile: { name: string; buffer: Buffer } | null = null;
     const imageFiles: Array<{ name: string; buffer: Buffer }> = [];
 
-    for (const [relativePath, file] of Object.entries(loadedZip.files)) {
+    for (const [relativePath, fileRaw] of Object.entries(loadedZip.files)) {
+      const file = fileRaw as JSZip.JSZipObject;
       if (file.dir) continue;
       const lower = relativePath.toLowerCase();
 

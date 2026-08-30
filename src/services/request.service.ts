@@ -57,6 +57,8 @@ export class RequestService {
     needsReview?: boolean;
     origin?: RequestOrigin;
     search?: string;
+    page?: number;
+    limit?: number;
   }) {
     const {
       date,
@@ -68,7 +70,11 @@ export class RequestService {
       needsReview,
       origin,
       search,
+      page = 1,
+      limit = 50,
     } = params || {};
+
+    const skip = (page - 1) * limit;
 
     const where: Prisma.RequestWhereInput = {};
 
@@ -97,32 +103,45 @@ export class RequestService {
       ];
     }
 
-    return await prisma.request.findMany({
-      where,
-      include: {
-        room: true,
-        assignedUser: {
-          select: { id: true, name: true, email: true, avatarUrl: true },
-        },
-        createdBy: {
-          select: { id: true, name: true, email: true, role: true },
-        },
-        items: {
-          include: {
-            item: true,
-            asset: {
-              include: { item: true },
+    const [totalCount, items] = await Promise.all([
+      prisma.request.count({ where }),
+      prisma.request.findMany({
+        where,
+        include: {
+          room: true,
+          assignedUser: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true, role: true },
+          },
+          items: {
+            include: {
+              item: true,
+              asset: {
+                include: { item: true },
+              },
             },
           },
+          tasks: {
+            orderBy: { orderIndex: "asc" },
+          },
+          reservations: true,
+          series: true,
         },
-        tasks: {
-          orderBy: { orderIndex: "asc" },
-        },
-        reservations: true,
-        series: true,
-      },
-      orderBy: [{ startTime: "asc" }],
-    });
+        orderBy: [{ startTime: "asc" }],
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      items,
+      totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit),
+    };
   }
 
   /**

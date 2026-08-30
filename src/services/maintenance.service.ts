@@ -31,8 +31,11 @@ export class MaintenanceService {
     priority?: string;
     maintenanceType?: string;
     assetId?: string;
+    page?: number;
+    limit?: number;
   }) {
-    const { search, status, priority, maintenanceType, assetId } = params || {};
+    const { search, status, priority, maintenanceType, assetId, page = 1, limit = 50 } = params || {};
+    const skip = (page - 1) * limit;
     const now = new Date();
 
     const whereClause: any = {};
@@ -83,34 +86,39 @@ export class MaintenanceService {
       ];
     }
 
-    const rawList = await prisma.maintenance.findMany({
-      where: whereClause,
-      include: {
-        asset: {
-          include: {
-            item: {
-              include: {
-                category: true,
+    const [totalCount, rawList] = await Promise.all([
+      prisma.maintenance.count({ where: whereClause }),
+      prisma.maintenance.findMany({
+        where: whereClause,
+        include: {
+          asset: {
+            include: {
+              item: {
+                include: {
+                  category: true,
+                },
               },
-            },
-            currentBox: {
-              include: {
-                door: true,
+              currentBox: {
+                include: {
+                  door: true,
+                },
               },
             },
           },
+          createdByUser: {
+            select: { id: true, name: true, email: true },
+          },
+          completedByUser: {
+            select: { id: true, name: true, email: true },
+          },
         },
-        createdByUser: {
-          select: { id: true, name: true, email: true },
-        },
-        completedByUser: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-      orderBy: [{ createdAt: "desc" }],
-    });
+        orderBy: [{ createdAt: "desc" }],
+        skip,
+        take: limit,
+      }),
+    ]);
 
-    return rawList.map((m) => {
+    const items = rawList.map((m) => {
       const entryTime = new Date(m.entryDate).getTime();
       const endTime = m.exitDate ? new Date(m.exitDate).getTime() : now.getTime();
       const diffMs = endTime - entryTime;
@@ -126,6 +134,14 @@ export class MaintenanceService {
         isActive,
       };
     });
+
+    return {
+      items,
+      totalCount,
+      page,
+      limit,
+      totalPages: Math.ceil(totalCount / limit),
+    };
   }
 
   /**

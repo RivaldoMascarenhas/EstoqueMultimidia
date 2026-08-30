@@ -101,7 +101,7 @@ export default function AssetDetailsPage() {
     );
   }
 
-  const qrUrl = typeof window !== "undefined" ? window.location.href : `http://localhost:3000/patrimonio/${asset.id}`;
+  const qrUrl = typeof window !== "undefined" ? window.location.href : `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/patrimonio/${asset.id}`;
 
   const getStatusBadge = (status: string) => {
     switch (status) {

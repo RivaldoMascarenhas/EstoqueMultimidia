@@ -13,6 +13,17 @@ if (!process.env.NEXTAUTH_SECRET) {
 // Rate limiter em memória com proteção contra Força Bruta por Conta e por IP (Cloudflare / Proxies)
 const loginAttemptsMap = new Map<string, { count: number; blockedUntil: number }>();
 
+// Limpeza periódica (Garbage Collection) para evitar memory leaks no Map em produção
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of loginAttemptsMap.entries()) {
+    // Remove registros cujo tempo de bloqueio já expirou
+    if (record.blockedUntil > 0 && record.blockedUntil <= now) {
+      loginAttemptsMap.delete(key);
+    }
+  }
+}, 10 * 60 * 1000); // Executa a cada 10 minutos
+
 function checkRateLimit(key: string, maxAttempts: number, blockDurationMs: number): { allowed: boolean; waitMinutes?: number } {
   const now = Date.now();
   const record = loginAttemptsMap.get(key);

@@ -36,7 +36,7 @@ export function AssetLabelPrinter({
 }: AssetLabelPrinterProps) {
   const [filterTag, setFilterTag] = useState<string>(selectedTag || "ALL");
 
-  const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000");
 
   const displayedAssets =
     filterTag === "ALL"

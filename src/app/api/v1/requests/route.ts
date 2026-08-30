@@ -26,11 +26,13 @@ export async function GET(req: NextRequest) {
       : undefined;
     const origin = (searchParams.get("origin") as RequestOrigin) || undefined;
     const search = searchParams.get("search") || undefined;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
 
     // Escopo server-side: Apoio Acadêmico só visualiza solicitações criadas por si mesmo
     const createdById = session.user.role === Role.ACADEMIC_SUPPORT ? session.user.id : undefined;
 
-    const requests = await RequestService.getRequests({
+    const result = await RequestService.getRequests({
       date,
       shift,
       status,
@@ -40,11 +42,19 @@ export async function GET(req: NextRequest) {
       needsReview,
       origin,
       search,
+      page,
+      limit,
     });
 
     return NextResponse.json({
       success: true,
-      data: requests,
+      data: result.items,
+      pagination: {
+        totalCount: result.totalCount,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }
     });
   } catch (error: any) {
     return NextResponse.json(

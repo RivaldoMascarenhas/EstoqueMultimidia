@@ -105,7 +105,7 @@ export default function BoxDetailsPage() {
     );
   }
 
-  const qrUrl = typeof window !== "undefined" ? window.location.href : `http://localhost:3000/caixas/${boxData.code}`;
+  const qrUrl = typeof window !== "undefined" ? window.location.href : `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/caixas/${boxData.code}`;
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-300">

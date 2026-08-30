@@ -116,7 +116,10 @@ export async function GET(
       // Escape quotes for CSV
       const escape = (str: string | number | null | undefined) => {
         if (str === null || str === undefined) return '""';
-        const s = String(str).replace(/"/g, '""');
+        let s = String(str).replace(/"/g, '""');
+        if (/^[=+\-@\t\r]/.test(s)) {
+          s = " " + s;
+        }
         return `"${s}"`;
       };
 

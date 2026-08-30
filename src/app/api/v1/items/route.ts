@@ -9,22 +9,32 @@ export async function GET(req: NextRequest) {
     const { error } = await requireSession();
     if (error) return error;
 
-    const { searchParams } = new URL(req.url);
+    const searchParams = req.nextUrl.searchParams;
     const search = searchParams.get("search") || undefined;
     const categoryId = searchParams.get("categoryId") || undefined;
     const boxId = searchParams.get("boxId") || undefined;
     const statusFilter = (searchParams.get("status") as any) || undefined;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    const items = await InventoryService.getItems({
+    const result = await InventoryService.getItems({
       search,
       categoryId,
       boxId,
       statusFilter,
+      page,
+      limit,
     });
 
     return NextResponse.json({
       success: true,
-      data: items,
+      data: result.items,
+      pagination: {
+        totalCount: result.totalCount,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }
     });
   } catch (error: any) {
     return NextResponse.json(

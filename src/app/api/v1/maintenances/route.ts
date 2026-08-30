@@ -15,18 +15,28 @@ export async function GET(req: NextRequest) {
     const priority = searchParams.get("priority") || undefined;
     const maintenanceType = searchParams.get("maintenanceType") || undefined;
     const assetId = searchParams.get("assetId") || undefined;
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
 
-    const maintenances = await MaintenanceService.getMaintenances({
+    const result = await MaintenanceService.getMaintenances({
       search,
       status,
       priority,
       maintenanceType,
       assetId,
+      page,
+      limit,
     });
 
     return NextResponse.json({
       success: true,
-      data: maintenances,
+      data: result.items,
+      pagination: {
+        totalCount: result.totalCount,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }
     });
   } catch (error: any) {
     return NextResponse.json(

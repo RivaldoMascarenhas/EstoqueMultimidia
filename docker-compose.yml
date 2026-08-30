@@ -50,6 +50,7 @@ services:
       BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:?Defina a variavel BIOMETRIC_INTERNAL_TOKEN no .env}
       FACE_DISTANCE_THRESHOLD: ${FACE_DISTANCE_THRESHOLD:-0.60}
       MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.80}
+      TZ: "America/Fortaleza"
       PORT: 8000
     # Comunicação interna via Docker Network; porta no host restrita a 127.0.0.1
     ports:
@@ -68,6 +69,28 @@ services:
       retries: 3
       start_period: 20s
 
+  init-db:
+    image: node:20-slim
+    container_name: unifap-init-db
+    working_dir: /app
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./prisma:/app/prisma
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
+    # Instala o prisma client temporariamente e roda a migração de banco
+    command: >
+      sh -c "npm install prisma @prisma/client &&
+             npx prisma migrate deploy"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - unifap-network
+
   app:
     build:
       context: .
@@ -80,9 +103,11 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-${NEXTAUTH_URL:-http://localhost:3000}}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Defina a variavel NEXTAUTH_SECRET no .env}
       BIOMETRIC_API_URL: http://biometric-api:8000
       BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:?Defina a variavel BIOMETRIC_INTERNAL_TOKEN no .env}
+      TZ: "America/Fortaleza"
     # Porta restrita a 127.0.0.1 para que o tráfego externo passe exclusivamente pelo Cloudflare Tunnel
     ports:
       - "127.0.0.1:3000:3000"
@@ -91,6 +116,8 @@ services:
         condition: service_healthy
       biometric-api:
         condition: service_healthy
+      init-db:
+        condition: service_completed_successfully
     networks:
       - unifap-network
     deploy:

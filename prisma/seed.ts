@@ -224,7 +224,85 @@ async function main() {
     data: { name: 'Energia & Acessórios', slug: 'energia', description: 'Extensões elétricas, filtros e pilhas' },
   });
 
-  // 6. Itens de Estoque Quantitativo e Logística de Sala
+  // 6. Carga do Seed Real de Salas (rooms-seed.json)
+  const seedPath = path.join(__dirname, 'rooms-seed.json');
+  let loadedRoomsCount = 0;
+  if (fs.existsSync(seedPath)) {
+    const rawSeedData = fs.readFileSync(seedPath, 'utf-8');
+    const parsedData = JSON.parse(rawSeedData);
+
+    const roomRecords = [];
+    const seenNames = new Set<string>();
+
+    for (const r of parsedData.rooms) {
+      let uniqueName = r.name.trim();
+      if (seenNames.has(uniqueName)) {
+        uniqueName = `${uniqueName} (${r.fixedProjectorModel || 'Extra'})`;
+      }
+      seenNames.add(uniqueName);
+
+      let lastVisit: Date | null = null;
+      if (r.lastVisitDate) {
+        if (r.lastVisitDate.includes('/')) {
+          const parts = r.lastVisitDate.split('/');
+          if (parts.length === 3) {
+            const year = parseInt(parts[2], 10) < 50 ? 2000 + parseInt(parts[2], 10) : 1900 + parseInt(parts[2], 10);
+            lastVisit = new Date(year, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+          }
+        } else {
+          lastVisit = new Date(r.lastVisitDate);
+        }
+      }
+
+      roomRecords.push({
+        name: uniqueName,
+        floor: r.floor || null,
+        block: 'Bloco Principal',
+        active: true,
+        fixedProjectorModel: r.fixedProjectorModel || null,
+        vgaCableOk: typeof r.vgaCableOk === 'boolean' ? r.vgaCableOk : null,
+        hdmiCableOk: typeof r.hdmiCableOk === 'boolean' ? r.hdmiCableOk : null,
+        lampHours: typeof r.lampHours === 'number' ? Math.round(r.lampHours) : null,
+        lampStatus: r.lampStatus || null,
+        lastVisitAt: lastVisit && !isNaN(lastVisit.getTime()) ? lastVisit : null,
+      });
+    }
+
+    for (const roomData of roomRecords) {
+      await prisma.room.create({ data: roomData });
+    }
+    loadedRoomsCount = roomRecords.length;
+    console.log(`✅ ${loadedRoomsCount} Salas de aula cadastradas com sucesso a partir do inventário real!`);
+  }
+
+  // Se SEED_MOCK_DATA for false ou SEED_ONLY_STRUCTURE for true, finaliza a carga limpa de produção
+  const shouldSkipMock = process.env.SEED_MOCK_DATA === 'false' || process.env.SEED_ONLY_STRUCTURE === 'true';
+  if (shouldSkipMock) {
+    await prisma.auditLog.create({
+      data: {
+        userId: rivaldo.id,
+        action: 'SYSTEM_SEED_CLEAN',
+        entity: 'System',
+        details: {
+          message: 'Carga inicial limpa (apenas estrutura institucional, salas e usuários administrativos)',
+          environment: process.env.NODE_ENV || 'production',
+        },
+      },
+    });
+
+    console.log('🎉 SEED LIMPO DE PRODUÇÃO CONCLUÍDO COM SUCESSO (ZERO DADOS MOCADOS)!');
+    console.log('----------------------------------------------------');
+    console.log('Credenciais de Acesso Inicial:');
+    console.log(`  Rivaldo (ADMIN)            : rivaldo@unifap.br / ${seedPasswordRaw}`);
+    console.log(`  Rodrigo (GESTOR)           : rodrigo@unifap.br / ${seedPasswordRaw}`);
+    console.log(`  Thomas (OPERADOR)          : thomas@unifap.br  / ${seedPasswordRaw}`);
+    console.log(`  Pedro (OPERADOR)           : pedro@unifap.br   / ${seedPasswordRaw}`);
+    console.log(`  Paloma (APOIO ACADÊMICO)   : paloma@unifap.br  / ${seedPasswordRaw}`);
+    console.log('----------------------------------------------------');
+    return;
+  }
+
+  // 7. Itens de Estoque Quantitativo e Logística de Sala (Modo Demonstração)
   const itemDatashowFixo = await prisma.item.create({
     data: {
       name: 'Datashow (Projetor fixo em sala)',
@@ -481,56 +559,6 @@ async function main() {
       notes: 'Par de microfones em perfeito estado de funcionamento',
     },
   });
-
-  // 9. Carga do Seed Real de Salas (rooms-seed.json)
-  const seedPath = path.join(__dirname, 'rooms-seed.json');
-  if (fs.existsSync(seedPath)) {
-    const rawSeedData = fs.readFileSync(seedPath, 'utf-8');
-    const parsedData = JSON.parse(rawSeedData);
-
-    const roomRecords = [];
-    const seenNames = new Set<string>();
-
-    for (const r of parsedData.rooms) {
-      let uniqueName = r.name.trim();
-      if (seenNames.has(uniqueName)) {
-        uniqueName = `${uniqueName} (${r.fixedProjectorModel || 'Extra'})`;
-      }
-      seenNames.add(uniqueName);
-
-      let lastVisit: Date | null = null;
-      if (r.lastVisitDate) {
-        if (r.lastVisitDate.includes('/')) {
-          const parts = r.lastVisitDate.split('/');
-          if (parts.length === 3) {
-            const year = parseInt(parts[2], 10) < 50 ? 2000 + parseInt(parts[2], 10) : 1900 + parseInt(parts[2], 10);
-            lastVisit = new Date(year, parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-          }
-        } else {
-          lastVisit = new Date(r.lastVisitDate);
-        }
-      }
-
-      roomRecords.push({
-        name: uniqueName,
-        floor: r.floor || null,
-        block: 'Bloco Principal',
-        active: true,
-        fixedProjectorModel: r.fixedProjectorModel || null,
-        vgaCableOk: typeof r.vgaCableOk === 'boolean' ? r.vgaCableOk : null,
-        hdmiCableOk: typeof r.hdmiCableOk === 'boolean' ? r.hdmiCableOk : null,
-        lampHours: typeof r.lampHours === 'number' ? Math.round(r.lampHours) : null,
-        lampStatus: r.lampStatus || null,
-        lastVisitAt: lastVisit && !isNaN(lastVisit.getTime()) ? lastVisit : null,
-      });
-    }
-
-    for (const roomData of roomRecords) {
-      await prisma.room.create({ data: roomData });
-    }
-
-    console.log(`✅ ${roomRecords.length} Salas de aula cadastradas com sucesso a partir do inventário real!`);
-  }
 
   // 10. Agendamentos de Demonstração para o Dia de Hoje
   const sala1A = await prisma.room.findFirst({ where: { name: '1A' } });
