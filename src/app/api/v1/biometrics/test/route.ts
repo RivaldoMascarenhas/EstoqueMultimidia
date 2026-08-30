@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro no teste biométrico." },
+      { success: false, error: "Erro interno no servidor" || "Erro no teste biométrico." },
       { status: 500 }
     );
   }

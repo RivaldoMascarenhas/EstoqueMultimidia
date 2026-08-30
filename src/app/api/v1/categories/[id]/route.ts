@@ -56,7 +56,7 @@ export async function PUT(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar categoria." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao atualizar categoria." },
       { status: 500 }
     );
   }
@@ -106,7 +106,7 @@ export async function DELETE(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao excluir categoria." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao excluir categoria." },
       { status: 500 }
     );
   }

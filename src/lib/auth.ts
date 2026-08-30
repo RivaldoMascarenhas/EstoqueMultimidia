@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
+import { getClientIp } from "./ip-utils";
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error(
@@ -61,27 +62,12 @@ function clearAttempts(key: string) {
   loginAttemptsMap.delete(key);
 }
 
-function getClientIp(req: any): string {
-  if (!req?.headers) return "unknown";
-  const headers = req.headers;
-  const cfIp = headers["cf-connecting-ip"] || headers["CF-Connecting-IP"];
-  if (typeof cfIp === "string" && cfIp) return cfIp.trim();
-  
-  const xForwardedFor = headers["x-forwarded-for"] || headers["X-Forwarded-For"];
-  if (typeof xForwardedFor === "string" && xForwardedFor) {
-    return xForwardedFor.split(",")[0].trim();
-  }
-  
-  const xRealIp = headers["x-real-ip"] || headers["X-Real-IP"];
-  if (typeof xRealIp === "string" && xRealIp) return xRealIp.trim();
-  
-  return "unknown";
-}
+
 
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 dias
+    maxAge: 24 * 60 * 60, // 24 horas
   },
   pages: {
     signIn: "/login",
@@ -133,17 +119,7 @@ export const authOptions: NextAuthOptions = {
           where: { email: inputEmail },
         });
 
-        // 2. Se não encontrar, tentar busca por prefixo (ex: rivaldo ou rivaldo.mascarenhas em qualquer domínio cadastrado)
-        if (!user) {
-          user = await prisma.user.findFirst({
-            where: {
-              OR: [
-                { email: { startsWith: username + "@", mode: "insensitive" } },
-                { email: { equals: rawInput, mode: "insensitive" } },
-              ],
-            },
-          });
-        }
+
 
         if (!user || !user.active) {
           registerFailedAttempt();

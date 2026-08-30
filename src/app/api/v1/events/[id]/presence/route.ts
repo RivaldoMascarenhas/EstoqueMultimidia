@@ -158,22 +158,34 @@ export async function POST(
     });
 
     if (!participant) {
-      const lastTicket = await prisma.eventParticipant.findFirst({
-        where: { eventId },
-        orderBy: { ticketNumber: "desc" },
-        select: { ticketNumber: true },
-      });
-      const nextTicket = (lastTicket?.ticketNumber || 0) + 1;
+      participant = await prisma.$transaction(async (tx) => {
+        // Lock the event to prevent race conditions during ticketNumber generation
+        await tx.$executeRaw`SELECT 1 FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
+        
+        // Double check if participant was created by another concurrent request
+        let existing = await tx.eventParticipant.findUnique({
+          where: { eventId_personId: { eventId, personId: person.id } }
+        });
+        
+        if (existing) return existing;
 
-      participant = await prisma.eventParticipant.create({
-        data: {
-          eventId,
-          personId: person.id,
-          ticketNumber: nextTicket,
-          category: person.category || "Geral",
-          status: ParticipantStatus.ACTIVE,
-          isEligible: true,
-        },
+        const lastTicket = await tx.eventParticipant.findFirst({
+          where: { eventId },
+          orderBy: { ticketNumber: "desc" },
+          select: { ticketNumber: true },
+        });
+        const nextTicket = (lastTicket?.ticketNumber || 0) + 1;
+
+        return tx.eventParticipant.create({
+          data: {
+            eventId,
+            personId: person.id,
+            ticketNumber: nextTicket,
+            category: person.category || "Geral",
+            status: ParticipantStatus.ACTIVE,
+            isEligible: true,
+          },
+        });
       });
     }
 
@@ -260,7 +272,7 @@ export async function POST(
   } catch (err: any) {
     console.error("Erro ao registrar presença:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro interno ao registrar presença." },
+      { success: false, error: "Erro interno no servidor" || "Erro interno ao registrar presença." },
       { status: 500 }
     );
   }

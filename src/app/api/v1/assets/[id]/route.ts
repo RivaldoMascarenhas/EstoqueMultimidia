@@ -37,7 +37,7 @@ export async function GET(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar equipamento." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao consultar equipamento." },
       { status: 500 }
     );
   }

@@ -15,9 +15,12 @@ import {
   ChevronRight,
   RefreshCw,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { EventFormModal } from "@/components/events/EventFormModal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import { canDeleteEventByRoleAndTime } from "@/lib/event-time";
 import { toast } from "sonner";
 
 export default function EventosPage() {
@@ -35,6 +38,22 @@ export default function EventosPage() {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+
+  // Custom Delete Confirmation Modal State
+  const [confirmModalState, setConfirmModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    itemName?: string;
+    confirmText?: string;
+    variant?: "danger" | "warning";
+    onConfirm: () => Promise<void> | void;
+  }>({
+    isOpen: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
   const fetchEvents = async (isInitial: boolean | unknown = false) => {
     if (isInitial === true) setLoading(true);
@@ -118,25 +137,62 @@ export default function EventosPage() {
     }
   };
 
+  const handleDeleteEvent = (e: React.MouseEvent, evt: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const check = canDeleteEventByRoleAndTime(userRole, evt);
+    if (!check.allowed) {
+      toast.error(
+        check.reason ||
+          "Operadores só podem excluir eventos com mais de 30 minutos de antecedência do início. Solicite a um Administrador."
+      );
+      return;
+    }
+
+    setConfirmModalState({
+      isOpen: true,
+      title: "Excluir Evento",
+      description: `Tem certeza que deseja excluir permanentemente o evento "${evt.name}"? Todos os prêmios, presenças e sorteios serão apagados do sistema.`,
+      itemName: `📅 ${evt.name}`,
+      confirmText: "Sim, Excluir",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/events/${evt.id}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (data.success) {
+            toast.success("Evento excluído com sucesso!");
+            fetchEvents(false);
+          } else {
+            toast.error(data.error || "Erro ao excluir evento.");
+          }
+        } catch {
+          toast.error("Erro na comunicação com o servidor.");
+        }
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-5">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Calendar className="h-6 w-6 text-primary" />
-              Eventos & Sorteios Institucionais
-            </h1>
-            {isReadOnly && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20">
-                Modo Consulta
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Gestão unificada de palestras, semanas acadêmicas, controle biométrico de presença e sorteios de prêmios.
+          <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2.5">
+            <Trophy className="h-6 w-6 text-primary" />
+            Central de Eventos & Sorteios
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Gestão de auditórios, chamada biométrica inteligente e roleta oficial sincronizada.
           </p>
+          {isReadOnly && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 border border-sky-500/20 mt-2">
+              Modo Consulta
+            </span>
+          )}
         </div>
 
         {!isReadOnly && (
@@ -145,7 +201,7 @@ export default function EventosPage() {
               setSelectedEvent(null);
               setIsFormOpen(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md transition-colors cursor-pointer"
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm self-start sm:self-auto cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             Novo Evento
@@ -224,11 +280,28 @@ export default function EventosPage() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 pt-1">
-                  {getStatusBadge(event.status)}
-                  {event.date && (
-                    <span className="text-[11px] text-muted-foreground font-medium">
-                      {new Date(event.date).toLocaleDateString("pt-BR")}
-                    </span>
+                  <div className="flex items-center gap-2">
+                    {getStatusBadge(event.status)}
+                    {event.date && (
+                      <span className="text-[11px] text-muted-foreground font-medium">
+                        {new Date(event.date).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                  </div>
+
+                  {(userRole === "ADMIN" || userRole === "GESTOR" || userRole === "OPERADOR") && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteEvent(e, event)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors"
+                      title={
+                        userRole === "ADMIN"
+                          ? "Excluir Evento (Permissão de Admin)"
+                          : "Excluir Evento (Disponível até 30 min antes)"
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
 
@@ -308,6 +381,17 @@ export default function EventosPage() {
         onClose={() => setIsFormOpen(false)}
         event={selectedEvent}
         onSuccess={fetchEvents}
+      />
+
+      <ConfirmModal
+        isOpen={confirmModalState.isOpen}
+        title={confirmModalState.title}
+        description={confirmModalState.description}
+        itemName={confirmModalState.itemName}
+        confirmText={confirmModalState.confirmText}
+        variant={confirmModalState.variant}
+        onConfirm={confirmModalState.onConfirm}
+        onClose={() => setConfirmModalState((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

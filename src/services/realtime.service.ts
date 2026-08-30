@@ -4,6 +4,7 @@ export type PresentationStageState =
   | "IDLE"
   | "SHOWING_QR_CODE"
   | "SHOWING_EVENT_LOGO"
+  | "SHOWING_LOGO_FULLSCREEN"
   | "SHOWING_PRIZE"
   | "DRAWING"
   | "RESULT"
@@ -14,6 +15,7 @@ export interface RealtimePayload {
     | "state:sync"
     | "qr:show"
     | "logo:show"
+    | "logo:fullscreen"
     | "idle:show"
     | "prize:show"
     | "draw:start"
@@ -132,6 +134,7 @@ class RealtimeService {
     if (
       event.type === "qr:show" ||
       event.type === "logo:show" ||
+      event.type === "logo:fullscreen" ||
       event.type === "idle:show" ||
       event.type === "sponsors:show" ||
       event.type === "draw:cancel" ||

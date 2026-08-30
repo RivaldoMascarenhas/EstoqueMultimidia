@@ -16,7 +16,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar portas do armário." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao consultar portas do armário." },
       { status: 500 }
     );
   }

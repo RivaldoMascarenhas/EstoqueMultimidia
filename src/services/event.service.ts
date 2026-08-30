@@ -364,6 +364,9 @@ export class EventService {
     operatorUserId?: string
   ) {
     return await prisma.$transaction(async (tx) => {
+      // Lock event to prevent race conditions during ticketNumber generation
+      await tx.$executeRaw`SELECT 1 FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
+
       // Check if already in event
       const existing = await tx.eventParticipant.findUnique({
         where: {
@@ -426,6 +429,9 @@ export class EventService {
     const { eventId, categories, requireBiometricsOnly, operatorUserId } = params;
 
     return await prisma.$transaction(async (tx) => {
+      // Lock event to prevent race conditions during ticketNumber generation
+      await tx.$executeRaw`SELECT 1 FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
+
       // 1. Fetch people matching the categories
       const people = await tx.person.findMany({
         where: {
@@ -528,6 +534,9 @@ export class EventService {
     const { eventId, personIds, operatorUserId } = params;
 
     return await prisma.$transaction(async (tx) => {
+      // Lock event to prevent race conditions during ticketNumber generation
+      await tx.$executeRaw`SELECT 1 FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
+
       const people = await tx.person.findMany({
         where: {
           id: { in: personIds },

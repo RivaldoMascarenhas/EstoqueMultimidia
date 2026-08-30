@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao carregar notificações." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao carregar notificações." },
       { status: 500 }
     );
   }

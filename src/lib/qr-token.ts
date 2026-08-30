@@ -1,6 +1,12 @@
 import crypto from "crypto";
 
-const QR_SECRET = process.env.NEXTAUTH_SECRET || process.env.BIOMETRIC_INTERNAL_TOKEN || "unifap-qr-token-signing-key";
+function getQrSecret(): string {
+  const secret = process.env.NEXTAUTH_SECRET || process.env.BIOMETRIC_INTERNAL_TOKEN;
+  if (!secret) {
+    throw new Error("NEXTAUTH_SECRET ou BIOMETRIC_INTERNAL_TOKEN não definidos nas variáveis de ambiente.");
+  }
+  return secret;
+}
 
 /**
  * Utilitário de Assinatura e Validação Criptográfica de Tokens QR Code para Presença
@@ -12,7 +18,7 @@ const QR_SECRET = process.env.NEXTAUTH_SECRET || process.env.BIOMETRIC_INTERNAL_
 export function generateParticipantQrToken(eventId: string, personId: string): string {
   const timestamp = Date.now().toString(36);
   const payload = `${eventId}:${personId}:${timestamp}`;
-  const hmac = crypto.createHmac("sha256", QR_SECRET).update(payload).digest("hex");
+  const hmac = crypto.createHmac("sha256", getQrSecret()).update(payload).digest("hex");
   return `${payload}:${hmac}`;
 }
 
@@ -40,7 +46,7 @@ export function verifyParticipantQrToken(
   }
 
   const payload = `${tokenEventId}:${personId}:${timestampStr}`;
-  const expectedHmac = crypto.createHmac("sha256", QR_SECRET).update(payload).digest("hex");
+  const expectedHmac = crypto.createHmac("sha256", getQrSecret()).update(payload).digest("hex");
 
   const bufProvided = Buffer.from(providedHmac, "utf8");
   const bufExpected = Buffer.from(expectedHmac, "utf8");

@@ -14,7 +14,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao buscar métricas de manutenção." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao buscar métricas de manutenção." },
       { status: 500 }
     );
   }

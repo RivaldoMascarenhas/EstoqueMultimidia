@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar catálogo de itens." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao consultar catálogo de itens." },
       { status: 500 }
     );
   }

@@ -165,13 +165,17 @@ export class DrawService {
           include: { person: true },
         });
 
+        if (!participant) {
+          throw new Error(`O número sorteado (#${drawnNumber}) não está associado a nenhum participante inscrito neste evento. Por favor, tente novamente.`);
+        }
+
         chosenCandidate = {
-          personId: participant ? participant.personId : "",
-          participantId: participant ? participant.id : "",
+          personId: participant.personId,
+          participantId: participant.id,
           ticketNumber: drawnNumber,
-          name: participant ? participant.person.name : `Número #${drawnNumber}`,
-          registration: participant?.person.registration || null,
-          email: participant?.person.email || null,
+          name: participant.person.name,
+          registration: participant.person.registration || null,
+          email: participant.person.email || null,
         };
       }
 

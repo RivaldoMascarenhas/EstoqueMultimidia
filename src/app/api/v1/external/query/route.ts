@@ -164,7 +164,7 @@ export async function GET(req: NextRequest) {
 
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro no processamento da consulta externa." },
+      { success: false, error: "Erro interno no servidor" || "Erro no processamento da consulta externa." },
       { status: 500 }
     );
   }

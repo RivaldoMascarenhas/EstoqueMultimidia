@@ -306,7 +306,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao compilar resumo do dashboard." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao compilar resumo do dashboard." },
       { status: 500 }
     );
   }

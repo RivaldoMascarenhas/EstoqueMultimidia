@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao obter métricas de empréstimos." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao obter métricas de empréstimos." },
       { status: 500 }
     );
   }

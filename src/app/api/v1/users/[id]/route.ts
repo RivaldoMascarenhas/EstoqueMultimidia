@@ -118,7 +118,7 @@ export async function PUT(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar usuário." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao atualizar usuário." },
       { status: 500 }
     );
   }
@@ -255,7 +255,7 @@ export async function DELETE(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao remover usuário." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao remover usuário." },
       { status: 500 }
     );
   }

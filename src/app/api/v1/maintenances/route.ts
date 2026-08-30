@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao listar ordens de serviço." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao listar ordens de serviço." },
       { status: 500 }
     );
   }

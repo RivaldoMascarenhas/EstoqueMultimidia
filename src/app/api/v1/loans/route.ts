@@ -7,7 +7,7 @@ import { Role } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
     if (error) return error;
 
     const { searchParams } = new URL(req.url);
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao listar empréstimos." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao listar empréstimos." },
       { status: 500 }
     );
   }

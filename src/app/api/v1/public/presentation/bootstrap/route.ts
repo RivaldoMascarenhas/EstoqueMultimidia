@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro no bootstrap de apresentação." },
+      { success: false, error: "Erro interno no servidor" || "Erro no bootstrap de apresentação." },
       { status: 500 }
     );
   }

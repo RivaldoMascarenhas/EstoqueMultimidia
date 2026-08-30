@@ -24,7 +24,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao obter configurações de turnos." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao obter configurações de turnos." },
       { status: 500 }
     );
   }

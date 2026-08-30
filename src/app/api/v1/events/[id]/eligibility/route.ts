@@ -54,7 +54,7 @@ export async function GET(
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao calcular elegibilidade." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao calcular elegibilidade." },
       { status: 500 }
     );
   }

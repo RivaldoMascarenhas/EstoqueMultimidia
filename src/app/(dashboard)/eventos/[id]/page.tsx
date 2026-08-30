@@ -48,6 +48,7 @@ import { WinnerShareModal } from "@/components/events/WinnerShareModal";
 import { AttendancePrintModal } from "@/components/events/AttendancePrintModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { normalizeImageUrl } from "@/lib/formatImageUrl";
+import { canDeleteEventByRoleAndTime } from "@/lib/event-time";
 import { toast } from "sonner";
 
 export default function EventHubPage() {
@@ -415,7 +416,46 @@ export default function EventHubPage() {
     });
   };
 
+  const checkEventDelete = () => {
+    return canDeleteEventByRoleAndTime(userRole, event);
+  };
 
+  const handleDeleteEvent = () => {
+    const check = checkEventDelete();
+    if (!check.allowed) {
+      toast.error(
+        check.reason ||
+          "Operadores só podem excluir eventos com mais de 30 minutos de antecedência do início. Para excluir este evento agora, solicite a um Administrador."
+      );
+      return;
+    }
+
+    setConfirmModalState({
+      isOpen: true,
+      title: "Excluir Evento do Sistema",
+      description:
+        "Tem certeza que deseja excluir este evento permanentemente? Todos os prêmios cadastrados, bilhetes, sorteios realizados e presenças registradas serão apagados do banco de dados.",
+      itemName: `📅 ${event?.name}`,
+      confirmText: "Sim, Excluir Evento",
+      variant: "danger",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/v1/events/${eventId}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (data.success) {
+            toast.success("Evento excluído com sucesso!");
+            router.push("/eventos");
+          } else {
+            toast.error(data.error || "Erro ao excluir evento.");
+          }
+        } catch {
+          toast.error("Erro na comunicação com o servidor.");
+        }
+      },
+    });
+  };
 
   if (loading) {
     return (
@@ -617,6 +657,21 @@ export default function EventHubPage() {
               >
                 <ImageIcon className="h-4 w-4 text-[#EAA023]" />
                 <span>Editar Evento & Logo</span>
+              </button>
+            )}
+
+            {(userRole === "ADMIN" || userRole === "GESTOR" || userRole === "OPERADOR") && (
+              <button
+                onClick={handleDeleteEvent}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl border border-rose-500/30 transition-colors cursor-pointer"
+                title={
+                  userRole === "ADMIN"
+                    ? "Excluir Evento (Permissão de Administrador)"
+                    : "Excluir Evento (Disponível até 30 min antes do início)"
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Excluir Evento</span>
               </button>
             )}
           </div>

@@ -5,6 +5,7 @@ import { updateEventSchema } from "@/schemas/event.schema";
 import { Role } from "@prisma/client";
 import { assertEventAccess } from "@/lib/event-access";
 import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { canDeleteEventByRoleAndTime } from "@/lib/event-time";
 
 export async function GET(
   _req: NextRequest,
@@ -113,16 +114,16 @@ export async function DELETE(
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
+    Role.OPERADOR,
   ]);
   if (error) {
     return NextResponse.json(
-      { success: false, error: "Apenas administradores e gestores podem excluir eventos do sistema." },
+      { success: false, error: "Acesso não autorizado para excluir eventos." },
       { status: 403 }
     );
   }
 
   try {
-    
     if (!id) {
       return NextResponse.json(
         { success: false, error: "ID do evento ausente." },
@@ -135,6 +136,21 @@ export async function DELETE(
       isMutation: true,
     });
     if (!access.authorized) return access.errorResponse!;
+
+    const event = access.event;
+
+    // Regra de tempo: Operador/Gestor só pode excluir se faltar mais de 30 minutos para o início do evento.
+    // O Administrador pode excluir a qualquer momento.
+    const timeCheck = canDeleteEventByRoleAndTime(session.user.role, event);
+    if (!timeCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: timeCheck.reason || "Exclusão não permitida a menos de 30 minutos do início do evento.",
+        },
+        { status: 403 }
+      );
+    }
 
     await EventService.deleteEvent(id, session?.user?.id);
     return NextResponse.json({ success: true, message: "Evento excluído com sucesso." });

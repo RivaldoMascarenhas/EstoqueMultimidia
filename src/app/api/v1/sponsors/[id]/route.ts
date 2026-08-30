@@ -40,7 +40,7 @@ export async function GET(
     return NextResponse.json({ success: true, sponsor });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao buscar patrocinador." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao buscar patrocinador." },
       { status: 500 }
     );
   }

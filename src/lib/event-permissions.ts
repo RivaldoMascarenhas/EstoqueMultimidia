@@ -83,6 +83,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly string[]> = {
     EVENT_PERMISSIONS.EVENTS_VIEW,
     EVENT_PERMISSIONS.EVENTS_CREATE,
     EVENT_PERMISSIONS.EVENTS_EDIT,
+    EVENT_PERMISSIONS.EVENTS_DELETE,
     EVENT_PERMISSIONS.PARTICIPANTS_VIEW,
     EVENT_PERMISSIONS.PARTICIPANTS_CREATE,
     EVENT_PERMISSIONS.PARTICIPANTS_EDIT,
@@ -202,10 +203,3 @@ export function canDeletePresence(role: Role): boolean {
   return role === Role.ADMIN;
 }
 
-/**
- * Helper de Validação de Exclusão de Evento
- * REGRA: Apenas ADMIN e GESTOR podem excluir eventos inteiros do sistema.
- */
-export function canDeleteEvent(role: Role): boolean {
-  return role === Role.ADMIN || role === Role.GESTOR;
-}

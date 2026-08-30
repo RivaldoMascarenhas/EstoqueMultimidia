@@ -5,7 +5,6 @@ import {
   canDeletePrize,
   canEditPrize,
   canCancelDraw,
-  canDeleteEvent,
   hasPermission,
   EVENT_PERMISSIONS,
 } from "@/lib/event-permissions";
@@ -120,16 +119,6 @@ describe("Event Permissions & State Validation Helpers", () => {
     });
   });
 
-  describe("canDeleteEvent", () => {
-    it("deve bloquear que o perfil EVENTOS exclua o evento inteiro", () => {
-      expect(canDeleteEvent(Role.EVENTOS)).toBe(false);
-    });
-
-    it("deve permitir que ADMIN e GESTOR excluam eventos", () => {
-      expect(canDeleteEvent(Role.ADMIN)).toBe(true);
-      expect(canDeleteEvent(Role.GESTOR)).toBe(true);
-    });
-  });
 
   describe("Matriz de Permissões Genericas hasPermission", () => {
     it("deve conceder permissões corretas de eventos para o perfil EVENTOS", () => {
@@ -329,6 +318,85 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
 
       const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
       expect(res.status).toBe(403);
+    });
+
+    it("deve permitir que ADMIN exclua evento a qualquer momento", async () => {
+      vi.mocked(getServerSession).mockResolvedValue({
+        user: { id: "adm-1", role: Role.ADMIN, name: "Administrador" },
+      } as any);
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: "adm-1",
+        active: true,
+        role: Role.ADMIN,
+      } as any);
+
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        name: "Evento Teste",
+        date: new Date(Date.now() + 5 * 60 * 1000), // Começa em 5 min
+      } as any);
+
+      const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
+        method: "DELETE",
+      });
+
+      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
+      expect(res.status).toBe(200);
+    });
+
+    it("deve permitir que OPERADOR exclua evento com mais de 30 minutos de antecedência", async () => {
+      vi.mocked(getServerSession).mockResolvedValue({
+        user: { id: "op-1", role: Role.OPERADOR, name: "Operador Multimídia" },
+      } as any);
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: "op-1",
+        active: true,
+        role: Role.OPERADOR,
+      } as any);
+
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        name: "Evento Futuro",
+        date: new Date("2099-12-31T00:00:00.000Z"),
+        time: "18:00",
+      } as any);
+
+      const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
+        method: "DELETE",
+      });
+
+      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
+      expect(res.status).toBe(200);
+    });
+
+    it("deve bloquear OPERADOR se faltar menos de 30 minutos para o evento ou já iniciado", async () => {
+      vi.mocked(getServerSession).mockResolvedValue({
+        user: { id: "op-1", role: Role.OPERADOR, name: "Operador Multimídia" },
+      } as any);
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: "op-1",
+        active: true,
+        role: Role.OPERADOR,
+      } as any);
+
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        name: "Evento Próximo ou Passado",
+        date: new Date("2020-01-01T00:00:00.000Z"),
+        time: "10:00",
+      } as any);
+
+      const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
+        method: "DELETE",
+      });
+
+      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("Operadores só podem excluir eventos com mais de 30 minutos");
     });
   });
 });

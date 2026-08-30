@@ -157,7 +157,7 @@ export async function GET(
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao exportar lista." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao exportar lista." },
       { status: 500 }
     );
   }

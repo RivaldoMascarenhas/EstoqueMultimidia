@@ -31,6 +31,7 @@ type PresentationState =
   | "IDLE"
   | "SHOWING_QR_CODE"
   | "SHOWING_EVENT_LOGO"
+  | "SHOWING_LOGO_FULLSCREEN"
   | "SHOWING_PRIZE"
   | "DRAWING"
   | "RESULT"
@@ -268,6 +269,13 @@ function PresentationContent({ eventId }: { eventId: string }) {
       fetchEvent();
       if (payload.event) setEvent(payload.event);
       setCurrentWinner(null);
+    } else if (payload.type === "logo:fullscreen") {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      isAnimatingRef.current = false;
+      setSafeState("SHOWING_LOGO_FULLSCREEN");
+      fetchEvent();
+      if (payload.event) setEvent(payload.event);
+      setCurrentWinner(null);
     } else if (payload.type === "idle:show") {
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       isAnimatingRef.current = false;
@@ -474,11 +482,11 @@ function PresentationContent({ eventId }: { eventId: string }) {
       {/* Top Header */}
       <header className="relative z-20 flex items-center justify-between">
         <div className="flex items-center gap-3 sm:gap-4">
-          <BrandLogo variant="white" width={180} height={46} priority />
+          <BrandLogo variant="white" width={220} height={56} className="h-10 sm:h-12 w-auto drop-shadow-md" priority />
           {event?.logoUrl && (
             <>
-              <div className="h-7 w-[1px] bg-white/25" />
-              <div className="h-10 max-w-[120px] p-1 bg-white/95 rounded-xl flex items-center justify-center shadow-md">
+              <div className="h-8 w-[1px] bg-white/25" />
+              <div className="h-11 sm:h-14 max-w-[160px] sm:max-w-[220px] p-1 sm:p-1.5 bg-white/95 rounded-2xl flex items-center justify-center shadow-lg border border-white/40">
                 <img
                   src={normalizeImageUrl(event.logoUrl)}
                   alt={event.name}
@@ -572,24 +580,24 @@ function PresentationContent({ eventId }: { eventId: string }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.2 }}
-              className="space-y-6 max-w-4xl w-full flex flex-col items-center"
+              className="space-y-6 max-w-5xl w-full flex flex-col items-center"
             >
-              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#EAA023] text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl">
+              <div className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#EAA023] text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest shadow-xl">
                 <Sparkles className="w-4 h-4" />
                 <span>Evento Oficial UniFAP</span>
               </div>
 
               {event?.logoUrl || event?.coverUrl ? (
-                <div className="p-4 sm:p-6 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_0_60px_rgba(234,160,35,0.25)] max-w-lg mx-auto">
+                <div className="p-4 sm:p-8 rounded-3xl bg-gradient-to-b from-white/15 to-white/5 backdrop-blur-2xl border border-white/25 shadow-[0_0_80px_rgba(234,160,35,0.3)] max-w-2xl sm:max-w-4xl mx-auto">
                   <img
                     src={normalizeImageUrl(event.logoUrl || event.coverUrl)}
                     alt={event.name}
-                    className="max-h-56 sm:max-h-72 w-auto object-contain mx-auto rounded-2xl"
+                    className="max-h-72 sm:max-h-96 md:max-h-[46vh] w-auto max-w-full object-contain mx-auto rounded-2xl shadow-2xl"
                   />
                 </div>
               ) : (
-                <div className="p-8 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_0_60px_rgba(234,160,35,0.25)] flex flex-col items-center">
-                  <BrandLogo variant="square-white" width={120} height={120} className="w-24 h-24 sm:w-32 sm:h-32 mb-4" />
+                <div className="p-10 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_0_80px_rgba(234,160,35,0.3)] flex flex-col items-center">
+                  <BrandLogo variant="square-white" width={180} height={180} className="w-32 h-32 sm:w-44 sm:h-44 mb-4" />
                   <div className="text-xs uppercase tracking-widest text-[#EAA023] font-bold">
                     Centro Universitário Paraíso
                   </div>
@@ -601,7 +609,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
                   {event?.name || "Semana Acadêmica UniFAP 2026"}
                 </h1>
                 {event?.description && (
-                  <p className="text-sm sm:text-lg text-slate-300 font-light mt-3 max-w-2xl mx-auto leading-relaxed">
+                  <p className="text-sm sm:text-lg text-slate-300 font-light mt-3 max-w-3xl mx-auto leading-relaxed">
                     {event.description}
                   </p>
                 )}
@@ -609,18 +617,52 @@ function PresentationContent({ eventId }: { eventId: string }) {
 
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 {event?.date && (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
                     <Calendar className="w-4 h-4 text-[#EAA023]" />
                     <span>{new Date(event.date).toLocaleDateString("pt-BR")}</span>
                   </div>
                 )}
                 {event?.location && (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
+                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
                     <MapPin className="w-4 h-4 text-[#0080C8]" />
                     <span>{event.location}</span>
                   </div>
                 )}
               </div>
+            </motion.div>
+          )}
+
+          {state === "SHOWING_LOGO_FULLSCREEN" && (
+            <motion.div
+              key="logo-fullscreen"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.35, ease: "easeOut" }}
+              className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black"
+            >
+              {/* Ambient Glow / Backdrop */}
+              {(event?.logoUrl || event?.coverUrl) && (
+                <div
+                  className="absolute inset-0 bg-center bg-no-repeat bg-cover filter blur-3xl opacity-30 pointer-events-none -z-10"
+                  style={{ backgroundImage: `url(${normalizeImageUrl(event.logoUrl || event.coverUrl)})` }}
+                />
+              )}
+
+              {event?.logoUrl || event?.coverUrl ? (
+                <img
+                  src={normalizeImageUrl(event.logoUrl || event.coverUrl)}
+                  alt={event.name}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full h-full">
+                  <BrandLogo variant="white" width={600} height={200} className="w-[60vw] max-w-[800px] h-auto drop-shadow-2xl mb-8" />
+                  <div className="text-xl sm:text-3xl uppercase tracking-widest text-[#EAA023] font-black">
+                    Centro Universitário Paraíso — UniFAP
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 

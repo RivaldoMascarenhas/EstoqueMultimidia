@@ -35,7 +35,7 @@ export async function GET(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar caixa." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao consultar caixa." },
       { status: 500 }
     );
   }

@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, devices });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao listar dispositivos." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao listar dispositivos." },
       { status: 500 }
     );
   }

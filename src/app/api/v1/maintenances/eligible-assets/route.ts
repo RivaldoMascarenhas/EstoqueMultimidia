@@ -14,7 +14,7 @@ export async function GET() {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao listar equipamentos elegíveis." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao listar equipamentos elegíveis." },
       { status: 500 }
     );
   }

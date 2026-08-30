@@ -170,7 +170,7 @@ export async function GET(
     });
   } catch (err: any) {
     return NextResponse.json(
-      { success: false, error: err.message || "Erro ao exportar dados." },
+      { success: false, error: "Erro interno no servidor" || "Erro ao exportar dados." },
       { status: 500 }
     );
   }

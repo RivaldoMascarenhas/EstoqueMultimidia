@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { getClientIp } from "./ip-utils";
+
+export { getClientIp };
 
 interface AuditLogPayload {
   userId?: string | null;
@@ -41,15 +44,5 @@ export async function safeAuditLog(
   }
 }
 
-export function getClientIp(req: Request | { headers: Headers }): string | undefined {
-  const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    return forwarded.split(",")[0].trim();
-  }
-  const cfIp = req.headers.get("cf-connecting-ip");
-  if (cfIp) return cfIp.trim();
-  const realIp = req.headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
-  return undefined;
-}
+
 
