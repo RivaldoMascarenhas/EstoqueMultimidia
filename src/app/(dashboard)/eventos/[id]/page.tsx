@@ -43,7 +43,6 @@ import { FaceAttendanceCamera } from "@/components/biometria/FaceAttendanceCamer
 import { PrizeFormModal } from "@/components/events/PrizeFormModal";
 import { EventFormModal } from "@/components/events/EventFormModal";
 import { EnrollParticipantsModal } from "@/components/events/EnrollParticipantsModal";
-import { PersonFormModal } from "@/components/biometria/PersonFormModal";
 import { WinnerShareModal } from "@/components/events/WinnerShareModal";
 import { AttendancePrintModal } from "@/components/events/AttendancePrintModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -83,7 +82,6 @@ export default function EventHubPage() {
   const [editingPrize, setEditingPrize] = useState<any | null>(null);
   const [isEventEditModalOpen, setIsEventEditModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [isPersonModalOpen, setIsPersonModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [selectedShareWinner, setSelectedShareWinner] = useState<any | null>(null);
   const [isPrintAttendanceModalOpen, setIsPrintAttendanceModalOpen] = useState(false);
@@ -887,16 +885,6 @@ export default function EventHubPage() {
                 <span>Imprimir Lista / PDF</span>
               </button>
 
-              {!isReadOnly && (
-                <button
-                  onClick={() => setIsPersonModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-foreground bg-card border border-border hover:bg-accent rounded-xl transition-colors cursor-pointer"
-                  title="Cadastrar uma nova pessoa do zero"
-                >
-                  <Plus className="h-4 w-4" />
-                  Cadastrar Pessoa
-                </button>
-              )}
 
               {!isReadOnly && (
                 <button
@@ -1452,14 +1440,6 @@ export default function EventHubPage() {
         }}
       />
 
-      <PersonFormModal
-        isOpen={isPersonModalOpen}
-        onClose={() => setIsPersonModalOpen(false)}
-        onSuccess={() => {
-          fetchParticipants();
-          fetchEvent();
-        }}
-      />
 
       {/* Winner Share Modal */}
       <WinnerShareModal
