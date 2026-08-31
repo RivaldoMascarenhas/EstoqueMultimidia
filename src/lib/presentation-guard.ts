@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+
 export interface PresentationAuthResult {
   isAuthorized: boolean;
   event?: any;
@@ -19,12 +22,60 @@ export function safeCompareTokens(a?: string | null, b?: string | null): boolean
 }
 
 /**
- * Validates access to public event endpoints using presentation token from query, header or cookie
+ * Validates access to public event endpoints using active user session OR presentation token from query, header or cookie
  */
 export async function requirePresentationToken(
   req: NextRequest,
   eventId: string
 ): Promise<PresentationAuthResult> {
+  // 1. Permite acesso se o usuário já estiver logado no sistema (Admin, Gestor, Operador, etc.)
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        include: {
+          theme: true,
+          soundConfig: true,
+          _count: {
+            select: {
+              participants: true,
+              presences: true,
+              prizes: true,
+              winners: true,
+            },
+          },
+        },
+      });
+
+      if (!event) {
+        return {
+          isAuthorized: false,
+          errorResponse: NextResponse.json(
+            { success: false, error: "Evento não encontrado." },
+            { status: 404 }
+          ),
+        };
+      }
+
+      if (event.status === "CANCELLED") {
+        return {
+          isAuthorized: false,
+          errorResponse: NextResponse.json(
+            { success: false, error: "Este evento foi cancelado." },
+            { status: 403 }
+          ),
+        };
+      }
+
+      return {
+        isAuthorized: true,
+        event,
+      };
+    }
+  } catch {}
+
+  // 2. Se não estiver logado, valida o token de apresentação (para Telões e Totens remotos)
   const { searchParams } = new URL(req.url);
   const tokenFromQuery = searchParams.get("token");
   const tokenFromHeader = req.headers.get("x-presentation-token");

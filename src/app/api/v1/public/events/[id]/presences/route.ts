@@ -33,6 +33,8 @@ export async function GET(
           person: {
             select: {
               name: true,
+              registration: true,
+              category: true,
               photoUrl: true,
             },
           },
@@ -44,6 +46,8 @@ export async function GET(
     const items = presences.map((p) => ({
       id: p.id,
       name: maskName(p.person.name),
+      registration: p.person.registration || undefined,
+      category: p.person.category || undefined,
       fullNameMasked: true,
       confidence: p.confidence ? Number(p.confidence) : 1.0,
       capturedAt: p.capturedAt,

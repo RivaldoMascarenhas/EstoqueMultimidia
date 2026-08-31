@@ -625,7 +625,11 @@ export default function EventHubPage() {
 
             {!isReadOnly && (
               <a
-                href={`/totem/${event.id}`}
+                href={
+                  presentationUrl && presentationUrl.includes("token=")
+                    ? `/totem/${event.id}?token=${presentationUrl.split("token=")[1]}`
+                    : `/totem/${event.id}`
+                }
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-xl border border-emerald-500/30 transition-colors shadow-xs"

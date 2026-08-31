@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Role } from "@prisma/client";
 import { getClientIp } from "./ip-utils";
 
-if (!process.env.NEXTAUTH_SECRET) {
+if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV !== "test" && !process.env.VITEST) {
   throw new Error(
     "NEXTAUTH_SECRET não está definida. Defina uma variável de ambiente segura (ex: `openssl rand -base64 32`) antes de iniciar a aplicação."
   );

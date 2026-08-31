@@ -83,10 +83,10 @@ function EventTotemContent() {
   // Fetch Recent Presences (Public Live Feed)
   const fetchRecentPresences = useCallback(async () => {
     try {
-      const url = `/api/v1/public/events/${eventId}/presences?limit=15${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+      const url = `/api/v1/public/events/${eventId}/presences?limit=25${token ? `&token=${encodeURIComponent(token)}` : ""}`;
       const res = await fetch(url, { credentials: "include" });
       const data = await res.json();
-      if (data.success && data.items) {
+      if (data.success && Array.isArray(data.items)) {
         setRecentPresences(data.items);
         if (typeof data.total === "number") {
           setPresentCount(data.total);
@@ -335,7 +335,10 @@ function EventTotemContent() {
                     <div className="min-w-0 flex-1 mr-2">
                       <p className="text-xs font-bold text-white truncate">{item.name}</p>
                       <p className="text-[10px] text-zinc-400 font-mono mt-0.5 truncate">
-                        {item.registration ? `Matrícula: ${item.registration}` : "Participante"} •{" "}
+                        {item.registration
+                          ? `Matrícula: ${item.registration}`
+                          : item.category || "Participante"}{" "}
+                        •{" "}
                         {item.capturedAt
                           ? new Date(item.capturedAt).toLocaleTimeString("pt-BR", {
                               hour: "2-digit",

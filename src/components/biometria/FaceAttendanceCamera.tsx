@@ -518,6 +518,7 @@ export function FaceAttendanceCamera({
         } else if (result.status === "ALREADY_REGISTERED") {
           setStatusMessage(`Presença já confirmada: ${result.person?.name}`);
           playFeedbackSound("warning");
+          if (onPresenceRecorded) onPresenceRecorded(result);
         } else if (result.status === "NOT_PARTICIPANT") {
           setStatusMessage(result.message || "Pessoa identificada, mas não está inscrita neste evento.");
           playFeedbackSound("error");
