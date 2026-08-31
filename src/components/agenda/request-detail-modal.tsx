@@ -744,7 +744,8 @@ export function RequestDetailModal({
                     );
                   })}
                 </div>
-              </div>
+              )}
+            </div>
 
               {/* 4. Observações */}
               {request.notes && (
