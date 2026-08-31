@@ -65,6 +65,11 @@ export function RequestDetailModal({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Modal de Relato de Problema / Ocorrência
+  const [problemDialogOpen, setProblemDialogOpen] = useState(false);
+  const [problemReason, setProblemReason] = useState("");
+  const [problemDetails, setProblemDetails] = useState("");
+
   // Modal de Troca de Patrimônio (Asset Swap)
   const [swapTarget, setSwapTarget] = useState<{ itemId: string; currentAssetTag: string; itemLabel: string } | null>(null);
   const [swapNewAssetId, setSwapNewAssetId] = useState("");
@@ -80,7 +85,10 @@ export function RequestDetailModal({
       });
     }
     if (request?.assignedUser?.id) {
-      map.set(request.assignedUser.id, request.assignedUser);
+      map.set(request.assignedUser.id, {
+        ...request.assignedUser,
+        role: request.assignedUser.role || (request.assignedUser.id === session?.user?.id ? session?.user?.role : "OPERADOR"),
+      });
     }
     users.forEach((u) => {
       map.set(u.id, u);
@@ -221,6 +229,48 @@ export function RequestDetailModal({
       }
     } catch {
       toast.error("Erro ao atualizar status.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 4. Relatar Problema / Ocorrência no Atendimento
+  const handleConfirmReportProblem = async () => {
+    if (!request || !isOperatorOrAdmin) return;
+    if (!problemReason.trim() && !problemDetails.trim()) {
+      toast.error("Por favor, selecione um motivo ou descreva o problema ocorrido.");
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const nowStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const authorName = session?.user?.name || "Operador";
+      const reasonPrefix = problemReason.trim() ? `[${problemReason.trim()}] ` : "";
+      const descText = problemDetails.trim();
+      const problemEntry = `⚠️ OCORRÊNCIA REPORTADA (${nowStr} por ${authorName}):\n${reasonPrefix}${descText}`;
+      const newNotes = request.notes ? `${request.notes}\n\n${problemEntry}` : problemEntry;
+
+      const res = await fetch(`/api/v1/requests/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "PROBLEMA",
+          notes: newNotes,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRequest(data.data);
+        toast.success("✓ Ocorrência registrada e status alterado para PROBLEMA!");
+        setProblemDialogOpen(false);
+        setProblemReason("");
+        setProblemDetails("");
+        onUpdated?.();
+      } else {
+        toast.error(data.error || "Erro ao registrar problema.");
+      }
+    } catch {
+      toast.error("Erro na comunicação com o servidor.");
     } finally {
       setIsSaving(false);
     }
@@ -523,7 +573,7 @@ export function RequestDetailModal({
                     <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Criado por:
                   </span>
                   <p className="font-medium text-foreground mt-0.5">
-                    {request.createdBy?.name || "Sistema"} ({request.createdBy?.role})
+                    {request.createdBy?.name || "Sistema"}{request.createdBy?.role ? ` (${request.createdBy.role})` : ""}
                   </p>
                 </div>
               </div>
@@ -552,12 +602,35 @@ export function RequestDetailModal({
                   </div>
                 ) : null}
 
-                {/* Lista de Itens */}
-                <div className="space-y-2">
-                  {request.items?.map((item: any) => {
-                    const isFixed = item.resourceType === "FIXED_IN_ROOM";
-                    const isMobileAsset = item.resourceType === "MOBILE_ASSET" || (!isFixed && item.item?.itemType === "ASSET_EQUIPMENT");
-                    const isUnfulfilled = item.label?.includes("[Não levado:");
+                {/* Lista de Itens ou Estado de Apenas Infraestrutura */}
+                {!request.items || request.items.length === 0 ? (
+                  <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Package className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                      <span>Nenhum equipamento móvel solicitado (utilização da infraestrutura da sala).</span>
+                    </div>
+                    {isOperatorOrAdmin && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setProblemReason("Problema na Infraestrutura / Sala");
+                          setProblemDialogOpen(true);
+                        }}
+                        className="h-7 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 border-rose-500/30 rounded-xl gap-1 shrink-0 cursor-pointer font-semibold"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        <span>Relatar Problema na Sala</span>
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {request.items?.map((item: any) => {
+                      const isFixed = item.resourceType === "FIXED_IN_ROOM";
+                      const isMobileAsset = item.resourceType === "MOBILE_ASSET" || (!isFixed && item.item?.itemType === "ASSET_EQUIPMENT");
+                      const isUnfulfilled = item.label?.includes("[Não levado:");
 
                     return (
                       <div
@@ -704,7 +777,7 @@ export function RequestDetailModal({
                         <option value="">Sem responsável atribuído</option>
                         {displayUsers.map((u: any) => (
                           <option key={u.id} value={u.id}>
-                            {u.name} ({u.role}) {u.id === userId ? "★ (Eu)" : ""}
+                            {u.name}{u.role ? ` (${u.role})` : ""}{u.id === userId ? " ★ (Eu)" : ""}
                           </option>
                         ))}
                       </select>
@@ -734,9 +807,14 @@ export function RequestDetailModal({
                         <Button
                           size="sm"
                           variant={request.status === "PROBLEMA" ? "destructive" : "outline"}
-                          onClick={() => handleUpdateStatus("PROBLEMA")}
-                          className="h-8 text-[11px] px-2.5 rounded-xl text-rose-500 font-bold"
+                          onClick={() => {
+                            setProblemReason("");
+                            setProblemDetails("");
+                            setProblemDialogOpen(true);
+                          }}
+                          className="h-8 text-[11px] px-2.5 rounded-xl text-rose-500 font-bold gap-1 cursor-pointer"
                         >
+                          <AlertCircle className="w-3.5 h-3.5" />
                           Problema
                         </Button>
                       </div>
@@ -1104,6 +1182,96 @@ export function RequestDetailModal({
             >
               {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               <span>Sim, Excluir da Grade</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* DIALOG 7: RELATAR PROBLEMA / OCORRÊNCIA NO ATENDIMENTO (COM OU SEM ITEM)   */}
+      {/* ========================================================================= */}
+      <Dialog open={problemDialogOpen} onOpenChange={(open) => setProblemDialogOpen(open)}>
+        <DialogContent className="max-w-md rounded-3xl p-6 bg-card border-border shadow-2xl space-y-4">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-extrabold text-foreground">
+                  Relatar Problema / Ocorrência
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Sala {request?.room?.name} • {request?.professorName || "Atendimento"}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-3 pt-1 text-xs">
+            <div>
+              <label className="font-semibold text-foreground block mb-1">
+                Selecione o Tipo de Ocorrência (Atalho Rápido):
+              </label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {[
+                  "Projetor fixo não liga / sem sinal",
+                  "Cabo HDMI ou VGA danificado",
+                  "Sem energia nas tomadas da sala",
+                  "Ar-condicionado com defeito",
+                  "Docente ausente / Aula cancelada",
+                  "Equipamento com defeito durante o uso",
+                  "Chave da sala não localizada",
+                  "Outro problema",
+                ].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setProblemReason(tag)}
+                    className={`text-[11px] px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
+                      problemReason === tag
+                        ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/40 font-bold"
+                        : "bg-muted/40 text-foreground border-border/80 hover:bg-muted"
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="font-semibold text-foreground block mb-1">
+                Descrição Detalhada da Ocorrência:
+              </label>
+              <textarea
+                value={problemDetails}
+                onChange={(e) => setProblemDetails(e.target.value)}
+                placeholder="Descreva o que aconteceu na sala ou com o equipamento..."
+                className="w-full h-24 rounded-xl border border-border bg-background p-2.5 text-foreground resize-none text-xs focus:ring-1 focus:ring-rose-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setProblemDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmReportProblem}
+              disabled={isSaving || (!problemReason.trim() && !problemDetails.trim())}
+              className="rounded-xl text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold gap-1.5 cursor-pointer"
+            >
+              {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+              <span>Registrar Problema</span>
             </Button>
           </div>
         </DialogContent>

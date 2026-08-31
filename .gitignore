@@ -3,6 +3,8 @@ node_modules/
 .pnp/
 .pnp.js
 
+scratch/
+
 # Next.js build output
 .next/
 out/

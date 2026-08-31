@@ -3,7 +3,7 @@ import { z } from "zod";
 export const loanCreateSchema = z.object({
   assetId: z.string().min(1, "Selecione o equipamento a ser emprestado"),
   borrowerName: z.string().min(3, "Nome do solicitante deve ter pelo menos 3 caracteres"),
-  borrowerEmail: z.string().email("E-mail inválido").optional().or(z.literal("")),
+  borrowerEmail: z.string().min(1, "E-mail de quem ficará com o equipamento é obrigatório").email("Informe um e-mail institucional válido"),
   borrowerPhone: z.string().optional().or(z.literal("")),
   borrowerDepartment: z.string().optional().or(z.literal("")),
   destination: z.string().min(2, "Informe a sala, laboratório ou destino de uso"),

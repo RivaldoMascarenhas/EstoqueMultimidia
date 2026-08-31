@@ -110,7 +110,7 @@ export class RequestService {
         include: {
           room: true,
           assignedUser: {
-            select: { id: true, name: true, email: true, avatarUrl: true },
+            select: { id: true, name: true, email: true, role: true, avatarUrl: true },
           },
           createdBy: {
             select: { id: true, name: true, email: true, role: true },
@@ -166,7 +166,7 @@ export class RequestService {
           },
         },
         assignedUser: {
-          select: { id: true, name: true, email: true, avatarUrl: true },
+          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
         },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
@@ -265,7 +265,7 @@ export class RequestService {
           },
         },
         assignedUser: {
-          select: { id: true, name: true, email: true, avatarUrl: true },
+          select: { id: true, name: true, email: true, role: true, avatarUrl: true },
         },
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
@@ -1371,7 +1371,8 @@ export class RequestService {
           items: { include: { item: true, asset: true } },
           tasks: { orderBy: { orderIndex: "asc" } },
           reservations: true,
-          assignedUser: { select: { id: true, name: true } },
+          assignedUser: { select: { id: true, name: true, role: true, email: true, avatarUrl: true } },
+          createdBy: { select: { id: true, name: true, role: true, email: true } },
         },
       });
 

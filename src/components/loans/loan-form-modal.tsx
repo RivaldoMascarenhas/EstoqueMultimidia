@@ -194,6 +194,17 @@ export function LoanFormModal({
       return;
     }
 
+    if (!borrowerEmail.trim()) {
+      toast.error("Informe o e-mail institucional de quem ficará com o equipamento.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(borrowerEmail.trim())) {
+      toast.error("Informe um endereço de e-mail institucional válido.");
+      return;
+    }
+
     if (!destination.trim()) {
       toast.error("Informe o local ou sala de uso.");
       return;
@@ -403,11 +414,12 @@ export function LoanFormModal({
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-primary" />
-                  <span>E-mail Institucional</span>
+                  <span>E-mail Institucional <span className="text-rose-500">*</span></span>
                 </label>
                 <Input
                   type="email"
-                  placeholder="Ex: joao.silva@unifapce.edu.br"
+                  required
+                  placeholder="Ex: joao.silva@fapce.edu.br"
                   value={borrowerEmail}
                   onChange={(e) => setBorrowerEmail(e.target.value)}
                   className="text-xs rounded-xl h-10"
