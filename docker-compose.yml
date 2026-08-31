@@ -49,10 +49,9 @@ services:
       FACE_DISTANCE_THRESHOLD: ${FACE_DISTANCE_THRESHOLD:-0.60}
       MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.80}
       TZ: "America/Fortaleza"
-      PORT: 8000
-    # Comunicação interna via Docker Network; porta no host restrita a 127.0.0.1
+    # Comunicação interna via Docker Network; porta no host restrita a 127.0.0.1:8005 (porta 8000 livre para Coolify)
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8005:8000"
     networks:
       - unifap-network
     deploy:
@@ -115,9 +114,8 @@ services:
       BIOMETRIC_API_URL: http://biometric-api:8000
       BIOMETRIC_INTERNAL_TOKEN: ${BIOMETRIC_INTERNAL_TOKEN:?Defina a variavel BIOMETRIC_INTERNAL_TOKEN no .env}
       TZ: "America/Fortaleza"
-    # Porta restrita a 127.0.0.1 para que o tráfego externo passe exclusivamente pelo Cloudflare Tunnel
     ports:
-      - "127.0.0.1:3000:3000"
+      - "0.0.0.0:3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,19 +137,3 @@ services:
       retries: 3
       start_period: 20s
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: unifap-cloudflared
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?Defina a variavel CLOUDFLARE_TUNNEL_TOKEN no .env}
-    depends_on:
-      - app
-    networks:
-      - unifap-network
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
