@@ -747,17 +747,7 @@ export function RequestDetailModal({
               )}
             </div>
 
-              {/* 4. Observações */}
-              {request.notes && (
-                <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 text-xs space-y-1">
-                  <span className="font-bold text-foreground flex items-center gap-1">
-                    <FileText className="w-3.5 h-3.5 text-primary" /> Observações & Histórico de Trocas:
-                  </span>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{request.notes}</p>
-                </div>
-              )}
-
-              {/* 5. Painel de Controle Operacional do Multimídia */}
+              {/* 4. Painel de Controle Operacional do Multimídia */}
               {isOperatorOrAdmin && (
                 <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-3">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
@@ -821,6 +811,19 @@ export function RequestDetailModal({
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* 5. Observações & Histórico de Ocorrências (Embaixo de Responsável com visual vermelho claro elegante) */}
+              {request.notes && (
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-xs space-y-1.5 shadow-xs">
+                  <span className="font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>Observações & Histórico de Trocas / Ocorrências:</span>
+                  </span>
+                  <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed pl-5 font-mono text-[11px]">
+                    {request.notes}
+                  </p>
                 </div>
               )}
 
