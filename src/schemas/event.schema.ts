@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EventStatus, ParticipantStatus } from "@prisma/client";
+import { getBrazilDateString } from "@/lib/event-time";
 
 export const createEventSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(255),
@@ -18,12 +19,9 @@ export const createEventSchema = z.object({
     .refine((d) => {
       if (!d) return true;
       try {
-        const rawDateStr = typeof d === "string" ? d.split("T")[0] : d.toISOString().split("T")[0];
-        const [year, month, day] = rawDateStr.split("-").map(Number);
-        const eventDate = new Date(year, month - 1, day);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return eventDate >= today;
+        const dateStr = getBrazilDateString(d);
+        const todayStr = getBrazilDateString(new Date());
+        return !dateStr || !todayStr || dateStr >= todayStr;
       } catch {
         return true;
       }

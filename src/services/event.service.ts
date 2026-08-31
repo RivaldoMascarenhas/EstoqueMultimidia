@@ -6,7 +6,7 @@ import { CreatePrizeInput, UpdatePrizeInput } from "@/schemas/prize.schema";
 import { EventStatus, ParticipantStatus, PresenceMethod, PrizeStatus, Prisma, Role } from "@prisma/client";
 
 import { getSystemNow } from "@/lib/utils";
-import { getBrazilDateString } from "@/lib/event-time";
+import { getBrazilDateString, parseEventDate } from "@/lib/event-time";
 
 export class EventService {
   /**
@@ -27,17 +27,6 @@ export class EventService {
       throw new Error(
         `Não é permitido ${isUpdate ? "alterar evento para" : "agendar eventos para"} datas passadas (${d}/${m}/${y}). Selecione a data de hoje ou uma data futura.`
       );
-    }
-
-    if (eventDateStr === sysNow.dateStr && time && /^\d{1,2}:\d{2}$/.test(time.trim())) {
-      const [h, m] = time.trim().split(":").map(Number);
-      const eventMinutes = h * 60 + m;
-      const nowMinutesWithTolerance = sysNow.totalMinutes - 5; // Tolerância de 5 minutos para latência
-      if (eventMinutes < nowMinutesWithTolerance) {
-        throw new Error(
-          `Não é permitido agendar evento para um horário que já passou hoje (${time.trim()}). Horário atual: ${sysNow.timeStr}. Selecione um horário futuro.`
-        );
-      }
     }
   }
 
@@ -87,7 +76,7 @@ export class EventService {
         name: data.name,
         slug: finalSlug,
         description: data.description || null,
-        date: data.date ? new Date(data.date) : null,
+        date: data.date ? parseEventDate(data.date) : null,
         time: data.time || null,
         location: data.location || null,
         logoUrl: data.logoUrl || null,
@@ -158,7 +147,7 @@ export class EventService {
       data: {
         name: data.name ?? undefined,
         description: data.description !== undefined ? data.description : undefined,
-        date: data.date !== undefined ? (data.date ? new Date(data.date) : null) : undefined,
+        date: data.date !== undefined ? parseEventDate(data.date) : undefined,
         time: data.time !== undefined ? data.time : undefined,
         location: data.location !== undefined ? data.location : undefined,
         logoUrl: data.logoUrl !== undefined ? data.logoUrl : undefined,
@@ -347,14 +336,6 @@ export class EventService {
       ];
     }
 
-    // Isolamento contextual para perfil EVENTOS (apenas eventos em que é gestor)
-    if (params.role === Role.EVENTOS && params.userId) {
-      where.managers = {
-        some: {
-          userId: params.userId,
-        },
-      };
-    }
 
     const [total, items] = await Promise.all([
       prisma.event.count({ where }),

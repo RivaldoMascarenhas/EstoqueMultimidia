@@ -251,6 +251,43 @@ describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
       expect(res.totalPages).toBe(1);
     });
 
+    it("deve permitir que o perfil EVENTOS liste todos os eventos institucionais", async () => {
+      vi.mocked(prisma.event.count).mockResolvedValue(2);
+      vi.mocked(prisma.event.findMany).mockResolvedValue([
+        {
+          id: "ev-1",
+          name: "Evento Institucional 1",
+          slug: "evento-1",
+          status: EventStatus.OPEN,
+          _count: { participants: 10, presences: 5, prizes: 1, draws: 0, winners: 0 },
+        } as any,
+        {
+          id: "ev-2",
+          name: "Evento Institucional 2",
+          slug: "evento-2",
+          status: EventStatus.DRAFT,
+          _count: { participants: 20, presences: 0, prizes: 2, draws: 0, winners: 0 },
+        } as any,
+      ]);
+
+      const res = await EventService.listEvents({
+        role: "EVENTOS" as any,
+        userId: "user-eventos-id",
+        page: 1,
+        limit: 10,
+      });
+
+      expect(res.total).toBe(2);
+      expect(res.items.length).toBe(2);
+      expect(prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            managers: expect.anything(),
+          }),
+        })
+      );
+    });
+
     it("deve atualizar configurações do evento e regras de sorteio", async () => {
       vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "ev-1" } as any);
       vi.mocked(prisma.event.update).mockResolvedValue({

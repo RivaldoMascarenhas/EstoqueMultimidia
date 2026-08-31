@@ -27,6 +27,7 @@ import {
   Activity,
 } from "lucide-react";
 import { normalizeImageUrl } from "@/lib/formatImageUrl";
+import { getBrazilDateString } from "@/lib/event-time";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -63,11 +64,7 @@ export function EventFormModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imgHasError, setImgHasError] = useState(false);
   const todayStr = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Fortaleza" }).format(new Date());
-    } catch {
-      return new Date().toISOString().split("T")[0];
-    }
+    return getBrazilDateString(new Date()) || new Date().toISOString().split("T")[0];
   }, []);
 
   // Salas disponíveis no sistema para sugestão
@@ -92,7 +89,7 @@ export function EventFormModal({
     if (event) {
       setName(event.name || "");
       setDescription(event.description || "");
-      setDate(event.date ? new Date(event.date).toISOString().split("T")[0] : "");
+      setDate(event.date ? getBrazilDateString(event.date) : "");
       setTime(event.time || "");
       setLocation(event.location || "");
       setStatus(event.status || "DRAFT");
@@ -174,7 +171,7 @@ export function EventFormModal({
     }
 
     // Validação de data passada para novos eventos ou alteração de data
-    const existingDateStr = event?.date ? new Date(event.date).toISOString().split("T")[0] : null;
+    const existingDateStr = event?.date ? getBrazilDateString(event.date) : null;
     const isDateChanging = !isEditing || (date && date !== existingDateStr);
 
     if (isDateChanging && date && date < todayStr) {
@@ -182,28 +179,6 @@ export function EventFormModal({
       toast.error(`Não é permitido agendar eventos para datas passadas (${d}/${m}/${y}). Selecione a data de hoje ou uma data futura.`);
       setActiveTab("general");
       return;
-    }
-
-    if (date === todayStr && time && /^\d{1,2}:\d{2}$/.test(time.trim())) {
-      const [h, m] = time.trim().split(":").map(Number);
-      const now = new Date();
-      const nowFormatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Fortaleza",
-        hour: "numeric",
-        minute: "numeric",
-        hour12: false,
-      });
-      const parts = nowFormatter.formatToParts(now);
-      const curH = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
-      const curM = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
-      const currentTotalMin = curH * 60 + curM;
-      const eventTotalMin = h * 60 + m;
-
-      if (eventTotalMin < currentTotalMin - 5) {
-        toast.error(`Não é permitido agendar evento para um horário que já passou hoje (${time.trim()}).`);
-        setActiveTab("general");
-        return;
-      }
     }
 
     if (!isEditing && (status === "COMPLETED" || status === "CANCELLED")) {
@@ -226,7 +201,7 @@ export function EventFormModal({
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || null,
-          date: date ? new Date(date).toISOString() : null,
+          date: date ? date : null,
           time: time.trim() || null,
           location: location.trim() || null,
           status,

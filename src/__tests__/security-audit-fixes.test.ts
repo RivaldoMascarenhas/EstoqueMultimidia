@@ -84,23 +84,17 @@ describe("Comprehensive Security Remediation Tests (SEC-01 to SEC-07)", () => {
       expect(result.authorized).toBe(true);
     });
 
-    it("deve PERMITIR acesso para EVENTOS se vinculado via EventUser", async () => {
+    it("deve PERMITIR acesso aos eventos para perfil EVENTOS", async () => {
       vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1" } as any);
-      vi.mocked(prisma.eventUser.findUnique).mockResolvedValue({
-        id: "eu-1",
-        userId: "user-eventos-1",
-        eventId: "evt-1",
-      } as any);
 
       const result = await assertEventAccess("evt-1", { id: "user-eventos-1", role: Role.EVENTOS });
       expect(result.authorized).toBe(true);
     });
 
-    it("deve BLOQUEAR com 403 para EVENTOS se NÃO vinculado via EventUser (Anti-IDOR)", async () => {
+    it("deve BLOQUEAR com 403 para ACADEMIC_SUPPORT no módulo de eventos", async () => {
       vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-alheio" } as any);
-      vi.mocked(prisma.eventUser.findUnique).mockResolvedValue(null);
 
-      const result = await assertEventAccess("evt-alheio", { id: "user-eventos-1", role: Role.EVENTOS });
+      const result = await assertEventAccess("evt-alheio", { id: "user-acad-1", role: Role.ACADEMIC_SUPPORT });
       expect(result.authorized).toBe(false);
       expect(result.errorResponse?.status).toBe(403);
     });

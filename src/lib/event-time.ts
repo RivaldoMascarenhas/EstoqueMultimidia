@@ -3,14 +3,41 @@
  */
 
 /**
+ * Converte data de entrada (string YYYY-MM-DD ou Date) para Date em UTC 12:00:00,
+ * garantindo que nenhum fuso horário brasileiro (UTC-2 a UTC-5) retroceda para o dia anterior.
+ */
+export function parseEventDate(input: string | Date | null | undefined): Date | null {
+  if (!input) return null;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return new Date(`${trimmed}T12:00:00.000Z`);
+    }
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      const dateOnly = d.toISOString().split("T")[0];
+      return new Date(`${dateOnly}T12:00:00.000Z`);
+    }
+  }
+  if (input instanceof Date && !isNaN(input.getTime())) {
+    const dateOnly = input.toISOString().split("T")[0];
+    return new Date(`${dateOnly}T12:00:00.000Z`);
+  }
+  return null;
+}
+
+/**
  * Converte qualquer Date ou string para YYYY-MM-DD no fuso horário local (America/Fortaleza / UTC-3).
  */
-export function getBrazilDateString(date: Date | string): string {
+export function getBrazilDateString(date: Date | string | null | undefined): string {
+  if (!date) return "";
   if (typeof date === "string") {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
-      return date.trim();
+    const trimmed = date.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
     }
-    const d = new Date(date);
+    const d = new Date(trimmed);
     if (isNaN(d.getTime())) return "";
     return new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/Fortaleza",

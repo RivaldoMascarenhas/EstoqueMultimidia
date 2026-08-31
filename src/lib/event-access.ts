@@ -105,32 +105,8 @@ export async function assertEventAccess(
     return { authorized: true, event };
   }
 
-  // 6. GESTOR e OPERADOR possuem acesso aos eventos do sistema conforme suas permissões
-  if (user.role === Role.GESTOR || user.role === Role.OPERADOR) {
-    return { authorized: true, event };
-  }
-
-  // 7. Perfil EVENTOS: Isolamento estrito por EventUser (Anti-IDOR)
-  if (user.role === Role.EVENTOS) {
-    const isManager = await prisma.eventUser.findUnique({
-      where: {
-        userId_eventId: {
-          userId: user.id,
-          eventId: eventId,
-        },
-      },
-    });
-
-    if (!isManager) {
-      return {
-        authorized: false,
-        errorResponse: NextResponse.json(
-          { success: false, error: "Acesso não autorizado a este evento." },
-          { status: 403 }
-        ),
-      };
-    }
-
+  // 6. GESTOR, OPERADOR e EVENTOS possuem acesso aos eventos do sistema conforme suas permissões
+  if (user.role === Role.GESTOR || user.role === Role.OPERADOR || user.role === Role.EVENTOS) {
     return { authorized: true, event };
   }
 
