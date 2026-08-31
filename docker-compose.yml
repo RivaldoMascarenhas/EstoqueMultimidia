@@ -17,9 +17,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina a variavel POSTGRES_PASSWORD no .env}
       POSTGRES_DB: ${POSTGRES_DB:-estoque_multimidia}
-    # Portas vinculadas estritamente a 127.0.0.1 (Loopback) para blindagem de rede
     ports:
-      - "127.0.0.1:5433:5432"
+      - "0.0.0.0:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -49,9 +48,8 @@ services:
       FACE_DISTANCE_THRESHOLD: ${FACE_DISTANCE_THRESHOLD:-0.60}
       MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.80}
       TZ: "America/Fortaleza"
-    # Comunicação interna via Docker Network; porta no host restrita a 127.0.0.1:8005 (porta 8000 livre para Coolify)
     ports:
-      - "127.0.0.1:8005:8000"
+      - "0.0.0.0:8005:8000"
     networks:
       - unifap-network
     deploy:
