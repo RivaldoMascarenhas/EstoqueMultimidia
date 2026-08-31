@@ -17,7 +17,7 @@ export const roomCreateSchema = z.object({
   fixedProjectorModel: z.string().optional().nullable(),
   vgaCableOk: z.boolean().optional().nullable(),
   hdmiCableOk: z.boolean().optional().nullable(),
-  lampHours: z.number().int().optional().nullable(),
+  lampHours: z.number().int().min(0, "Horas da lâmpada não podem ser negativas").optional().nullable(),
   lampStatus: z.string().optional().nullable(),
   lastVisitAt: z.string().optional().nullable(),
   fixedEquipment: z.array(fixedEquipmentSchema).optional(),

@@ -263,6 +263,23 @@ export default function SalasPage() {
       return;
     }
 
+    if (typeof lampHours === "number" && lampHours < 0) {
+      toast.error("As horas de lâmpada não podem ser negativas.");
+      return;
+    }
+
+    if (lastVisitAt) {
+      const todayStr = new Date().toISOString().split("T")[0];
+      if (lastVisitAt > todayStr) {
+        toast.error("A data da última visita técnica não pode ser uma data futura.");
+        return;
+      }
+      if (lastVisitAt < "2020-01-01") {
+        toast.error("A data da visita técnica não pode ser anterior a 2020.");
+        return;
+      }
+    }
+
     try {
       setIsSaving(true);
       
@@ -591,7 +608,7 @@ export default function SalasPage() {
                       <TableCell className="py-3 px-4">
                         <div className="space-y-0.5">
                           <span className={`text-xs font-bold ${isTrocarLampada ? "text-rose-500" : "text-foreground"}`}>
-                            {room.lampHours ? `${room.lampHours}h` : "-"} ({room.lampStatus || "Normal"})
+                            {typeof room.lampHours === "number" && room.lampHours >= 0 ? `${room.lampHours}h` : "Não aferido"} ({room.lampStatus || "Normal"})
                           </span>
                           {room.lastVisitAt && (
                             <p className="text-[10px] text-muted-foreground">
@@ -835,9 +852,17 @@ export default function SalasPage() {
                   <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Horas da Lâmpada</label>
                   <input
                     type="number"
+                    min={0}
                     placeholder="Ex: 1955"
                     value={lampHours}
-                    onChange={(e) => setLampHours(e.target.value ? parseInt(e.target.value, 10) : "")}
+                    onChange={(e) => {
+                      if (!e.target.value) {
+                        setLampHours("");
+                        return;
+                      }
+                      const val = parseInt(e.target.value, 10);
+                      setLampHours(isNaN(val) ? "" : Math.max(0, val));
+                    }}
                     className="w-full h-8 text-xs rounded-xl border border-border bg-background px-2.5 text-foreground"
                   />
                 </div>
@@ -846,6 +871,8 @@ export default function SalasPage() {
                   <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Data da Última Visita</label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    min="2020-01-01"
                     value={lastVisitAt}
                     onChange={(e) => setLastVisitAt(e.target.value)}
                     className="w-full h-8 text-xs rounded-xl border border-border bg-background px-2.5 text-foreground"

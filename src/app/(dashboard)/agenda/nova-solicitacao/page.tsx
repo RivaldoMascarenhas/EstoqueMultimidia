@@ -83,6 +83,25 @@ function isRoomWithProjector(r: any): boolean {
   return false;
 }
 
+function getRoomProjectorStatus(r: any): { hasProjector: boolean; isHealthy: boolean; reason?: string } {
+  if (!isRoomWithProjector(r)) {
+    return { hasProjector: false, isHealthy: false, reason: "Sem projetor fixo instalado" };
+  }
+  const hasCables = r.hdmiCableOk !== false || r.vgaCableOk !== false;
+  const isLampDefective = r.lampStatus === "TROCAR LAMPADA" || 
+    r.lampStatus?.toUpperCase().includes("TROCAR") || 
+    r.lampStatus?.toUpperCase().includes("QUEIMADA") || 
+    r.lampStatus?.toUpperCase().includes("DEFEITO");
+
+  if (!hasCables) {
+    return { hasProjector: true, isHealthy: false, reason: "Sem cabos de vídeo funcionais (HDMI e VGA ausentes)" };
+  }
+  if (isLampDefective) {
+    return { hasProjector: true, isHealthy: false, reason: `Lâmpada avariada (${r.lampStatus})` };
+  }
+  return { hasProjector: true, isHealthy: true };
+}
+
 interface QuickTimeSlot {
   shift: "MORNING" | "AFTERNOON" | "NIGHT";
   shiftLabel: string;
@@ -1100,17 +1119,30 @@ export default function NovaSolicitacaoPage() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs mt-1 flex items-center gap-1.5">
-                        {isRoomWithProjector(currentRoom) ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                            <Check className="w-3.5 h-3.5" /> Projetor Fixo no Teto ({currentRoom.fixedProjectorModel || "Incluso"})
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground flex items-center gap-1">
-                            <Tv className="w-3.5 h-3.5 text-muted-foreground" /> Sem projetor fixo (solicite um móvel na etapa 2)
-                          </span>
-                        )}
-                      </p>
+                      <div className="text-xs mt-1">
+                        {(() => {
+                          const projStatus = getRoomProjectorStatus(currentRoom);
+                          if (!projStatus.hasProjector) {
+                            return (
+                              <span className="text-muted-foreground flex items-center gap-1">
+                                <Tv className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> Sem projetor fixo (solicite um móvel na etapa 2)
+                              </span>
+                            );
+                          }
+                          if (!projStatus.isHealthy) {
+                            return (
+                              <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Projetor Fixo Indisponível: {projStatus.reason} (enviaremos Datashow Móvel)
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5 shrink-0" /> Projetor Fixo no Teto Funcionando ({currentRoom.fixedProjectorModel || "Incluso"})
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
 
@@ -1253,17 +1285,26 @@ export default function NovaSolicitacaoPage() {
                                   <span className="text-[10px] text-muted-foreground">({r.floor})</span>
                                 )}
                               </div>
-                              <p className="text-[11px] mt-0.5 truncate">
-                                {hasProj ? (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                                    📽️ Projetor Fixo ({r.fixedProjectorModel || "Incluso"})
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    Sem Projetor Fixo
-                                  </span>
-                                )}
-                              </p>
+                              <div className="text-[11px] mt-0.5 truncate">
+                                {(() => {
+                                  const projStatus = getRoomProjectorStatus(r);
+                                  if (!projStatus.hasProjector) {
+                                    return <span className="text-muted-foreground">Sem Projetor Fixo</span>;
+                                  }
+                                  if (!projStatus.isHealthy) {
+                                    return (
+                                      <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
+                                        <AlertTriangle className="w-3 h-3 text-amber-500 inline shrink-0" /> Indisponível ({projStatus.reason})
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                      📽️ Projetor Fixo ({r.fixedProjectorModel || "Incluso"})
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                             </div>
                             {isSelected ? (
                               <Badge className="bg-primary text-primary-foreground text-[10px] shrink-0">
@@ -1432,9 +1473,16 @@ export default function NovaSolicitacaoPage() {
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground leading-snug">
-                      {isRoomWithProjector(currentRoom)
-                        ? `A equipe do Multimídia irá à Sala ${currentRoom?.name} antes da aula para ligar o projetor fixo e testar a projeção.`
-                        : "A equipe levará e instalará um datashow móvel na sala antes da aula."}
+                      {(() => {
+                        const projStatus = getRoomProjectorStatus(currentRoom);
+                        if (projStatus.hasProjector && projStatus.isHealthy) {
+                          return `A equipe do Multimídia irá à Sala ${currentRoom?.name} antes da aula para ligar o projetor fixo e testar a projeção.`;
+                        }
+                        if (projStatus.hasProjector && !projStatus.isHealthy) {
+                          return `⚠️ Projetor fixo indisponível (${projStatus.reason}). Nossa equipe levará e instalará um Datashow Móvel com cabeamento na Sala ${currentRoom?.name}.`;
+                        }
+                        return "A equipe levará e instalará um datashow móvel na sala antes da aula.";
+                      })()}
                     </p>
                   </div>
                 </button>

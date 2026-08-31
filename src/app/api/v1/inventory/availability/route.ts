@@ -88,7 +88,12 @@ export async function GET(req: NextRequest) {
       // Caso 1: Item Fixo em Sala (Projetor do Teto / Patrimônio Fixo)
       if (item.logisticsType === ItemLogisticsType.FIXED_IN_ROOM) {
         const hasFixedProjector = Boolean(selectedRoom?.fixedProjectorModel || selectedRoom?.fixedEquipment?.length);
-        const lampOk = selectedRoom?.lampStatus !== "TROCAR LAMPADA";
+        const isLampDefective = selectedRoom?.lampStatus === "TROCAR LAMPADA" || 
+          selectedRoom?.lampStatus?.toUpperCase().includes("TROCAR") || 
+          selectedRoom?.lampStatus?.toUpperCase().includes("QUEIMADA") || 
+          selectedRoom?.lampStatus?.toUpperCase().includes("DEFEITO");
+        const lampOk = !isLampDefective;
+        const hasCables = selectedRoom ? (selectedRoom.hdmiCableOk !== false || selectedRoom.vgaCableOk !== false) : true;
         
         // Verifica se algum patrimônio fixo da sala está em manutenção
         const hasAssetInMaintenance = selectedRoom?.fixedEquipment?.some(
@@ -97,7 +102,7 @@ export async function GET(req: NextRequest) {
           (ca: any) => ca.status === "IN_MAINTENANCE" || ca.status === "DAMAGED"
         );
 
-        const isAvailable = hasFixedProjector && lampOk && !hasAssetInMaintenance;
+        const isAvailable = hasFixedProjector && lampOk && hasCables && !hasAssetInMaintenance;
 
         return {
           itemId: item.id,
@@ -106,7 +111,7 @@ export async function GET(req: NextRequest) {
           category: item.category.name,
           logisticsType: item.logisticsType,
           totalStock: hasFixedProjector ? 1 : 0,
-          inMaintenance: hasFixedProjector && (!lampOk || hasAssetInMaintenance) ? 1 : 0,
+          inMaintenance: hasFixedProjector && (!lampOk || !hasCables || hasAssetInMaintenance) ? 1 : 0,
           inLoans: 0,
           alreadyReserved: 0,
           availableQuantity: isAvailable ? 1 : 0,
@@ -125,8 +130,10 @@ export async function GET(req: NextRequest) {
             ? `A sala ${selectedRoom.name} não possui projetor fixo instalado`
             : hasAssetInMaintenance
             ? `O equipamento da sala ${selectedRoom.name} está em manutenção técnica no TI`
+            : !hasCables
+            ? `A sala ${selectedRoom.name} está sem cabos HDMI/VGA funcionais`
             : !lampOk
-            ? `Projetor da sala ${selectedRoom.name} requer troca de lâmpada`
+            ? `Projetor da sala ${selectedRoom.name} requer troca de lâmpada (${selectedRoom.lampStatus})`
             : null,
         };
       }

@@ -502,9 +502,14 @@ export class RequestService {
               `A sala ${room.name} não possui Datashow fixo instalado. Selecione "Datashow Móvel" do estoque.`
             );
           }
-          if (room.lampStatus === "TROCAR LAMPADA") {
+          if (room.lampStatus === "TROCAR LAMPADA" || room.lampStatus?.toUpperCase().includes("TROCAR") || room.lampStatus?.toUpperCase().includes("DEFEITO") || room.lampStatus?.toUpperCase().includes("QUEIMADA")) {
             throw new Error(
-              `O Datashow fixo da sala ${room.name} está indisponível para uso (requer troca de lâmpada).`
+              `O Datashow fixo da sala ${room.name} está indisponível para uso (${room.lampStatus}). Selecione um Datashow Móvel do estoque.`
+            );
+          }
+          if (room.hdmiCableOk === false && room.vgaCableOk === false) {
+            throw new Error(
+              `O Datashow fixo da sala ${room.name} está sem cabos de conexão funcionais (HDMI e VGA ausentes ou danificados). Selecione um Datashow Móvel do estoque.`
             );
           }
         }
