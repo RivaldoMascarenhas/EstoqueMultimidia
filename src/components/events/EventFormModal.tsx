@@ -62,6 +62,13 @@ export function EventFormModal({
   const [checkinOpenMinutesBefore, setCheckinOpenMinutesBefore] = useState<number>(60);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imgHasError, setImgHasError] = useState(false);
+  const todayStr = useMemo(() => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Fortaleza" }).format(new Date());
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
+  }, []);
 
   // Salas disponíveis no sistema para sugestão
   const [rooms, setRooms] = useState<Array<{ id: string; name: string; capacity?: number }>>([]);
@@ -99,7 +106,7 @@ export function EventFormModal({
     } else {
       setName("");
       setDescription("");
-      setDate(new Date().toISOString().split("T")[0]);
+      setDate(todayStr);
       setTime("19:00");
       setLocation("Auditório Principal — UniFAP");
       setStatus("PUBLISHED");
@@ -113,7 +120,7 @@ export function EventFormModal({
     }
     setImgHasError(false);
     setActiveTab("general");
-  }, [event, isOpen]);
+  }, [event, isOpen, todayStr]);
 
   // Compress & optimize image upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,6 +171,39 @@ export function EventFormModal({
       toast.error("Nome do evento é obrigatório.");
       setActiveTab("general");
       return;
+    }
+
+    // Validação de data passada para novos eventos ou alteração de data
+    const existingDateStr = event?.date ? new Date(event.date).toISOString().split("T")[0] : null;
+    const isDateChanging = !isEditing || (date && date !== existingDateStr);
+
+    if (isDateChanging && date && date < todayStr) {
+      const [y, m, d] = date.split("-");
+      toast.error(`Não é permitido agendar eventos para datas passadas (${d}/${m}/${y}). Selecione a data de hoje ou uma data futura.`);
+      setActiveTab("general");
+      return;
+    }
+
+    if (date === todayStr && time && /^\d{1,2}:\d{2}$/.test(time.trim())) {
+      const [h, m] = time.trim().split(":").map(Number);
+      const now = new Date();
+      const nowFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Fortaleza",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      });
+      const parts = nowFormatter.formatToParts(now);
+      const curH = parseInt(parts.find((p) => p.type === "hour")?.value || "0", 10);
+      const curM = parseInt(parts.find((p) => p.type === "minute")?.value || "0", 10);
+      const currentTotalMin = curH * 60 + curM;
+      const eventTotalMin = h * 60 + m;
+
+      if (eventTotalMin < currentTotalMin - 5) {
+        toast.error(`Não é permitido agendar evento para um horário que já passou hoje (${time.trim()}).`);
+        setActiveTab("general");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -303,6 +343,7 @@ export function EventFormModal({
                   </label>
                   <input
                     type="date"
+                    min={!isEditing ? todayStr : undefined}
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none"

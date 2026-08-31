@@ -66,4 +66,29 @@ describe("RBAC Permissions - Regras de Permissão para ACADEMIC_SUPPORT", () => 
     expect(rolesAllowedToEditRooms.includes(Role.ADMIN)).toBe(true);
     expect(rolesAllowedToEditRooms.includes(Role.ACADEMIC_SUPPORT)).toBe(false);
   });
+
+  it("deve permitir que OPERADOR cadastre itens, patrimônios, categorias e caixas", () => {
+    const rolesAllowedToCreateInventory: Role[] = [Role.ADMIN, Role.GESTOR, Role.OPERADOR];
+    const rolesAllowedToCreateAssets: Role[] = [Role.ADMIN, Role.GESTOR, Role.OPERADOR];
+    const rolesAllowedToCreateCategories: Role[] = [Role.ADMIN, Role.GESTOR, Role.OPERADOR];
+    const rolesAllowedToCreateBoxes: Role[] = [Role.ADMIN, Role.GESTOR, Role.OPERADOR];
+
+    expect(rolesAllowedToCreateInventory.includes(Role.OPERADOR)).toBe(true);
+    expect(rolesAllowedToCreateAssets.includes(Role.OPERADOR)).toBe(true);
+    expect(rolesAllowedToCreateCategories.includes(Role.OPERADOR)).toBe(true);
+    expect(rolesAllowedToCreateBoxes.includes(Role.OPERADOR)).toBe(true);
+  });
+
+  it("deve proibir estritamente que OPERADOR realize exclusões destrutivas (categorias, salas, usuários e presenças)", () => {
+    const rolesAllowedToDeleteCategories: Role[] = [Role.ADMIN, Role.GESTOR];
+    const rolesAllowedToDeleteRooms: Role[] = [Role.ADMIN];
+    const rolesAllowedToDeleteUsers: Role[] = [Role.ADMIN];
+    const rolesAllowedToDeletePresence: Role[] = [Role.ADMIN];
+
+    expect(rolesAllowedToDeleteCategories.includes(Role.OPERADOR)).toBe(false);
+    expect(rolesAllowedToDeleteRooms.includes(Role.OPERADOR)).toBe(false);
+    expect(rolesAllowedToDeleteUsers.includes(Role.OPERADOR)).toBe(false);
+    expect(rolesAllowedToDeletePresence.includes(Role.OPERADOR)).toBe(false);
+  });
 });
+

@@ -143,6 +143,38 @@ describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
       );
     });
 
+    it("deve bloquear a criação de evento com data no passado", async () => {
+      await expect(
+        EventService.createEvent(
+          {
+            name: "Evento no Passado",
+            date: "2020-01-01T19:00:00Z",
+            time: "19:00",
+          },
+          "user-admin"
+        )
+      ).rejects.toThrowError(/Não é permitido agendar eventos para datas passadas/);
+    });
+
+    it("deve bloquear a alteração de evento para uma data no passado", async () => {
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-future",
+        name: "Evento Futuro",
+        date: new Date("2026-12-01T19:00:00Z"),
+        time: "19:00",
+      } as any);
+
+      await expect(
+        EventService.updateEvent(
+          "ev-future",
+          {
+            date: "2020-05-10T19:00:00Z",
+          },
+          "user-admin"
+        )
+      ).rejects.toThrowError(/Não é permitido alterar evento para datas passadas/);
+    });
+
     it("deve obter detalhes do evento com agregações de presenças biométricas vs manuais", async () => {
       vi.mocked(prisma.event.findUnique).mockResolvedValue({
         id: "ev-123",

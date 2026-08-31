@@ -5,7 +5,42 @@ import { CreateEventInput, UpdateEventInput } from "@/schemas/event.schema";
 import { CreatePrizeInput, UpdatePrizeInput } from "@/schemas/prize.schema";
 import { EventStatus, ParticipantStatus, PresenceMethod, PrizeStatus, Prisma, Role } from "@prisma/client";
 
+import { getSystemNow } from "@/lib/utils";
+import { getBrazilDateString } from "@/lib/event-time";
+
 export class EventService {
+  /**
+   * Valida se a data e horário informados para o evento não estão no passado (fuso oficial America/Fortaleza).
+   */
+  private static validateEventDateTime(
+    date?: Date | string | null,
+    time?: string | null,
+    isUpdate = false
+  ) {
+    if (!date) return;
+
+    const sysNow = getSystemNow();
+    const eventDateStr = getBrazilDateString(date);
+
+    if (eventDateStr && eventDateStr < sysNow.dateStr) {
+      const [y, m, d] = eventDateStr.split("-");
+      throw new Error(
+        `Não é permitido ${isUpdate ? "alterar evento para" : "agendar eventos para"} datas passadas (${d}/${m}/${y}). Selecione a data de hoje ou uma data futura.`
+      );
+    }
+
+    if (eventDateStr === sysNow.dateStr && time && /^\d{1,2}:\d{2}$/.test(time.trim())) {
+      const [h, m] = time.trim().split(":").map(Number);
+      const eventMinutes = h * 60 + m;
+      const nowMinutesWithTolerance = sysNow.totalMinutes - 5; // Tolerância de 5 minutos para latência
+      if (eventMinutes < nowMinutesWithTolerance) {
+        throw new Error(
+          `Não é permitido agendar evento para um horário que já passou hoje (${time.trim()}). Horário atual: ${sysNow.timeStr}. Selecione um horário futuro.`
+        );
+      }
+    }
+  }
+
   /**
    * Generates a URL-friendly slug from string
    */
@@ -29,6 +64,9 @@ export class EventService {
     operatorUserId?: string,
     ipAddress?: string
   ) {
+    // Validar se data/horário não são no passado
+    this.validateEventDateTime(data.date, data.time, false);
+
     let slug = data.slug || this.slugify(data.name);
 
     // Ensure unique slug
@@ -96,6 +134,18 @@ export class EventService {
     const existing = await prisma.event.findUnique({ where: { id } });
     if (!existing) {
       throw new Error("Evento não encontrado.");
+    }
+
+    // Se data ou horário estão sendo alterados, validar se não estão no passado
+    if (data.date !== undefined && data.date !== null) {
+      const existingDateStr = existing.date ? getBrazilDateString(existing.date) : null;
+      const newDateStr = getBrazilDateString(data.date);
+      const isDateChanging = newDateStr !== existingDateStr;
+      const isTimeChanging = data.time !== undefined && data.time !== existing.time;
+
+      if (isDateChanging || isTimeChanging) {
+        this.validateEventDateTime(data.date, data.time || existing.time, true);
+      }
     }
 
     const updated = await prisma.event.update({
