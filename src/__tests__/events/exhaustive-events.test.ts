@@ -175,6 +175,30 @@ describe("Bateria de Testes Exaustivos - Módulo de Eventos & Sorteios", () => {
       ).rejects.toThrowError(/Não é permitido alterar evento para datas passadas/);
     });
 
+    it("deve bloquear a criação de evento diretamente como CANCELADO ou FINALIZADO", async () => {
+      await expect(
+        EventService.createEvent(
+          {
+            name: "Evento Cancelado na Criação",
+            date: "2026-12-01T19:00:00Z",
+            status: EventStatus.CANCELLED,
+          },
+          "user-admin"
+        )
+      ).rejects.toThrowError(/Não é permitido criar um novo evento com status Cancelado ou Finalizado/);
+
+      await expect(
+        EventService.createEvent(
+          {
+            name: "Evento Finalizado na Criação",
+            date: "2026-12-01T19:00:00Z",
+            status: EventStatus.COMPLETED,
+          },
+          "user-admin"
+        )
+      ).rejects.toThrowError(/Não é permitido criar um novo evento com status Cancelado ou Finalizado/);
+    });
+
     it("deve obter detalhes do evento com agregações de presenças biométricas vs manuais", async () => {
       vi.mocked(prisma.event.findUnique).mockResolvedValue({
         id: "ev-123",

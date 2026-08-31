@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -206,6 +206,12 @@ export function EventFormModal({
       }
     }
 
+    if (!isEditing && (status === "COMPLETED" || status === "CANCELLED")) {
+      toast.error("Não é permitido criar um novo evento com status Cancelado ou Finalizado.");
+      setActiveTab("general");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const url = isEditing ? `/api/v1/events/${event.id}` : "/api/v1/events";
@@ -378,8 +384,12 @@ export function EventFormModal({
                     <option value="OPEN">Aberto (Check-in & Sorteios Ao Vivo)</option>
                     <option value="IN_PROGRESS">Em Andamento</option>
                     <option value="DRAFT">Rascunho (Inscrições Pausadas)</option>
-                    <option value="COMPLETED">Finalizado</option>
-                    <option value="CANCELLED">Cancelado</option>
+                    {isEditing && (
+                      <>
+                        <option value="COMPLETED">Finalizado</option>
+                        <option value="CANCELLED">Cancelado</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

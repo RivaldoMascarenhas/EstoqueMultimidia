@@ -67,6 +67,11 @@ export class EventService {
     // Validar se data/horário não são no passado
     this.validateEventDateTime(data.date, data.time, false);
 
+    // Não permitir criar novos eventos diretamente com status terminal
+    if (data.status === EventStatus.COMPLETED || data.status === EventStatus.CANCELLED) {
+      throw new Error("Não é permitido criar um novo evento com status Cancelado ou Finalizado.");
+    }
+
     let slug = data.slug || this.slugify(data.name);
 
     // Ensure unique slug
