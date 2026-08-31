@@ -10,7 +10,24 @@ export const createEventSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug deve conter apenas letras minúsculas, números e hífens")
     .optional(),
   description: z.string().max(1000).optional().nullable(),
-  date: z.string().or(z.date()).optional().nullable(),
+  date: z
+    .string()
+    .or(z.date())
+    .optional()
+    .nullable()
+    .refine((d) => {
+      if (!d) return true;
+      try {
+        const rawDateStr = typeof d === "string" ? d.split("T")[0] : d.toISOString().split("T")[0];
+        const [year, month, day] = rawDateStr.split("-").map(Number);
+        const eventDate = new Date(year, month - 1, day);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return eventDate >= today;
+      } catch {
+        return true;
+      }
+    }, "A data do evento não pode ser anterior à data de hoje."),
   time: z.string().max(50).optional().nullable(),
   location: z.string().max(255).optional().nullable(),
   logoUrl: z.string().optional().nullable().or(z.literal("")),
