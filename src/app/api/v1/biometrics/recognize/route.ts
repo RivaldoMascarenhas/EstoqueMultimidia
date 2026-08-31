@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
+import { prisma } from "@/lib/prisma";
+import { EventService } from "@/services/event.service";
 import { BiometricApiService } from "@/services/biometric-api.service";
 import { Role } from "@prisma/client";
 
@@ -30,6 +32,35 @@ export async function POST(req: NextRequest) {
         { success: false, error: "A imagem excede o limite máximo permitido de 10 MB." },
         { status: 400 }
       );
+    }
+
+    // 1. Validação antecipada do evento e janela de check-in
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        date: true,
+        time: true,
+        checkinOpenMinutesBefore: true,
+      },
+    });
+
+    if (!event) {
+      return NextResponse.json(
+        { success: false, status: "ERROR", message: "Evento não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    const checkinStatus = EventService.isCheckinAllowed(event);
+    if (!checkinStatus.isAllowed) {
+      return NextResponse.json({
+        success: false,
+        status: "EVENT_NOT_OPEN",
+        message: checkinStatus.message || "O check-in não está aberto para este evento.",
+      });
     }
 
     const result = await BiometricApiService.recognizeFace({

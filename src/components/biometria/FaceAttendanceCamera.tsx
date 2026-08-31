@@ -16,6 +16,7 @@ import {
   VolumeX,
   SwitchCamera,
   Sparkles,
+  Clock,
 } from "lucide-react";
 import { BiometricRecognizeResult } from "@/services/biometric-api.service";
 import { toast } from "sonner";
@@ -525,6 +526,9 @@ export function FaceAttendanceCamera({
         } else if (result.status === "NOT_RECOGNIZED") {
           setStatusMessage("Rosto não reconhecido no sistema.");
           playFeedbackSound("error");
+        } else if (result.status === "EVENT_NOT_OPEN") {
+          setStatusMessage(result.message || "Check-in agendado: ainda não liberado para este evento.");
+          playFeedbackSound("warning");
         } else {
           setStatusMessage(result.message || "Não foi possível registrar a presença.");
           playFeedbackSound("error");
@@ -881,7 +885,8 @@ export function FaceAttendanceCamera({
         (latestResult.status === "REGISTERED" ||
           latestResult.status === "ALREADY_REGISTERED" ||
           latestResult.status === "NOT_PARTICIPANT" ||
-          latestResult.status === "NOT_RECOGNIZED") ? (
+          latestResult.status === "NOT_RECOGNIZED" ||
+          latestResult.status === "EVENT_NOT_OPEN") ? (
           /* RESULT BANNER CARD */
           <div
             className={`w-full max-w-lg p-5 rounded-3xl bg-slate-900/95 backdrop-blur-md shadow-2xl border-2 pointer-events-auto animate-in fade-in zoom-in-95 duration-200 ${
@@ -891,6 +896,8 @@ export function FaceAttendanceCamera({
                 ? "border-amber-500/90 shadow-[0_0_40px_rgba(245,158,11,0.45)]"
                 : latestResult.status === "NOT_PARTICIPANT"
                 ? "border-orange-500/90 shadow-[0_0_40px_rgba(249,115,22,0.45)]"
+                : latestResult.status === "EVENT_NOT_OPEN"
+                ? "border-amber-500/90 shadow-[0_0_40px_rgba(245,158,11,0.45)]"
                 : "border-rose-500/90 shadow-[0_0_40px_rgba(244,63,94,0.45)]"
             }`}
           >
@@ -903,6 +910,8 @@ export function FaceAttendanceCamera({
                     ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.5)]"
                     : latestResult.status === "NOT_PARTICIPANT"
                     ? "bg-orange-500/20 border-orange-500 text-orange-400"
+                    : latestResult.status === "EVENT_NOT_OPEN"
+                    ? "bg-amber-500/20 border-amber-500 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.5)]"
                     : "bg-rose-500/20 border-rose-500 text-rose-400"
                 }`}
               >
@@ -912,6 +921,8 @@ export function FaceAttendanceCamera({
                   <AlertTriangle className="w-9 h-9" />
                 ) : latestResult.status === "NOT_PARTICIPANT" ? (
                   <XCircle className="w-9 h-9" />
+                ) : latestResult.status === "EVENT_NOT_OPEN" ? (
+                  <Clock className="w-9 h-9" />
                 ) : (
                   <HelpCircle className="w-9 h-9" />
                 )}
@@ -927,6 +938,8 @@ export function FaceAttendanceCamera({
                         ? "bg-amber-950 text-amber-300 border-amber-700"
                         : latestResult.status === "NOT_PARTICIPANT"
                         ? "bg-orange-950 text-orange-300 border-orange-700"
+                        : latestResult.status === "EVENT_NOT_OPEN"
+                        ? "bg-amber-950 text-amber-300 border-amber-700"
                         : "bg-rose-950 text-rose-300 border-rose-700"
                     }`}
                   >
@@ -936,6 +949,8 @@ export function FaceAttendanceCamera({
                       ? "⚠️ PRESENÇA JÁ REGISTRADA"
                       : latestResult.status === "NOT_PARTICIPANT"
                       ? "NÃO INSCRITO NO EVENTO"
+                      : latestResult.status === "EVENT_NOT_OPEN"
+                      ? "⏳ CHECK-IN AGENDADO"
                       : "ROSTO NÃO RECONHECIDO"}
                   </span>
                   <span className="text-xs font-mono text-slate-400 font-semibold">
@@ -948,7 +963,9 @@ export function FaceAttendanceCamera({
                 </div>
 
                 <h3 className="mt-1.5 text-xl font-extrabold text-white truncate">
-                  {latestResult.person?.name || "Participante"}
+                  {latestResult.status === "EVENT_NOT_OPEN"
+                    ? "Check-in Não Liberado"
+                    : latestResult.person?.name || "Participante"}
                 </h3>
 
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300">
@@ -987,6 +1004,12 @@ export function FaceAttendanceCamera({
                 {latestResult.status === "NOT_RECOGNIZED" && (
                   <p className="mt-1 text-xs text-rose-300/90">
                     Não foi possível identificar a biometria facial. Aproxime-se e verifique o cadastro.
+                  </p>
+                )}
+                {latestResult.status === "EVENT_NOT_OPEN" && (
+                  <p className="mt-1 text-xs text-amber-300/90 font-medium leading-relaxed">
+                    {latestResult.message ||
+                      "A presença facial é liberada automaticamente antes do horário de início do evento."}
                   </p>
                 )}
               </div>
