@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -135,26 +135,35 @@ class RecognitionService:
                 minutes_before = 60
             if minutes_before >= 0 and event.date:
                 d = event.date
-                h, m = 19, 0
-                if event.time:
+                if isinstance(d, str):
                     try:
-                        parts = str(event.time).split(":")
-                        h, m = int(parts[0]), int(parts[1])
+                        d = datetime.fromisoformat(d.replace("Z", "+00:00"))
+                    except Exception:
+                        d = None
+                if d:
+                    h, m = 19, 0
+                    if event.time:
+                        try:
+                            parts = str(event.time).split(":")
+                            h, m = int(parts[0]), int(parts[1])
+                        except Exception:
+                            pass
+                    
+                    try:
+                        event_dt = datetime(d.year, d.month, d.day, h, m, 0)
+                        open_at = event_dt - timedelta(minutes=minutes_before)
+                        now = datetime.now()
+                        if now < open_at:
+                            time_str = open_at.strftime("%H:%M")
+                            date_str = open_at.strftime("%d/%m")
+                            window_desc = f"{minutes_before} min antes" if minutes_before != 60 else "1 hora antes"
+                            return RecognizeResponse(
+                                success=False,
+                                status="EVENT_NOT_OPEN",
+                                message=f"Check-in agendado: a presença facial será liberada em {date_str} às {time_str} ({window_desc} do evento).",
+                            )
                     except Exception:
                         pass
-                
-                event_dt = datetime(d.year, d.month, d.day, h, m, 0)
-                open_at = event_dt - timedelta(minutes=minutes_before)
-                now = datetime.now()
-                if now < open_at:
-                    time_str = open_at.strftime("%H:%M")
-                    date_str = open_at.strftime("%d/%m")
-                    window_desc = f"{minutes_before} min antes" if minutes_before != 60 else "1 hora antes"
-                    return RecognizeResponse(
-                        success=False,
-                        status="EVENT_NOT_OPEN",
-                        message=f"Check-in agendado: a presença facial será liberada em {date_str} às {time_str} ({window_desc} do evento).",
-                    )
 
         # 2. Extract 128D embedding
         try:

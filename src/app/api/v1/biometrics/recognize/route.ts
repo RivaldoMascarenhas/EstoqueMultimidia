@@ -41,8 +41,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err: any) {
+    console.error("Erro ao reconhecer biometria facial:", err);
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" },
+      { success: false, error: err.message || "Erro interno no servidor" },
       { status: 500 }
     );
   }
