@@ -251,7 +251,7 @@ export function LoanFormModal({
 
       toast.success("✓ Empréstimo registrado com sucesso! Gerando Termo Oficial...");
       onClose();
-      onSuccess(json.data.id);
+      onSuccess(json.data);
     } catch (err: any) {
       toast.error("Erro inesperado ao registrar saída.");
       setIsSubmitting(false);

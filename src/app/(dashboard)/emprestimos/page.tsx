@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
   Handshake, 
@@ -46,6 +46,7 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 function EmprestimosContent() {
+  const router = useRouter();
   const { data: session } = useSession();
   const userRole = session?.user?.role || "OPERADOR";
   const isReadOnly = userRole === "CONSULTA";
@@ -653,10 +654,16 @@ function EmprestimosContent() {
         onClose={() => {
           setIsFormOpen(false);
           setPreSelectedAssetId(undefined);
+          if (initialAssetId) {
+            router.replace("/emprestimos", { scroll: false });
+          }
         }}
         preSelectedAssetId={preSelectedAssetId}
-        onSuccess={(createdLoan) => {
+        onSuccess={async (createdLoan) => {
           fetchData();
+          if (initialAssetId) {
+            router.replace("/emprestimos", { scroll: false });
+          }
           if (createdLoan) {
             setSelectedLoanForReceipt(createdLoan);
           }
