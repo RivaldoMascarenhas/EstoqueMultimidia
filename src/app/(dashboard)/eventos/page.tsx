@@ -289,7 +289,7 @@ export default function EventosPage() {
                     )}
                   </div>
 
-                  {(userRole === "ADMIN" || userRole === "GESTOR" || userRole === "OPERADOR") && (
+                  {(userRole === "ADMIN" || userRole === "GESTOR" || userRole === "OPERADOR" || userRole === "EVENTOS") && (
                     <button
                       type="button"
                       onClick={(e) => handleDeleteEvent(e, event)}

@@ -662,7 +662,7 @@ export default function EventHubPage() {
               </button>
             )}
 
-            {(userRole === "ADMIN" || userRole === "GESTOR" || userRole === "OPERADOR") && (
+            {(userRole === "ADMIN" || userRole === "GESTOR" || userRole === "OPERADOR" || userRole === "EVENTOS") && (
               <button
                 onClick={handleDeleteEvent}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl border border-rose-500/30 transition-colors cursor-pointer"
