@@ -5,6 +5,7 @@ from app.models.event_participant import EventParticipant
 from app.models.presence import Presence
 from app.models.device import Device
 from app.models.audit_log import AuditLog
+from app.models.user import User
 
 __all__ = [
     "Person",
@@ -14,4 +15,5 @@ __all__ = [
     "Presence",
     "Device",
     "AuditLog",
+    "User",
 ]

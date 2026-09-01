@@ -13,6 +13,7 @@ from app.models.presence import Presence
 from app.models.person import Person
 from app.models.face_embedding import FaceEmbedding
 from app.models.device import Device
+from app.models.user import User
 from app.schemas.presence import RecognizeResponse
 from app.schemas.face import BiometricTestResponse, PersonBasicInfo
 from app.services.face_service import FaceService
@@ -21,6 +22,18 @@ from app.config import settings
 
 
 class RecognitionService:
+    @staticmethod
+    def validate_operator_identity(db: Session, operator_user_id: Optional[str]) -> Optional[str]:
+        """
+        Validates that the provided operator_user_id corresponds to an active User in the database.
+        Prevents callers from spoofing arbitrary operator IDs in audit trails.
+        """
+        if not operator_user_id or not str(operator_user_id).strip():
+            return None
+        clean_id = str(operator_user_id).strip()
+        user = db.query(User).filter(User.id == clean_id, User.active == True).first()
+        return user.id if user else None
+
     @staticmethod
     def distance_to_confidence(distance: float) -> float:
         """
@@ -42,6 +55,8 @@ class RecognitionService:
         operator_user_id: Optional[str] = None,
         ip: Optional[str] = None,
     ) -> Tuple[str, datetime]:
+        operator_user_id = cls.validate_operator_identity(db, operator_user_id)
+
         # 1. Verify Person exists and is active
         person = db.query(Person).filter(Person.id == person_id).first()
         if not person:
@@ -117,6 +132,8 @@ class RecognitionService:
         operator_user_id: Optional[str] = None,
         ip: Optional[str] = None,
     ) -> RecognizeResponse:
+        operator_user_id = cls.validate_operator_identity(db, operator_user_id)
+
         # 1. Validate Event
         event = db.query(Event).filter(Event.id == event_id).first()
         if not event:

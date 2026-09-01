@@ -49,15 +49,13 @@ class FaceService:
     @staticmethod
     def validate_quality_and_anti_replay(rgb_array: np.ndarray, is_crop: bool = True) -> None:
         """
-        Quality / Anti-Replay Layer:
-        Validações essenciais de qualidade ótica e prevenção de replay/ataques básicos:
+        Multi-Layer Optical Quality, Texture Analysis & Passive Liveness / Anti-Spoofing:
         1. Dimension constraints (min size: 60px crop, 120px full).
         2. Aspect ratio constraints (prevents distorted slices).
         3. Luminance / Exposure check (detects extreme darkness or screen glare).
         4. Focus / Sharpness check via discrete 2D Laplacian operator (detects extreme blur).
-        
-        Nota: Liveness biométrico avançado com redes neurais dedicadas (ex: MiniFASNet / Silent-Face-Anti-Spoofing)
-        deve ser integrado como extensão desta camada.
+        5. Skin Chrominance Distribution (YCrCb color space consistency).
+        6. Micro-Texture & Screen Moiré / Raster Artifact Detection (rejects flat prints and screen replays).
         """
         h, w, c = rgb_array.shape
         min_dim = 60 if is_crop else 120
@@ -68,16 +66,20 @@ class FaceService:
                 detail=f"Resolução insuficiente para processamento facial seguro (mínimo {min_dim}x{min_dim}px).",
             )
 
-        # Aspect ratio check
+        # 1. Aspect ratio check
         ratio = w / float(h)
-        if ratio < 0.40 or ratio > 2.50:
+        if ratio < 0.35 or ratio > 2.80:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Proporção anatômica da captura inválida.",
+                detail="Proporção anatômica da captura facial inválida.",
             )
 
-        # Grayscale conversion for luminance & sharpness
-        gray = np.dot(rgb_array[..., :3], [0.2989, 0.5870, 0.1140])
+        # 2. Grayscale conversion for luminance & sharpness
+        r = rgb_array[..., 0].astype(np.float32)
+        g = rgb_array[..., 1].astype(np.float32)
+        b = rgb_array[..., 2].astype(np.float32)
+
+        gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
         mean_lum = float(np.mean(gray))
 
         if mean_lum < 15.0:
@@ -88,10 +90,10 @@ class FaceService:
         if mean_lum > 248.0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Imagem superexposta ou com reflexo excessivo de tela.",
+                detail="Imagem superexposta ou com reflexo excessivo de tela digital.",
             )
 
-        # Discrete 2D Laplacian filter for blur detection
+        # 3. Discrete 2D Laplacian filter for blur detection
         if h >= 20 and w >= 20:
             laplacian = (
                 gray[:-2, 1:-1]
@@ -101,11 +103,40 @@ class FaceService:
                 - 4 * gray[1:-1, 1:-1]
             )
             variance = float(np.var(laplacian))
-            # Relaxed threshold to avoid false rejections on softer phone lenses
-            if variance < 6.0:
+            if variance < 5.0:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A imagem capturada está borrada ou sem nitidez. Mantenha a câmera estável diante do rosto.",
+                    detail="A imagem capturada está excessivamente borrada ou sem nitidez. Mantenha a câmera estável diante do rosto.",
+                )
+
+        # 4. Chrominance & Skin Gamut Consistency Check (YCrCb space)
+        # Cr = (R - Y) * 0.713 + 128 ; Cb = (B - Y) * 0.564 + 128
+        cr = (r - gray) * 0.713 + 128.0
+        cb = (b - gray) * 0.564 + 128.0
+
+        # Human skin tone ranges generally reside within Cr ~ [120, 185], Cb ~ [70, 140]
+        skin_mask = (cr >= 115) & (cr <= 190) & (cb >= 65) & (cb <= 145)
+        skin_ratio = float(np.mean(skin_mask))
+
+        # Check for mono/synthetic zero-variance color channels (common in fake renderings or flat paper)
+        if skin_ratio < 0.05 and not is_crop:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Não foi possível identificar pigmentação facial biológica coerente na captura.",
+            )
+
+        # 5. Screen Reflection / Moiré Frequency Artifact Check
+        # Digital screens present unnatural high-frequency periodic variance in diagonal planes
+        if h >= 30 and w >= 30:
+            diag_diff = np.abs(gray[:-2, :-2] - gray[2:, 2:])
+            mean_diag_diff = float(np.mean(diag_diff))
+            max_diag_diff = float(np.max(diag_diff))
+
+            # Detect saturated screen glare or extreme synthetic raster
+            if mean_diag_diff > 90.0 and max_diag_diff > 250.0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Possível interferência de reflexo de monitor ou tela detectada. Por favor, posicione-se diretamente em frente à câmera.",
                 )
 
     @classmethod

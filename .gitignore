@@ -6,7 +6,8 @@ node_modules/
 # Scratch & Temporary Scripts
 scratch/
 fix_*.js
-*.py
+/*.py
+!biometric-api/**
 *.sh.bak
 
 # Uploads & User Media (Only preserve directory structure)

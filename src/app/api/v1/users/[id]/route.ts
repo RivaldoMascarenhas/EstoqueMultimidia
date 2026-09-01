@@ -13,8 +13,6 @@ export async function PUT(
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
 
-    
-
     if (!id) {
       return NextResponse.json(
         { success: false, error: "ID do usuário é obrigatório." },
@@ -36,15 +34,14 @@ export async function PUT(
       );
     }
 
-    if (email && email.trim().toLowerCase() !== existing.email) {
-      const cleanEmail = email.trim().toLowerCase();
-      const emailTaken = await prisma.user.findUnique({
-        where: { email: cleanEmail },
+    if (email && email.toLowerCase().trim() !== existing.email.toLowerCase()) {
+      const emailInUse = await prisma.user.findUnique({
+        where: { email: email.toLowerCase().trim() },
       });
-      if (emailTaken) {
+      if (emailInUse) {
         return NextResponse.json(
-          { success: false, error: "Este e-mail já está em uso por outro usuário." },
-          { status: 400 }
+          { success: false, error: "Este endereço de e-mail já está sendo utilizado por outro usuário." },
+          { status: 409 }
         );
       }
     }
@@ -56,60 +53,58 @@ export async function PUT(
       );
     }
 
-    // Trava de segurança: impedir desativação ou rebaixamento do último administrador ativo
-    if (existing.role === Role.ADMIN && (active === false || (role && role !== Role.ADMIN))) {
-      const adminCount = await prisma.user.count({
-        where: {
-          role: Role.ADMIN,
+    // Execução Atômica via Transação com Proteção Concorrente contra TOCTOU
+    const updated = await prisma.$transaction(async (tx) => {
+      // Trava de segurança: impedir desativação ou rebaixamento do último administrador ativo
+      if (existing.role === Role.ADMIN && (active === false || (role && role !== Role.ADMIN))) {
+        const adminCount = await tx.user.count({
+          where: {
+            role: Role.ADMIN,
+            active: true,
+          },
+        });
+
+        if (adminCount <= 1) {
+          throw new Error("LAST_ADMIN_PROTECTION");
+        }
+      }
+
+      const up = await tx.user.update({
+        where: { id },
+        data: {
+          name: name ? name.trim() : existing.name,
+          email: email ? email.trim().toLowerCase() : existing.email,
+          role: role ? (role as Role) : existing.role,
+          active: typeof active === "boolean" ? active : existing.active,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
           active: true,
+          updatedAt: true,
         },
       });
 
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Não é permitido desativar ou rebaixar o único administrador ativo do sistema.",
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "USER_UPDATED",
+          entity: "User",
+          entityId: id,
+          details: {
+            updatedFields: Object.keys(body),
+            name: up.name,
+            email: up.email,
+            role: up.role,
+            active: up.active,
           },
-          { status: 409 }
-        );
-      }
-    }
-
-    const updated = await prisma.user.update({
-      where: { id },
-      data: {
-        name: name ? name.trim() : existing.name,
-        email: email ? email.trim().toLowerCase() : existing.email,
-        role: role ? (role as Role) : existing.role,
-        active: typeof active === "boolean" ? active : existing.active,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        updatedAt: true,
-      },
-    });
-
-    // Registrar log de auditoria
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "USER_UPDATED",
-        entity: "User",
-        entityId: id,
-        details: {
-          updatedFields: Object.keys(body),
-          name: updated.name,
-          email: updated.email,
-          role: updated.role,
-          active: updated.active,
         },
-      },
-    }).catch(() => {});
+      });
+
+      return up;
+    });
 
     return NextResponse.json({
       success: true,
@@ -117,8 +112,18 @@ export async function PUT(
       message: "Usuário atualizado com sucesso!",
     });
   } catch (error: any) {
+    if (error.message === "LAST_ADMIN_PROTECTION") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Não é permitido desativar ou rebaixar o único administrador ativo do sistema.",
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" },
+      { success: false, error: "Erro interno no servidor ao atualizar usuário." },
       { status: 500 }
     );
   }
@@ -133,8 +138,6 @@ export async function DELETE(
   try {
     const { session, error } = await requireSession([Role.ADMIN]);
     if (error) return error;
-
-    
 
     if (!id) {
       return NextResponse.json(
@@ -178,25 +181,6 @@ export async function DELETE(
       );
     }
 
-    if (user.role === Role.ADMIN) {
-      const adminCount = await prisma.user.count({
-        where: {
-          role: Role.ADMIN,
-          active: true,
-        },
-      });
-
-      if (adminCount <= 1) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Não é possível desativar ou excluir o único administrador ativo do sistema.",
-          },
-          { status: 409 }
-        );
-      }
-    }
-
     const hasHistory = 
       user._count.loansCreated > 0 || 
       user._count.loansReceived > 0 ||
@@ -209,53 +193,83 @@ export async function DELETE(
       user._count.auditLogs > 0 ||
       user._count.apiKeys > 0;
 
-    if (hasHistory) {
-      // Soft delete / desativar para preservar a auditoria
-      await prisma.user.update({
+    // Execução Atômica via Transação
+    const result = await prisma.$transaction(async (tx) => {
+      if (user.role === Role.ADMIN) {
+        const adminCount = await tx.user.count({
+          where: {
+            role: Role.ADMIN,
+            active: true,
+          },
+        });
+
+        if (adminCount <= 1) {
+          throw new Error("LAST_ADMIN_PROTECTION");
+        }
+      }
+
+      if (hasHistory) {
+        // Soft delete / desativar para preservar a auditoria
+        await tx.user.update({
+          where: { id },
+          data: { active: false },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: session.user.id,
+            action: "USER_DEACTIVATED",
+            entity: "User",
+            entityId: id,
+            details: { name: user.name, email: user.email, reason: "Possui registros vinculados no histórico" },
+          },
+        });
+
+        return {
+          action: "DEACTIVATED",
+          message: "Usuário possui registros vinculados no histórico. Sua conta foi desativada com sucesso.",
+        };
+      }
+
+      // Exclusão definitiva
+      await tx.user.delete({
         where: { id },
-        data: { active: false },
       });
 
-      await prisma.auditLog.create({
+      await tx.auditLog.create({
         data: {
           userId: session.user.id,
-          action: "USER_DEACTIVATED",
+          action: "USER_DELETED",
           entity: "User",
           entityId: id,
-          details: { name: user.name, email: user.email, reason: "Possui registros vinculados no histórico" },
+          details: { name: user.name, email: user.email },
         },
-      }).catch(() => {});
-
-      return NextResponse.json({
-        success: true,
-        message: "Usuário possui registros vinculados no histórico. Sua conta foi desativada com sucesso.",
-        action: "DEACTIVATED",
       });
-    }
 
-    // Exclusão definitiva
-    await prisma.user.delete({
-      where: { id },
+      return {
+        action: "DELETED",
+        message: "Usuário excluído definitivamente com sucesso.",
+      };
     });
-
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "USER_DELETED",
-        entity: "User",
-        entityId: id,
-        details: { name: user.name, email: user.email },
-      },
-    }).catch(() => {});
 
     return NextResponse.json({
       success: true,
-      message: "Usuário excluído definitivamente com sucesso.",
-      action: "DELETED",
+      message: result.message,
+      action: result.action,
     });
   } catch (error: any) {
+    if (error.message === "LAST_ADMIN_PROTECTION") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Não é possível desativar ou excluir o único administrador ativo do sistema.",
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" },
+      { success: false, error: "Erro interno no servidor ao excluir usuário." },
       { status: 500 }
     );
   }

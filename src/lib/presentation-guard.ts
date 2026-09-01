@@ -28,10 +28,11 @@ export async function requirePresentationToken(
   req: NextRequest,
   eventId: string
 ): Promise<PresentationAuthResult> {
-  // 1. Permite acesso se o usuário já estiver logado no sistema (Admin, Gestor, Operador, etc.)
+  // 1. Permite acesso se o usuário logado possuir perfil administrativo/operacional autorizado
   try {
     const session = await getServerSession(authOptions);
-    if (session?.user?.id) {
+    const authorizedRoles = ["ADMIN", "GESTOR", "OPERADOR", "EVENTOS"];
+    if (session?.user?.id && authorizedRoles.includes(session.user.role)) {
       const event = await prisma.event.findUnique({
         where: { id: eventId },
         include: {

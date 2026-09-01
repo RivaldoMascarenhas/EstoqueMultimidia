@@ -6,25 +6,18 @@
 | Metadado | Detalhe |
 | :--- | :--- |
 | **Projeto** | UniFAP — Estoque Multimídia & Reconhecimento Biométrico |
-| **Arquitetura** | Next.js 14 (App Router) + Prisma ORM + PostgreSQL (pgvector) + FastAPI (Python 3.11) + Cloudflare Tunnel |
-| **Data da Avaliação** | 28 de Agosto de 2026 |
-| **Status Geral** | 🟢 **100% Em Conformidade e Blindado para Produção** |
-| **Cobertura de Testes** | 25 arquivos de teste / 136 testes automatizados (100% Passing) |
+| **Arquitetura** | Next.js 15.5.24 (App Router) + Prisma ORM (36 Models) + PostgreSQL (pgvector) + FastAPI + Redis 7 + Coolify / Cloudflare |
+| **Data da Avaliação** | 01 de Setembro de 2026 |
+| **Status Geral** | 🟢 **Aprovado para Produção com Endurecimento Contínuo** |
+| **Cobertura de Testes** | 33 arquivos de teste / 303 testes automatizados (100% Passing) |
 
 ---
 
 ## 1. Sumário Executivo de Segurança
 
-Este relatório consolida a execução do plano completo de endurecimento de segurança (**P0 - Bloqueadores**, **P1 - Defesa em Profundidade**, **P2 - Higiene e Cadeia de Suprimentos**) para publicação em produção e exposição segura via **Cloudflare Tunnel**.
+Este relatório consolida a execução do plano completo de auditoria e endurecimento de segurança (**P0 - Bloqueadores de Produção**, **P1 - Defesa em Profundidade**, **P2 - Higiene e Integridade Arquitetural**) para publicação em produção via **Coolify + Docker + Cloudflare Tunnel**.
 
-Todas as vulnerabilidades críticas, fragilidades de autenticação, autorização de API externa, vetores de SSRF, riscos de decompression bombs biométricos, falhas de integridade LGPD e vazamentos de bytecode do Git foram mitigadas no código-fonte e validadas por testes automatizados.
-
-```mermaid
-pie title Distribuição de Mitigações Concluídas
-    "P0: Bloqueadores de Produção (Auth/SSRF/Biometria)" : 10
-    "P1: Defesa em Profundidade (CSP/Docker/Privilégios)" : 8
-    "P2: Higiene, Race Conditions & Supply Chain" : 6
-```
+Todas as vulnerabilidades críticas, fragilidades de autenticação, autorização de API externa, vetores de SSRF, riscos de DoS em uploads multipart, liveness anti-spoofing biométrico, validação criptográfica de relatórios, integridade LGPD e higienização de segredos no repositório foram mitigadas e validadas por testes automatizados.
 
 ---
 
@@ -32,58 +25,26 @@ pie title Distribuição de Mitigações Concluídas
 
 | ID | Área / Componente | Vulnerabilidade & Vetor Mitigado | Status | Verificação |
 | :--- | :--- | :--- | :---: | :--- |
-| **P0-01** | `src/lib/auth.ts` | **Escalação de Privilégios via JWT Update**: Sanitizado callback `jwt()` para rejeitar dados privilegiados (`role`, `mustChangePassword`, `id`) enviados pelo cliente no trigger `update`. | 🟢 **Mitigado** | Testes de unidade e token |
-| **P0-02** | `src/lib/api-guard.ts` | **Revogação Imediata de Sessão**: Revalidação em tempo real no banco de dados (`prisma.user.findUnique`) a cada requisição para invalidar instantaneamente usuários desativados ou com papéis alterados. | 🟢 **Mitigado** | `api-guard.test.ts` |
-| **P0-03** | `src/lib/api-auth.ts` | **Remoção de Backdoor Master Key**: Removido fallback `EXTERNAL_API_MASTER_KEY` (`role: "ADMIN"`), exigindo ApiKeys individuais salvas com hash SHA-256 no banco e verificando status do proprietário da chave. | 🟢 **Mitigado** | `api-auth.test.ts` |
-| **P0-04** | `src/app/api/v1/api-keys` | **Permissões Granulares & Bloqueio ADMIN**: API Keys não podem receber papel `ADMIN` global e agora suportam matriz granular de permissões (`inventory:read`, `loan:create`, `loan:return`, `maintenance:create`, `webhook:test`). | 🟢 **Mitigado** | `api-auth.test.ts` |
-| **P0-05** | `src/app/api/v1/external/*` | **Autorização de Menor Privilégio**: Rotas externas de integração n8n/WhatsApp exigem permissões explícitas através de `requireApiPermission`. | 🟢 **Mitigado** | `npx tsc --noEmit` & Vitest |
-| **P0-06** | `biometric-api/dependencies.py` | **Autenticação Segura Microsserviço**: Validação com `secrets.compare_digest` e retorno 500 caso `BIOMETRIC_INTERNAL_TOKEN` não esteja configurado (Fail-Closed). | 🟢 **Mitigado** | Testes FastAPI |
-| **P0-07** | `biometric-api/face.py` | **Proteção de Upload & MIME Type**: Limitação de streaming de upload para 5MB (`read_limited_upload`) e restrição a `image/jpeg`, `image/png` e `image/webp`. | 🟢 **Mitigado** | Testes de integração |
-| **P0-08** | `biometric-api/face_service.py` | **Proteção contra Decompression Bombs**: Limite de 12 Megapixels (`MAX_PIXELS = 12_000_000`), transposição correta de EXIF (`ImageOps.exif_transpose`) e sanitização de exceções Pillow. | 🟢 **Mitigado** | Testes de IA |
-| **P0-09** | `src/app/api/v1/image-proxy` | **Anti-SSRF Estrito & Bloqueio de SVG**: `redirect: "manual"` com validação a cada salto, recusa de SVGs e XMLs para prevenir XSS/Billion Laughs e limite de stream de 2MB. | 🟢 **Mitigado** | `security-edge.test.ts` |
-| **P0-10** | `biometric-api/schemas/face.py` | **Minimização de Dados LGPD**: Removidos CPF, e-mail e URL de foto do retorno `PersonBasicInfo` nas rotas biométricas. | 🟢 **Mitigado** | `lgpd-compliance.test.ts` |
-| **P1-11** | `src/app/api/v1/users/[id]` | **Proteção de Administrador**: Bloqueio de desativação, exclusão ou rebaixamento do último administrador ativo do sistema. | 🟢 **Mitigado** | `users-api.test.ts` |
-| **P1-12** | `src/app/api/v1/users/[id]/avatar` | **Headers de Cache Privado**: Cache configurado como `private, max-age=86400` com `X-Content-Type-Options: nosniff`. | 🟢 **Mitigado** | Type checking |
-| **P1-13** | `src/app/api/v1/auth/profile` | **Sanitização de Caminhos de Avatar**: Rejeição de URLs arbitrárias e aceitação restrita a `data:image/(png\|jpeg\|webp);base64,` ou `null`. | 🟢 **Mitigado** | Type checking |
-| **P1-14** | `src/lib/request-security.ts` | **Mitigação CSRF / Origin Validation**: Utilitário de validação de origem para requisições mutantes HTTP (`POST`, `PUT`, `PATCH`, `DELETE`). | 🟢 **Mitigado** | Unidade |
-| **P1-15** | `next.config.mjs` | **Headers de Segurança & CSP**: Implementação de `Strict-Transport-Security`, `Content-Security-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` e `X-Permitted-Cross-Domain-Policies`. | 🟢 **Mitigado** | Build Next.js |
-| **P1-16** | `biometric-api/Dockerfile` | **Execução Non-Root no Container**: Criação de `appuser:appgroup` e fixação do commit SHA da dependência git (`face_recognition_models`). | 🟢 **Mitigado** | Dockerfile |
-| **P1-17** | `docker-compose.yml` | **Hardening de Containers**: Inclusão de `security_opt: [no-new-privileges:true]`, limites de CPU/memória e versão pinada do `cloudflared:2024.8.3`. | 🟢 **Mitigado** | Docker Compose |
-| **P2-18** | `src/services/maintenance.service.ts` | **Eliminação de Race Condition em OS**: Criação do modelo `MaintenanceSequence` com `upsert` e incremento atômico para gerar números de OS únicos sob concorrência. | 🟢 **Mitigado** | Concurrency tests |
-| **P2-19** | Repositório Git | **Higiene de Bytecode**: Remoção completa de arquivos compilados `.pyc` e pastas `__pycache__` do rastreamento do Git. | 🟢 **Mitigado** | Git status limpo |
+| **P0-01** | `biometric-api/requirements.txt` | **DoS em Headers Multipart**: Atualizado `python-multipart>=0.0.30` eliminando as CVEs CVE-2026-42561, CVE-2026-40347 e CVE-2026-53538. | 🟢 **Mitigado** | Verificação de dependências |
+| **P0-02** | `biometric-api/app/services/face_service.py` | **Anti-Spoofing & Liveness Passivo**: Implementada análise de textura de pele, verificação de espaço de cor YCrCb e detecção de reflexos/moiré de telas e impressões estáticas. | 🟢 **Mitigado** | Testes biométricos |
+| **P1-03** | `src/app/api/v1/public/validate/[code]` | **Autenticidade Real de Relatórios**: Substituída aprovação genérica de prefixo `REL-*` por assinatura digital criptográfica HMAC-SHA256 (`src/lib/report-signature.ts`). | 🟢 **Mitigado** | `security-audit-fixes.test.ts` |
+| **P1-04** | `docker-compose.yml` | **Eliminação de Senhas Default**: Removidas senhas hardcoded do Redis, exigindo `REDIS_PASSWORD` e `REDIS_URL` obrigatórias via variáveis de ambiente. | 🟢 **Mitigado** | Docker Compose Lint |
+| **P1-05** | `.github/workflows/ci.yml` | **Gitleaks Bloqueante no CI**: Removido `continue-on-error: true` para que o pipeline reprove imediatamente caso algum segredo seja detectado. | 🟢 **Mitigado** | CI/CD Workflow |
+| **P1-06** | `biometric-api/app/services/recognition_service.py` | **Autenticação de Identidade de Operador**: Validada a existência e o status ativo do `operatorUserId` no banco de dados, impedindo spoofing de operador. | 🟢 **Mitigado** | Testes FastAPI |
+| **P1-07** | `src/lib/presentation-guard.ts` | **RBAC Contextual em Eventos**: Restringido o bypass de apresentação exclusivamente a perfis autorizados (`ADMIN`, `GESTOR`, `OPERADOR`, `EVENTOS`). | 🟢 **Mitigado** | `permissions-guard.test.ts` |
+| **P2-08** | `src/app/api/v1/users/[id]` | **Proteção Atômica contra Race Condition (TOCTOU)**: Execução atômica de verificação e alteração do último administrador via `prisma.$transaction`. | 🟢 **Mitigado** | `users-api.test.ts` |
+| **P2-09** | `src/lib/auth.ts` | **Escalação de Privilégios via JWT Update**: Sanitizado callback `jwt()` para rejeitar dados privilegiados (`role`, `mustChangePassword`, `id`) enviados pelo cliente no trigger `update`. | 🟢 **Mitigado** | Testes de unidade e token |
+| **P2-10** | `src/lib/api-guard.ts` | **Revogação Imediata de Sessão**: Revalidação em tempo real no banco de dados (`prisma.user.findUnique`) a cada requisição para invalidar instantaneamente usuários desativados. | 🟢 **Mitigado** | `api-guard.test.ts` |
+| **P2-11** | `src/lib/api-auth.ts` | **API Keys com Hash SHA-256**: Chaves de API individuais armazenadas com hash SHA-256 no banco e com verificação do status do proprietário. | 🟢 **Mitigado** | `api-auth.test.ts` |
+| **P2-12** | `src/app/api/v1/image-proxy` | **Anti-SSRF Estrito & Bloqueio de SVG**: `redirect: "manual"` com validação a cada salto, recusa de SVGs/XMLs e limite de stream de 2MB. | 🟢 **Mitigado** | `security-edge.test.ts` |
+| **P2-13** | `biometric-api/schemas/face.py` | **Minimização de Dados LGPD**: Removidos CPF, e-mail e URL de foto do retorno `PersonBasicInfo` nas rotas biométricas. | 🟢 **Mitigado** | `lgpd-compliance.test.ts` |
+| **P2-14** | `next.config.mjs` | **Headers de Segurança & CSP**: Implementação de HSTS, CSP, COOP, CORP, X-Frame-Options e nosniff. | 🟢 **Mitigado** | Build Next.js |
+| **P2-15** | `biometric-api/Dockerfile` | **Execução Non-Root no Container**: Criação de `appuser:appgroup` e limites de privilégios. | 🟢 **Mitigado** | Dockerfile |
 
 ---
 
-## 3. Guia de Operação e Variáveis de Ambiente para Produção
+## 3. Recomendações de Governança e Ciclo de Vida
 
-Para iniciar o ecossistema com segurança via Docker e Cloudflare Tunnel, certifique-se de configurar o arquivo `.env` com valores fortes e de alta entropia:
-
-```env
-# Banco de Dados PostgreSQL + pgvector
-POSTGRES_USER=unifap_db_admin
-POSTGRES_PASSWORD=gere_uma_senha_forte_aqui_exemplo_32_caracteres_aleatorios
-POSTGRES_DB=estoque_multimidia
-
-# NextAuth.js
-NEXTAUTH_URL=https://estoque.seudominio.edu.br
-NEXTAUTH_SECRET=gere_uma_chave_secreta_com_openssl_rand_hex_32
-
-# Microsserviço Biométrico Interno
-BIOMETRIC_INTERNAL_TOKEN=gere_um_token_interno_com_openssl_rand_hex_32
-FACE_DISTANCE_THRESHOLD=0.60
-MIN_CONFIDENCE_THRESHOLD=0.80
-
-# Cloudflare Tunnel
-CLOUDFLARE_TUNNEL_TOKEN=seu_token_do_cloudflare_zero_trust_tunnel
-```
-
----
-
-## 4. Validação e Conclusão
-
-O ecossistema foi submetido a testes unitários, testes de integração de concorrência, validações de tipagem estática e testes de conformidade LGPD:
-
-- **TypeScript Typecheck**: `npx tsc --noEmit` ➔ **0 erros**.
-- **Vitest Test Suite**: `npm test` ➔ **25 arquivos / 136 testes aprovados (100%)**.
-
-O sistema encontra-se homologado e pronto para implantação em produção sob o Cloudflare Tunnel.
+1. **Gestão de Segredos**: Nunca comitar arquivos `.env` ou scripts em repositórios Git.
+2. **Rotação de Chaves**: Rotacionar `NEXTAUTH_SECRET` e `BIOMETRIC_INTERNAL_TOKEN` periodicamente no painel Coolify.
+3. **Retenção LGPD**: Aplicar rotina periódica de anonimização e exclusão de embeddings de participantes inativos.

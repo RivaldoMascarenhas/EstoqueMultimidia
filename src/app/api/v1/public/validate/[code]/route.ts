@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { RateLimiter } from "@/lib/rate-limiter";
+import { verifyReportCode } from "@/lib/report-signature";
 
 export async function GET(
   request: NextRequest,
@@ -196,37 +197,36 @@ export async function GET(
       });
     }
 
-    // 4. Procurar ou validar Relatório Oficial do Sistema (REL-*)
-    if (rawCode.toUpperCase().startsWith("REL-") && rawCode.length >= 8) {
-      const parts = rawCode.split("-");
-      const reportType = parts[1]?.toUpperCase() || "GERAL";
-      
-      const typeLabels: Record<string, string> = {
-        STOCK: "Relatório de Inventário & Posicionamento de Estoque",
-        INVENTORY: "Relatório de Inventário Físico do Armário",
-        LOANS: "Relatório Geral de Empréstimos e Devoluções",
-        MAINTENANCE: "Relatório de Manutenções e Ordens de Serviço",
-        MOVEMENTS: "Relatório Histórico de Movimentações de Materiais",
-        ASSETS: "Relatório Geral de Controle Patrimonial",
-      };
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          documentType: "OFFICIAL_REPORT",
-          documentTitle: typeLabels[reportType] || "Relatório Oficial de Gestão e Controle",
-          protocol: rawCode.toUpperCase(),
-          authenticationCode: rawCode.toUpperCase(),
-          status: "AUTHENTIC",
-          statusLabel: "Relatório Emitido e Autenticado",
-          statusColor: "emerald",
-          issuedAt: new Date().toISOString(),
-          reportType,
-          institution: "Centro Universitário Paraíso • UniFAP",
-          sector: "Setor de Suporte de TI & Multimídia",
-          notes: "Relatório gerado eletronicamente com dados consolidados em tempo real.",
-        },
-      });
+    // 4. Procurar ou validar Relatório Oficial do Sistema (REL-*) com Assinatura Criptográfica HMAC
+    if (rawCode.toUpperCase().startsWith("REL-")) {
+      const verification = verifyReportCode(rawCode);
+      if (verification.isValid) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            documentType: "OFFICIAL_REPORT",
+            documentTitle: verification.reportTitle || "Relatório Oficial de Gestão e Controle",
+            protocol: rawCode.toUpperCase(),
+            authenticationCode: rawCode.toUpperCase(),
+            status: "AUTHENTIC",
+            statusLabel: "Relatório Emitido e Autenticado",
+            statusColor: "emerald",
+            issuedAt: verification.issuedAt || new Date().toISOString(),
+            reportType: verification.reportType,
+            institution: "Centro Universitário Paraíso • UniFAP",
+            sector: "Setor de Suporte de TI & Multimídia",
+            notes: "Relatório gerado eletronicamente com dados consolidados e assinatura digital válida.",
+          },
+        });
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: verification.error || `Código de relatório "${rawCode}" inválido ou não autenticado.`,
+          },
+          { status: 404 }
+        );
+      }
     }
 
     // Se não encontrou nenhum registro

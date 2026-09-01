@@ -101,7 +101,7 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-unifapredissecurepassword}"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?Defina a variavel REDIS_PASSWORD no .env}"]
     volumes:
       - redisdata:/data
     networks:
@@ -112,7 +112,7 @@ services:
           cpus: "1.0"
           memory: 512M
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-unifapredissecurepassword}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Defina a variavel REDIS_PASSWORD no .env}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -128,7 +128,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
-      REDIS_URL: ${REDIS_URL:-redis://:unifapredissecurepassword@redis:6379}
+      REDIS_URL: ${REDIS_URL:?Defina a variavel REDIS_URL no .env}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-${NEXTAUTH_URL:-http://localhost:3000}}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Defina a variavel NEXTAUTH_SECRET no .env}
