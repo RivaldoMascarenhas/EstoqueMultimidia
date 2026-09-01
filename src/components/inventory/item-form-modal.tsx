@@ -31,6 +31,7 @@ interface ItemFormModalProps {
   onClose: () => void;
   categories: CategoryOption[];
   boxes: BoxOption[];
+  itemToEdit?: any | null;
   onSuccess?: () => void;
 }
 
@@ -79,8 +80,10 @@ export function ItemFormModal({
   onClose,
   categories,
   boxes,
+  itemToEdit = null,
   onSuccess,
 }: ItemFormModalProps) {
+  const isEditing = !!itemToEdit;
   const [categoryList, setCategoryList] = useState<CategoryOption[]>(categories);
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -124,31 +127,52 @@ export function ItemFormModal({
 
   useEffect(() => {
     if (isOpen) {
-      setName("");
-      setSku(generateAutoSku("MATERIAL"));
-      setDescription("");
-      setMinStock(5);
-      setIdealStock(15);
-      setManufacturer("");
-      setModel("");
-      setInitialQuantity(0);
-      setUnitSelect("UN");
-      setCustomUnit("");
-      setItemType("MATERIAL");
-      setAssetMode("SINGLE");
-      setAssetTag(generateRandomTag("PAT-"));
-      setSerialNumber("");
-      setAcquisitionDate("");
-      setAcquisitionValue(undefined);
-      setBatchQuantity(10);
-      setTagPrefix("PAT-");
-      setStartNumber(1001);
-      setIsCreatingCategory(false);
-      setNewCategoryName("");
-      if (categoryList.length > 0) setCategoryId(categoryList[0].id);
-      if (boxes.length > 0) setInitialBoxId(boxes[0].id);
+      if (itemToEdit) {
+        setName(itemToEdit.name || "");
+        setSku(itemToEdit.sku || "");
+        setDescription(itemToEdit.description || "");
+        setMinStock(itemToEdit.minStock !== undefined ? itemToEdit.minStock : 5);
+        setIdealStock(itemToEdit.idealStock !== undefined ? itemToEdit.idealStock : 15);
+        setManufacturer(itemToEdit.manufacturer || "");
+        setModel(itemToEdit.model || "");
+        setCategoryId(itemToEdit.categoryId || itemToEdit.category?.id || (categoryList[0]?.id || ""));
+        setItemType(itemToEdit.itemType || "MATERIAL");
+
+        const standardMatch = STANDARD_UNITS.find((u) => u.value === itemToEdit.unit);
+        if (standardMatch) {
+          setUnitSelect(itemToEdit.unit);
+          setCustomUnit("");
+        } else {
+          setUnitSelect("CUSTOM");
+          setCustomUnit(itemToEdit.unit || "");
+        }
+      } else {
+        setName("");
+        setSku(generateAutoSku("MATERIAL"));
+        setDescription("");
+        setMinStock(5);
+        setIdealStock(15);
+        setManufacturer("");
+        setModel("");
+        setInitialQuantity(0);
+        setUnitSelect("UN");
+        setCustomUnit("");
+        setItemType("MATERIAL");
+        setAssetMode("SINGLE");
+        setAssetTag(generateRandomTag("PAT-"));
+        setSerialNumber("");
+        setAcquisitionDate("");
+        setAcquisitionValue(undefined);
+        setBatchQuantity(10);
+        setTagPrefix("PAT-");
+        setStartNumber(1001);
+        setIsCreatingCategory(false);
+        setNewCategoryName("");
+        if (categoryList.length > 0) setCategoryId(categoryList[0].id);
+        if (boxes.length > 0) setInitialBoxId(boxes[0].id);
+      }
     }
-  }, [isOpen, categoryList, boxes]);
+  }, [isOpen, itemToEdit, categoryList, boxes]);
 
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
@@ -207,13 +231,47 @@ export function ItemFormModal({
       return;
     }
 
-    if (itemType === "ASSET_EQUIPMENT" && assetMode === "SINGLE" && !assetTag.trim()) {
+    if (!isEditing && itemType === "ASSET_EQUIPMENT" && assetMode === "SINGLE" && !assetTag.trim()) {
       toast.error("Por favor, informe o número de tombamento/patrimônio do equipamento.");
       return;
     }
 
     try {
       setIsLoading(true);
+
+      if (isEditing) {
+        const payload: any = {
+          name: name.trim(),
+          sku: sku.trim().toUpperCase(),
+          categoryId,
+          itemType,
+          unit: finalUnit,
+          description: description.trim() || null,
+          minStock: Number(minStock),
+          idealStock: Number(idealStock),
+          manufacturer: manufacturer.trim() || null,
+          model: model.trim() || null,
+        };
+
+        const res = await fetch(`/api/v1/items/${itemToEdit.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          toast.error(json.error || "Erro ao atualizar item.");
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success(`✓ Item '${name}' atualizado com sucesso!`);
+        onClose();
+        if (onSuccess) onSuccess();
+        return;
+      }
 
       const payload: any = {
         name: name.trim(),
@@ -286,10 +344,12 @@ export function ItemFormModal({
             </div>
             <div>
               <DialogTitle className="text-lg font-bold text-foreground">
-                Cadastrar Novo Item no Catálogo
+                {isEditing ? `Editar Item: ${itemToEdit.name}` : "Cadastrar Novo Item no Catálogo"}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Cadastre novos materiais ou equipamentos (individuais ou em lote para 50+ unidades).
+                {isEditing
+                  ? "Altere nome, categoria, SKU, fabricante ou metas de estoque do item/modelo."
+                  : "Cadastre novos materiais ou equipamentos (individuais ou em lote para 50+ unidades)."}
               </DialogDescription>
             </div>
           </div>
@@ -618,8 +678,9 @@ export function ItemFormModal({
             </div>
           </div>
 
-          {/* 4. DADOS DE TOMBAMENTO OU ARMAZENAMENTO INICIAL */}
-          {itemType === "MATERIAL" ? (
+          {/* 4. DADOS DE TOMBAMENTO OU ARMAZENAMENTO INICIAL (Apenas no cadastro inicial) */}
+          {!isEditing && (
+            itemType === "MATERIAL" ? (
             <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
               <div className="flex items-center gap-2">
                 <Box className="w-4 h-4 text-primary" />
@@ -890,7 +951,8 @@ export function ItemFormModal({
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )
           )}
 
           {/* 5. DESCRIÇÃO / OBSERVAÇÕES TÉCNICAS */}
@@ -926,7 +988,9 @@ export function ItemFormModal({
             >
               <Package className="w-4 h-4" />
               <span>
-                {itemType === "ASSET_EQUIPMENT" && assetMode === "BATCH"
+                {isEditing
+                  ? "Salvar Alterações"
+                  : itemType === "ASSET_EQUIPMENT" && assetMode === "BATCH"
                   ? `Salvar Modelo e Gerar ${batchQuantity} Itens`
                   : "Salvar Item no Catálogo"}
               </span>

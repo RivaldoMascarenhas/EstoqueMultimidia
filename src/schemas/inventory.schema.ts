@@ -52,7 +52,23 @@ export const itemCreateSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const itemUpdateSchema = z.object({
+  name: z.string().min(2, "Nome do item deve ter pelo menos 2 caracteres").optional(),
+  sku: z.string().min(2, "SKU/Código deve ter pelo menos 2 caracteres").toUpperCase().optional(),
+  categoryId: z.string().min(1, "Selecione uma categoria").optional(),
+  itemType: z.enum(["MATERIAL", "ASSET_EQUIPMENT"]).optional(),
+  unit: z.string().optional(),
+  description: z.string().nullable().optional(),
+  minStock: z.number().int().nonnegative("Estoque mínimo não pode ser negativo").optional(),
+  idealStock: z.number().int().nonnegative("Estoque ideal não pode ser negativo").optional(),
+  manufacturer: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  active: z.boolean().optional(),
+});
+
 export type StockEntryInput = z.infer<typeof stockEntrySchema>;
 export type StockExitInput = z.infer<typeof stockExitSchema>;
 export type StockTransferInput = z.infer<typeof stockTransferSchema>;
 export type ItemCreateInput = z.infer<typeof itemCreateSchema>;
+export type ItemUpdateInput = z.infer<typeof itemUpdateSchema>;

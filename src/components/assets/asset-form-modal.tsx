@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Monitor, Plus, ChevronDown, Sparkles, Layers } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Monitor, Plus, ChevronDown, Sparkles, Layers, Pencil } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,10 @@ export function AssetFormModal({
   onSuccess,
   onRefreshCatalog,
 }: AssetFormModalProps) {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role || "OPERADOR";
+  const canEditItem = userRole === "ADMIN" || userRole === "GESTOR";
+
   const [mode, setMode] = useState<"SINGLE" | "BATCH">("SINGLE");
 
   // Modo Individual
@@ -82,11 +87,13 @@ export function AssetFormModal({
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Modal aninhado para criar novo modelo no catálogo
+  // Modal aninhado para criar ou editar modelo no catálogo
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
   const [internalCategories, setInternalCategories] = useState<CategoryOption[]>(categories);
 
   const isEditing = !!assetToEdit;
+  const selectedCatalogItem = catalogItems.find((i) => i.id === itemId);
 
   useEffect(() => {
     if (isOpen) {
@@ -405,15 +412,34 @@ export function AssetFormModal({
                   <label className="text-xs font-semibold text-foreground">
                     Tipo / Modelo no Catálogo <span className="text-rose-500">*</span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsItemModalOpen(true)}
-                    className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-                    title="Cadastrar um novo modelo se não estiver na lista"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Novo Modelo</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {canEditItem && selectedCatalogItem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingItem(selectedCatalogItem);
+                          setIsItemModalOpen(true);
+                        }}
+                        className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        title="Corrigir ou renomear o nome deste modelo no catálogo"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Editar Modelo</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingItem(null);
+                        setIsItemModalOpen(true);
+                      }}
+                      className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                      title="Cadastrar um novo modelo se não estiver na lista"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Novo Modelo</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="relative">
@@ -654,13 +680,19 @@ export function AssetFormModal({
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Criação Rápida de Modelo de Catálogo */}
+      {/* Modal de Criação / Edição Rápida de Modelo de Catálogo */}
       <ItemFormModal
         isOpen={isItemModalOpen}
-        onClose={() => setIsItemModalOpen(false)}
+        onClose={() => {
+          setIsItemModalOpen(false);
+          setEditingItem(null);
+        }}
         categories={internalCategories}
         boxes={boxes}
+        itemToEdit={editingItem}
         onSuccess={() => {
+          setIsItemModalOpen(false);
+          setEditingItem(null);
           if (onRefreshCatalog) onRefreshCatalog();
         }}
       />

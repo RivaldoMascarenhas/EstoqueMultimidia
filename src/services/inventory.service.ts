@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { MovementType, ItemType, AssetStatus } from "@prisma/client";
-import { StockEntryInput, StockExitInput, StockTransferInput, ItemCreateInput } from "@/schemas/inventory.schema";
+import {
+  StockEntryInput,
+  StockExitInput,
+  StockTransferInput,
+  ItemCreateInput,
+  ItemUpdateInput,
+} from "@/schemas/inventory.schema";
 
 export class InventoryService {
   /**
@@ -802,6 +808,143 @@ export class InventoryService {
         description: description?.trim() || null,
         active: true,
       },
+    });
+  }
+
+  /**
+   * Atualiza as informações de um Item no catálogo (Restrito a ADMIN / GESTOR)
+   */
+  static async updateItem(id: string, data: ItemUpdateInput, userId: string) {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.item.findUnique({
+        where: { id },
+        include: { category: true },
+      });
+
+      if (!existing) {
+        throw new Error("Item não encontrado.");
+      }
+
+      // Se o SKU foi alterado, verificar unicidade
+      let finalSku: string | undefined = undefined;
+      if (data.sku && data.sku.trim().toUpperCase() !== existing.sku) {
+        finalSku = data.sku.trim().toUpperCase();
+        const skuInUse = await tx.item.findUnique({
+          where: { sku: finalSku },
+        });
+        if (skuInUse && skuInUse.id !== id) {
+          throw new Error(`Já existe outro item cadastrado com o SKU/Código '${finalSku}'.`);
+        }
+      }
+
+      const updated = await tx.item.update({
+        where: { id },
+        data: {
+          name: data.name !== undefined ? data.name.trim() : undefined,
+          sku: finalSku !== undefined ? finalSku : undefined,
+          categoryId: data.categoryId !== undefined ? data.categoryId : undefined,
+          itemType: data.itemType !== undefined ? data.itemType : undefined,
+          unit: data.unit !== undefined ? data.unit.trim().toUpperCase() : undefined,
+          description: data.description !== undefined ? (data.description ? data.description.trim() : null) : undefined,
+          minStock: data.minStock !== undefined ? data.minStock : undefined,
+          idealStock: data.idealStock !== undefined ? data.idealStock : undefined,
+          manufacturer: data.manufacturer !== undefined ? (data.manufacturer ? data.manufacturer.trim() : null) : undefined,
+          model: data.model !== undefined ? (data.model ? data.model.trim() : null) : undefined,
+          notes: data.notes !== undefined ? (data.notes ? data.notes.trim() : null) : undefined,
+          active: data.active !== undefined ? data.active : undefined,
+        },
+        include: {
+          category: true,
+          inventories: {
+            include: {
+              box: { include: { door: true } },
+            },
+          },
+          assets: {
+            where: { active: true },
+            include: {
+              currentBox: { include: { door: true } },
+            },
+          },
+        },
+      });
+
+      // Trilha de auditoria
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "UPDATE_ITEM",
+          entity: "Item",
+          entityId: updated.id,
+          details: {
+            before: {
+              name: existing.name,
+              sku: existing.sku,
+              category: existing.category.name,
+              minStock: existing.minStock,
+              idealStock: existing.idealStock,
+              manufacturer: existing.manufacturer,
+              model: existing.model,
+            },
+            after: {
+              name: updated.name,
+              sku: updated.sku,
+              category: updated.category.name,
+              minStock: updated.minStock,
+              idealStock: updated.idealStock,
+              manufacturer: updated.manufacturer,
+              model: updated.model,
+            },
+          },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Remove/Desativa um Item no catálogo (Restrito a ADMIN / GESTOR)
+   */
+  static async deleteItem(id: string, userId: string) {
+    return await prisma.$transaction(async (tx) => {
+      const existing = await tx.item.findUnique({
+        where: { id },
+        include: {
+          inventories: true,
+          assets: { where: { active: true } },
+        },
+      });
+
+      if (!existing) {
+        throw new Error("Item não encontrado.");
+      }
+
+      // Verificar se possui estoque ou ativos vinculados
+      const totalInventoryQty = existing.inventories.reduce((sum, inv) => sum + inv.quantity, 0);
+      if (totalInventoryQty > 0 || existing.assets.length > 0) {
+        throw new Error(
+          `Não é possível excluir o item '${existing.name}' pois ainda existem unidades ou ativos vinculados em estoque/patrimônio.`
+        );
+      }
+
+      // Soft delete
+      const deleted = await tx.item.update({
+        where: { id },
+        data: { active: false },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "DELETE_ITEM",
+          entity: "Item",
+          entityId: id,
+          details: { name: existing.name, sku: existing.sku },
+        },
+      });
+
+      return deleted;
     });
   }
 }

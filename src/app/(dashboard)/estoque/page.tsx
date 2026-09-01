@@ -8,7 +8,8 @@ import {
   Plus, 
   Search, 
   ArrowDownLeft, 
-  Loader2
+  Loader2,
+  Pencil
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export default function EstoquePage() {
   const { data: session } = useSession();
   const userRole = session?.user?.role || "OPERADOR";
   const isReadOnly = userRole === "CONSULTA";
+  const canEditItem = userRole === "ADMIN" || userRole === "GESTOR";
 
   const [items, setItems] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -40,6 +42,7 @@ export default function EstoquePage() {
 
   // Modais de Ação
   const [isItemFormOpen, setIsItemFormOpen] = useState(false);
+  const [selectedItemForEdit, setSelectedItemForEdit] = useState<any | null>(null);
   const [selectedItemForExit, setSelectedItemForExit] = useState<any | null>(null);
   const [selectedItemForEntry, setSelectedItemForEntry] = useState<any | null>(null);
 
@@ -373,6 +376,20 @@ export default function EstoquePage() {
                       {/* Ações */}
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Botão Editar Item (Restrito a ADMIN / GESTOR) */}
+                          {canEditItem && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedItemForEdit(item)}
+                              className="h-8 px-2.5 text-xs text-primary hover:text-primary/80 border-primary/30 hover:bg-primary/10 rounded-xl gap-1 font-semibold"
+                              title={`Editar cadastro e nome de ${item.name}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Editar</span>
+                            </Button>
+                          )}
+
                           {/* Botão Histórico */}
                           <Button
                             asChild
@@ -469,12 +486,16 @@ export default function EstoquePage() {
       </Card>
 
       {/* Modais de Operação */}
-      {isItemFormOpen && (
+      {(isItemFormOpen || selectedItemForEdit) && (
         <ItemFormModal
-          isOpen={isItemFormOpen}
-          onClose={() => setIsItemFormOpen(false)}
+          isOpen={isItemFormOpen || !!selectedItemForEdit}
+          onClose={() => {
+            setIsItemFormOpen(false);
+            setSelectedItemForEdit(null);
+          }}
           categories={categories}
           boxes={allBoxes}
+          itemToEdit={selectedItemForEdit}
           onSuccess={fetchData}
         />
       )}
