@@ -65,6 +65,7 @@ describe("Concurrency & Anti-Race Condition Tests", () => {
           {
             assetId: "asset-1",
             borrowerName: "Prof. Carlos",
+            borrowerEmail: "carlos@unifap.br",
             destination: "Auditório 1",
             expectedReturnDate: new Date(Date.now() + 3600000).toISOString(),
           },

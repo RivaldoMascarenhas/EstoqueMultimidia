@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { EventService } from "@/services/event.service";
 import { BiometricApiService } from "@/services/biometric-api.service";
 import { Role } from "@prisma/client";
+import { RateLimiter } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/ip-utils";
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireSession([
@@ -13,6 +15,15 @@ export async function POST(req: NextRequest) {
     Role.EVENTOS,
   ]);
   if (error) return error;
+
+  const clientIp = getClientIp(req);
+  const rateLimit = await RateLimiter.consume(`bio:rec:${clientIp}`, 30, 60 * 1000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Limite de requisições biométricas excedido. Aguarde alguns instantes." },
+      { status: 429 }
+    );
+  }
 
   try {
     const formData = await req.formData();
@@ -74,8 +85,9 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("Erro ao reconhecer biometria facial:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Erro interno no servidor" },
+      { success: false, error: "Não foi possível processar o reconhecimento biométrico." },
       { status: 500 }
     );
   }
 }
+

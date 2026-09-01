@@ -42,14 +42,15 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      path: "/api/v1/public/",
+      path: "/",
       maxAge: 60 * 60 * 24, // 24 horas
     });
 
     return response;
   } catch (error: any) {
+    console.error("Erro no bootstrap de apresentação:", error);
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" },
+      { success: false, error: "Erro interno ao inicializar sessão de apresentação." },
       { status: 500 }
     );
   }

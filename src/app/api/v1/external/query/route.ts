@@ -122,10 +122,19 @@ export async function GET(req: NextRequest) {
         const statusLabel = statusMap[asset.status] || asset.status;
         whatsappLines.push(`• *${asset.item.name}* (#${asset.assetTag})`);
         whatsappLines.push(`  ↳ Status: *${statusLabel}*`);
+        const canViewLoanDetails = auth.permissions?.includes("inventory:read:loans") ||
+          auth.permissions?.includes("admin") ||
+          auth.role === "ADMIN" ||
+          auth.role === "GESTOR";
+
         if (asset.status === "AVAILABLE" && asset.currentBox) {
           whatsappLines.push(`  ↳ Local: ${asset.currentBox.door?.name || "Porta"} ➔ *${asset.currentBox.name} (${asset.currentBox.code})*`);
-        } else if (asset.status === "LOANED" && asset.loans[0]) {
-          whatsappLines.push(`  ↳ Com: *${asset.loans[0].borrowerName}* (${asset.loans[0].destination})`);
+        } else if (asset.status === "LOANED") {
+          if (canViewLoanDetails && asset.loans[0]) {
+            whatsappLines.push(`  ↳ Com: *${asset.loans[0].borrowerName}* (${asset.loans[0].destination})`);
+          } else {
+            whatsappLines.push(`  ↳ Empréstimo ativo (detalhes sob permissão específica)`);
+          }
         }
       });
       whatsappLines.push("");
@@ -163,8 +172,9 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
+    console.error("Erro na consulta externa da API:", error);
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" },
+      { success: false, error: "Erro interno no servidor ao processar consulta." },
       { status: 500 }
     );
   }

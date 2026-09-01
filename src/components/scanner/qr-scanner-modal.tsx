@@ -65,6 +65,8 @@ export function QrScannerModal({
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [autoZoomEnabled, setAutoZoomEnabled] = useState<boolean>(true);
   const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
+  const [hasTorch, setHasTorch] = useState<boolean>(false);
+  const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
@@ -74,19 +76,21 @@ export function QrScannerModal({
   const cameraIndexRef = useRef<number>(0);
   const detectLoopRef = useRef<number | null>(null);
   const lastAutoZoomTimeRef = useRef<number>(0);
+  const candidateStreakRef = useRef<number>(0);
   const initialTouchDistRef = useRef<number | null>(null);
   const initialZoomOnPinchRef = useRef<number>(1);
 
   // Trava síncrona anti-spam
   const isProcessingRef = useRef<boolean>(false);
 
-  // Zoom Suave
+  // Zoom Inteligente: Nativo de Câmera + Fallback em Crop Digital (CSS)
   const applyZoom = useCallback(async (level: number, targetX?: number, targetY?: number) => {
     setZoomLevel(level);
 
+    // 1. Digital Crop / Transform Fallback
     const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
     if (video) {
-      video.style.transition = "transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), transform-origin 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)";
+      video.style.transition = "transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), transform-origin 0.4s cubic-bezier(0.2, 0.9, 0.3, 1)";
       if (typeof targetX === "number" && typeof targetY === "number") {
         video.style.transformOrigin = `${Math.min(Math.max(targetX, 15), 85)}% ${Math.min(Math.max(targetY, 15), 85)}%`;
       } else {
@@ -95,6 +99,7 @@ export function QrScannerModal({
       video.style.transform = `scale(${level})`;
     }
 
+    // 2. Hardware Native Camera Zoom (se suportado pelo driver/navegador)
     if (activeStreamRef.current) {
       const track = activeStreamRef.current.getVideoTracks()[0];
       if (track) {
@@ -110,6 +115,21 @@ export function QrScannerModal({
       }
     }
   }, []);
+
+  const toggleTorch = async () => {
+    if (!activeStreamRef.current) return;
+    const track = activeStreamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const nextState = !isTorchOn;
+      await track.applyConstraints({
+        advanced: [{ torch: nextState }] as any,
+      });
+      setIsTorchOn(nextState);
+    } catch {
+      toast.error("Não foi possível acionar a lanterna.");
+    }
+  };
 
   const killAllVideoHardware = useCallback(() => {
     if (detectLoopRef.current) {
@@ -212,6 +232,7 @@ export function QrScannerModal({
           try {
             const barcodes = await detector.detect(video);
             if (barcodes && barcodes.length > 0) {
+              candidateStreakRef.current += 1;
               const b = barcodes[0];
               const bbox = b.boundingBox;
 
@@ -228,14 +249,21 @@ export function QrScannerModal({
               });
 
               const now = Date.now();
-              if (autoZoomEnabled && relW < 32 && now - lastAutoZoomTimeRef.current > 2200) {
+              // SOMENTE aproxima se o candidato for confirmado por 2 frames e NÃO estiver buscando/caçando
+              if (
+                autoZoomEnabled &&
+                candidateStreakRef.current >= 2 &&
+                relW < 35 &&
+                now - lastAutoZoomTimeRef.current > 2000
+              ) {
                 lastAutoZoomTimeRef.current = now;
                 const centerX = relX + relW / 2;
                 const centerY = relY + relH / 2;
-                const calculatedZoom = Math.min(Math.max(1.6, Number((32 / relW).toFixed(1))), 2.4);
+                const calculatedZoom = Math.min(Math.max(1.5, Number((35 / relW).toFixed(1))), 2.5);
                 applyZoom(calculatedZoom, centerX, centerY);
               }
             } else {
+              candidateStreakRef.current = 0;
               setDetectedBox(null);
             }
           } catch {}
@@ -411,7 +439,15 @@ export function QrScannerModal({
 
       const videoEl = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
       if (videoEl && videoEl.srcObject) {
-        activeStreamRef.current = videoEl.srcObject as MediaStream;
+        const stream = videoEl.srcObject as MediaStream;
+        activeStreamRef.current = stream;
+        const track = stream.getVideoTracks()[0];
+        if (track && track.getCapabilities) {
+          try {
+            const caps = track.getCapabilities() as any;
+            setHasTorch(Boolean(caps?.torch));
+          } catch {}
+        }
       }
 
       isScanningRef.current = true;
@@ -574,9 +610,25 @@ export function QrScannerModal({
             {/* Vinheta sutil */}
             <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.55)] z-10" />
 
-            {/* Troca de Câmera */}
+            {/* Controles de Câmera e Lanterna */}
             {isScanning && !cameraError && (
-              <div className="absolute top-3 right-3 z-30">
+              <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+                {hasTorch && (
+                  <button
+                    type="button"
+                    onClick={toggleTorch}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-full border backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer",
+                      isTorchOn
+                        ? "bg-amber-400 text-black border-amber-300 shadow-amber-400/30"
+                        : "bg-black/55 hover:bg-black/80 text-white/90 border-white/15"
+                    )}
+                    title={isTorchOn ? "Desligar Lanterna" : "Ligar Lanterna"}
+                  >
+                    <Zap className={cn("w-3.5 h-3.5", isTorchOn && "fill-black")} />
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleToggleCamera}
@@ -596,14 +648,15 @@ export function QrScannerModal({
               </div>
             )}
 
-            {/* Mira Minimalista Central */}
+            {/* Mira Minimalista Central com Feixe Laser Animado */}
             {isScanning && !cameraError && !detectedBox && !isRedirecting && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
                 <div className="relative w-48 h-48">
-                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/35 rounded-tl-lg" />
-                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/35 rounded-tr-lg" />
-                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/35 rounded-bl-lg" />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/35 rounded-br-lg" />
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/45 rounded-tl-lg shadow-sm" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/45 rounded-tr-lg shadow-sm" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/45 rounded-bl-lg shadow-sm" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/45 rounded-br-lg shadow-sm" />
+                  <div className="qr-laser-line" />
                 </div>
               </div>
             )}

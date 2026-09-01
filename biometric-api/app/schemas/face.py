@@ -24,6 +24,8 @@ class BiometricTestResponse(BaseModel):
     status: str  # MATCH, NO_MATCH, NO_FACE_DETECTED, ERROR
     matchedPerson: Optional[PersonBasicInfo] = None
     confidence: Optional[float] = None
+    similarityScore: Optional[float] = None
+    matchScore: Optional[float] = None
     distance: Optional[float] = None
     isApproved: bool = False
     message: str

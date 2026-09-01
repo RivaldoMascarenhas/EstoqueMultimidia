@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { BiometricApiService } from "@/services/biometric-api.service";
 import { Role } from "@prisma/client";
+import { RateLimiter } from "@/lib/rate-limiter";
+import { getClientIp } from "@/lib/ip-utils";
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireSession([
@@ -11,6 +13,15 @@ export async function POST(req: NextRequest) {
     Role.EVENTOS,
   ]);
   if (error) return error;
+
+  const clientIp = getClientIp(req);
+  const rateLimit = await RateLimiter.consume(`bio:enroll:${clientIp}`, 20, 60 * 1000);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { success: false, error: "Limite de cadastros biométricos por minuto atingido. Aguarde antes de continuar." },
+      { status: 429 }
+    );
+  }
 
   try {
     const formData = await req.formData();
@@ -41,9 +52,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err: any) {
+    console.error("Erro ao cadastrar biometria facial:", err);
     return NextResponse.json(
-      { success: false, error: "Erro interno no servidor" },
+      { success: false, error: "Não foi possível cadastrar a biometria facial." },
       { status: 500 }
     );
   }
 }
+

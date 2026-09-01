@@ -5,6 +5,8 @@ networks:
 volumes:
   pgdata:
     driver: local
+  redisdata:
+    driver: local
 
 services:
   postgres:
@@ -17,8 +19,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina a variavel POSTGRES_PASSWORD no .env}
       POSTGRES_DB: ${POSTGRES_DB:-estoque_multimidia}
-    ports:
-      - "0.0.0.0:5433:5432"
+    # PostgreSQL isolado na rede interna Docker unifap-network (sem exposição externa de portas)
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -48,8 +49,7 @@ services:
       FACE_DISTANCE_THRESHOLD: ${FACE_DISTANCE_THRESHOLD:-0.60}
       MIN_CONFIDENCE_THRESHOLD: ${MIN_CONFIDENCE_THRESHOLD:-0.80}
       TZ: "America/Fortaleza"
-    ports:
-      - "0.0.0.0:8005:8000"
+    # Biometric API isolada na rede interna Docker unifap-network (sem exposição externa de portas)
     networks:
       - unifap-network
     deploy:
@@ -79,21 +79,43 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina a variavel POSTGRES_PASSWORD no .env}
       POSTGRES_DB: ${POSTGRES_DB:-estoque_multimidia}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
-      SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:-F@P-C&2017}
+      SEED_DEFAULT_PASSWORD: ${SEED_DEFAULT_PASSWORD:-}
       SEED_MOCK_DATA: ${SEED_MOCK_DATA:-false}
       NODE_ENV: production
-    # Cria a extensão pgvector, instala prisma/tsx e sincroniza o schema e seed
+    # Inicializa extensão pgvector, executa migrações controladas do Prisma e executa seed idempotente seguro
     command: >
       sh -c "apt-get update -y && apt-get install -y openssl ca-certificates postgresql-client &&
              PGPASSWORD=\"$$POSTGRES_PASSWORD\" psql -h postgres -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\" -c 'CREATE EXTENSION IF NOT EXISTS vector;' &&
              npm install prisma@5.18.0 @prisma/client@5.18.0 tsx@4.17.0 bcryptjs @types/bcryptjs &&
-             npx prisma db push --accept-data-loss &&
+             npx prisma migrate deploy &&
              npx tsx prisma/seed.ts"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - unifap-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: unifap-redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-unifapredissecurepassword}"]
+    volumes:
+      - redisdata:/data
+    networks:
+      - unifap-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-unifapredissecurepassword}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   app:
     build:
@@ -106,6 +128,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-estoque_multimidia}
+      REDIS_URL: ${REDIS_URL:-redis://:unifapredissecurepassword@redis:6379}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-${NEXTAUTH_URL:-http://localhost:3000}}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Defina a variavel NEXTAUTH_SECRET no .env}
@@ -118,6 +141,8 @@ services:
       postgres:
         condition: service_healthy
       biometric-api:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       init-db:
         condition: service_completed_successfully

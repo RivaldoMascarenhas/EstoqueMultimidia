@@ -6,8 +6,18 @@ import { BiometricApiService } from "@/services/biometric-api.service";
 import { verifyParticipantQrToken } from "@/lib/qr-token";
 import { PresenceMethod } from "@prisma/client";
 import { safeAuditLog, getClientIp } from "@/lib/audit";
+import { RateLimiter } from "@/lib/rate-limiter";
 
 export const dynamic = "force-dynamic";
+
+function maskDisplayName(name: string): string {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  const first = parts[0];
+  const lastInitial = parts[parts.length - 1][0]?.toUpperCase() || "";
+  return lastInitial ? `${first} ${lastInitial}.` : first;
+}
 
 /**
  * Endpoint de Registro de Presença no Totem Público
@@ -18,6 +28,7 @@ export const dynamic = "force-dynamic";
  *    O cliente NÃO tem permissão de forjar identidade ou método FACE sem prova biométrica.
  * 3. Método QR_CODE: OBRIGATÓRIO envio de token assinado digitalmente (HMAC-SHA256).
  * 4. Método MANUAL: Estritamente PROIBIDO no totem público (restrito a operadores autenticados).
+ * 5. LGPD: Minimização de dados pessoais retornados ao totem público.
  */
 export async function POST(
   req: NextRequest,
@@ -25,6 +36,14 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    const clientIp = getClientIp(req);
+    const rateLimit = await RateLimiter.consume(`pres:pub:${clientIp}`, 40, 60 * 1000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Limite de tentativas por minuto excedido. Aguarde alguns instantes." },
+        { status: 429 }
+      );
+    }
     
     const eventId = id;
     if (!eventId) {
@@ -183,16 +202,17 @@ export async function POST(
         where: { eventId_personId: { eventId, personId: verifiedPersonId } },
       });
 
+      const displayName = maskDisplayName(participant.person.name);
+
       if (existing) {
         return NextResponse.json({
           success: true,
           status: "ALREADY_REGISTERED",
           alreadyRegistered: true,
           message: "Presença já confirmada anteriormente.",
+          displayName,
           person: {
-            id: participant.person.id,
-            name: participant.person.name,
-            category: participant.person.category,
+            name: displayName,
           },
         });
       }
@@ -212,7 +232,7 @@ export async function POST(
         entity: "Presence",
         entityId: presence.id,
         details: { eventId, personId: verifiedPersonId, personName: participant.person.name, method: "QR_CODE" },
-        ipAddress: getClientIp(req),
+        ipAddress: clientIp,
       });
 
       return NextResponse.json({
@@ -220,10 +240,9 @@ export async function POST(
         status: "REGISTERED",
         alreadyRegistered: false,
         message: "Presença confirmada via QR Code com sucesso!",
+        displayName,
         person: {
-          id: participant.person.id,
-          name: participant.person.name,
-          category: participant.person.category,
+          name: displayName,
         },
       });
     }

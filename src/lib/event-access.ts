@@ -105,8 +105,32 @@ export async function assertEventAccess(
     return { authorized: true, event };
   }
 
-  // 6. GESTOR, OPERADOR e EVENTOS possuem acesso aos eventos do sistema conforme suas permissões
-  if (user.role === Role.GESTOR || user.role === Role.OPERADOR || user.role === Role.EVENTOS) {
+  // 6. EVENTOS é estritamente restrito aos eventos vinculados via EventUser(userId, eventId)
+  if (user.role === Role.EVENTOS) {
+    const assignment = await prisma.eventUser.findUnique({
+      where: {
+        userId_eventId: {
+          userId: user.id,
+          eventId: event.id,
+        },
+      },
+    });
+
+    if (!assignment) {
+      return {
+        authorized: false,
+        errorResponse: NextResponse.json(
+          { success: false, error: "Acesso negado. Usuário do perfil EVENTOS não possui vínculo atribuído a este evento." },
+          { status: 403 }
+        ),
+      };
+    }
+
+    return { authorized: true, event };
+  }
+
+  // 7. GESTOR e OPERADOR possuem acesso aos eventos conforme suas permissões institucionais
+  if (user.role === Role.GESTOR || user.role === Role.OPERADOR) {
     return { authorized: true, event };
   }
 

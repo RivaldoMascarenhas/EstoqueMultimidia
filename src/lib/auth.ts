@@ -11,58 +11,7 @@ if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV !== "test" && !process.
   );
 }
 
-// Rate limiter em memória com proteção contra Força Bruta por Conta e por IP (Cloudflare / Proxies)
-const loginAttemptsMap = new Map<string, { count: number; blockedUntil: number }>();
-
-// Limpeza periódica (Garbage Collection) para evitar memory leaks no Map em produção
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of loginAttemptsMap.entries()) {
-    // Remove registros cujo tempo de bloqueio já expirou
-    if (record.blockedUntil > 0 && record.blockedUntil <= now) {
-      loginAttemptsMap.delete(key);
-    }
-  }
-}, 10 * 60 * 1000); // Executa a cada 10 minutos
-
-function checkRateLimit(key: string, maxAttempts: number, blockDurationMs: number): { allowed: boolean; waitMinutes?: number } {
-  const now = Date.now();
-  const record = loginAttemptsMap.get(key);
-
-  if (record) {
-    if (record.blockedUntil > now) {
-      const waitMinutes = Math.ceil((record.blockedUntil - now) / 60000);
-      return { allowed: false, waitMinutes };
-    }
-    // Se o período de bloqueio já passou, reinicia contagem
-    if (record.blockedUntil > 0 && record.blockedUntil <= now) {
-      loginAttemptsMap.set(key, { count: 1, blockedUntil: 0 });
-      return { allowed: true };
-    }
-  }
-
-  return { allowed: true };
-}
-
-function recordFailure(key: string, maxAttempts: number, blockDurationMs: number) {
-  const now = Date.now();
-  const record = loginAttemptsMap.get(key);
-
-  if (record) {
-    record.count += 1;
-    if (record.count >= maxAttempts) {
-      record.blockedUntil = now + blockDurationMs;
-    }
-  } else {
-    loginAttemptsMap.set(key, { count: 1, blockedUntil: 0 });
-  }
-}
-
-function clearAttempts(key: string) {
-  loginAttemptsMap.delete(key);
-}
-
-
+import { RateLimiter } from "./rate-limiter";
 
 export const authOptions: NextAuthOptions = {
   session: {
@@ -87,30 +36,29 @@ export const authOptions: NextAuthOptions = {
 
         let rawInput = credentials.email.toLowerCase().trim();
         let inputEmail = rawInput.includes("@") ? rawInput : `${rawInput}@fapce.edu.br`;
-        const username = rawInput.split("@")[0];
         const clientIp = getClientIp(req);
 
-        const accountKey = `acc:${inputEmail}`;
-        const ipKey = `ip:${clientIp}`;
+        const accountKey = `login:acc:${inputEmail}`;
+        const ipKey = `login:ip:${clientIp}`;
 
         // 0. Checar Rate Limit por Conta (5 tentativas / 15 min)
-        const accountCheck = checkRateLimit(accountKey, 5, 15 * 60 * 1000);
+        const accountCheck = await RateLimiter.check(accountKey, 5, 15 * 60 * 1000);
         if (!accountCheck.allowed) {
           throw new Error(`Muitas tentativas incorretas para esta conta. Bloqueio temporário por ${accountCheck.waitMinutes || 15} minutos.`);
         }
 
         // 0.1 Checar Rate Limit por IP contra Password Spraying (15 tentativas / 15 min por IP)
         if (clientIp !== "unknown") {
-          const ipCheck = checkRateLimit(ipKey, 15, 15 * 60 * 1000);
+          const ipCheck = await RateLimiter.check(ipKey, 15, 15 * 60 * 1000);
           if (!ipCheck.allowed) {
             throw new Error(`Limite de tentativas excedido para o seu endereço IP. Bloqueio temporário por ${ipCheck.waitMinutes || 15} minutos.`);
           }
         }
 
-        const registerFailedAttempt = () => {
-          recordFailure(accountKey, 5, 15 * 60 * 1000);
+        const registerFailedAttempt = async () => {
+          await RateLimiter.recordFailure(accountKey, 5, 15 * 60 * 1000);
           if (clientIp !== "unknown") {
-            recordFailure(ipKey, 15, 15 * 60 * 1000);
+            await RateLimiter.recordFailure(ipKey, 15, 15 * 60 * 1000);
           }
         };
 
@@ -119,10 +67,8 @@ export const authOptions: NextAuthOptions = {
           where: { email: inputEmail },
         });
 
-
-
         if (!user || !user.active) {
-          registerFailedAttempt();
+          await registerFailedAttempt();
           throw new Error("Credenciais inválidas ou usuário inativo");
         }
 
@@ -132,14 +78,14 @@ export const authOptions: NextAuthOptions = {
         );
 
         if (!isPasswordValid) {
-          registerFailedAttempt();
+          await registerFailedAttempt();
           throw new Error("Credenciais inválidas");
         }
 
         // Sucesso: limpar contagem de tentativas falhas da conta e do IP
-        clearAttempts(accountKey);
+        await RateLimiter.clear(accountKey);
         if (clientIp !== "unknown") {
-          clearAttempts(ipKey);
+          await RateLimiter.clear(ipKey);
         }
 
         // Registrar log de auditoria de login
@@ -206,6 +152,18 @@ export const authOptions: NextAuthOptions = {
         session.user.avatarUrl = token.avatarUrl as string | null;
       }
       return session;
+    },
+  },
+  useSecureCookies: process.env.NODE_ENV === "production",
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production" ? "__Secure-next-auth.session-token" : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

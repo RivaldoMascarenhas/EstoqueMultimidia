@@ -39,15 +39,19 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Validate Prisma Schema & Generate Client
+      - name: Validate Prisma Schema & Migrations
         run: |
           npx prisma validate
           npx prisma generate
+          npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
 
       - name: Dependency Security Audit
-        run: npm audit --audit-level=high --omit=dev || true
+        run: npm audit --audit-level=high --omit=dev
+
+      - name: ESLint Code Quality Check
+        run: npm run lint
 
       - name: TypeScript Typecheck
         run: npx tsc --noEmit

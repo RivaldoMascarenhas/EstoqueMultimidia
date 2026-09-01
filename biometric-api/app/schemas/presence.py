@@ -10,6 +10,8 @@ class RecognizeResponse(BaseModel):
     message: str
     person: Optional[PersonBasicInfo] = None
     confidence: Optional[float] = None
+    similarityScore: Optional[float] = None
+    matchScore: Optional[float] = None
     distance: Optional[float] = None
     method: str = "FACE"
     capturedAt: Optional[datetime] = None

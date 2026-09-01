@@ -22,7 +22,7 @@ export function getAllowedOrigins(req?: Request | NextRequest): Set<string> {
       .forEach((o) => allowed.add(o));
   }
 
-  // 2. Variável padrão do NextAuth
+  // 2. Variável padrão do NextAuth e App URL
   if (process.env.NEXTAUTH_URL) {
     try {
       const authOrigin = new URL(process.env.NEXTAUTH_URL).origin.toLowerCase();
@@ -30,28 +30,37 @@ export function getAllowedOrigins(req?: Request | NextRequest): Set<string> {
     } catch {}
   }
 
-  // 3. Origem derivada da própria requisição (URL local / Host do servidor)
-  if (req) {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
     try {
-      if ("url" in req && req.url) {
-        const reqOrigin = new URL(req.url).origin.toLowerCase();
-        allowed.add(reqOrigin);
-      }
+      const pubOrigin = new URL(process.env.NEXT_PUBLIC_APP_URL).origin.toLowerCase();
+      allowed.add(pubOrigin);
     } catch {}
+  }
 
-    const headers = "headers" in req ? req.headers : null;
-    if (headers) {
-      const forwardedHost = headers.get("x-forwarded-host");
-      const forwardedProto = headers.get("x-forwarded-proto") || "https";
-      if (forwardedHost) {
-        const host = forwardedHost.split(",")[0].trim();
-        allowed.add(`${forwardedProto}://${host}`.toLowerCase());
-      }
+  // 3. Em desenvolvimento ou caso nenhuma URL tenha sido configurada, deriva do host local
+  if (process.env.NODE_ENV !== "production" || allowed.size === 0) {
+    if (req) {
+      try {
+        if ("url" in req && req.url) {
+          const reqOrigin = new URL(req.url).origin.toLowerCase();
+          allowed.add(reqOrigin);
+        }
+      } catch {}
 
-      const hostHeader = headers.get("host");
-      if (hostHeader) {
-        const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http");
-        allowed.add(`${proto}://${hostHeader.trim()}`.toLowerCase());
+      const headers = "headers" in req ? req.headers : null;
+      if (headers) {
+        const forwardedHost = headers.get("x-forwarded-host");
+        const forwardedProto = headers.get("x-forwarded-proto") || "https";
+        if (forwardedHost) {
+          const host = forwardedHost.split(",")[0].trim();
+          allowed.add(`${forwardedProto}://${host}`.toLowerCase());
+        }
+
+        const hostHeader = headers.get("host");
+        if (hostHeader) {
+          const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http");
+          allowed.add(`${proto}://${hostHeader.trim()}`.toLowerCase());
+        }
       }
     }
   }

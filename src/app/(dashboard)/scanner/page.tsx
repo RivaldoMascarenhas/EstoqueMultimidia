@@ -211,6 +211,8 @@ function ScannerContent() {
     }
   }, [killAllVideoHardware]);
 
+  const candidateStreakRef = useRef<number>(0);
+
   // Loop contínuo de detecção de QR Code e Auto-Zoom Inteligente com Enquadramento
   const startDetectionLoop = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -233,6 +235,7 @@ function ScannerContent() {
           try {
             const barcodes = await detector.detect(video);
             if (barcodes && barcodes.length > 0) {
+              candidateStreakRef.current += 1;
               const b = barcodes[0];
               const bbox = b.boundingBox;
 
@@ -249,16 +252,22 @@ function ScannerContent() {
                 rawValue: b.rawValue,
               });
 
-              // Auto-Zoom Suave e Centralização Focal no QR Code
+              // Auto-Zoom Suave SOMENTE após confirmação de estabilidade do candidato (2 frames)
               const now = Date.now();
-              if (autoZoomEnabled && relW < 32 && now - lastAutoZoomTimeRef.current > 2200) {
+              if (
+                autoZoomEnabled &&
+                candidateStreakRef.current >= 2 &&
+                relW < 35 &&
+                now - lastAutoZoomTimeRef.current > 2000
+              ) {
                 lastAutoZoomTimeRef.current = now;
                 const centerX = relX + relW / 2;
                 const centerY = relY + relH / 2;
-                const calculatedZoom = Math.min(Math.max(1.6, Number((32 / relW).toFixed(1))), 2.4);
+                const calculatedZoom = Math.min(Math.max(1.5, Number((35 / relW).toFixed(1))), 2.5);
                 applyZoom(calculatedZoom, centerX, centerY);
               }
             } else {
+              candidateStreakRef.current = 0;
               setDetectedBox(null);
             }
           } catch {}
@@ -779,14 +788,15 @@ function ScannerContent() {
               </button>
             </div>
 
-            {/* Mira Minimalista Central (quando não detectou nada) */}
+            {/* Mira Minimalista Central com Feixe Laser Animado */}
             {isScanning && !scanResult && !detectedBox && !isLoadingLookup && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
                 <div className="relative w-52 h-52 sm:w-56 sm:h-56">
-                  <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-white/35 rounded-tl-xl" />
-                  <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-white/35 rounded-tr-xl" />
-                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-white/35 rounded-bl-xl" />
-                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-white/35 rounded-br-xl" />
+                  <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-white/45 rounded-tl-xl shadow-sm" />
+                  <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-white/45 rounded-tr-xl shadow-sm" />
+                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-white/45 rounded-bl-xl shadow-sm" />
+                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-white/45 rounded-br-xl shadow-sm" />
+                  <div className="qr-laser-line" />
                 </div>
               </div>
             )}
