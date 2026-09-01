@@ -300,8 +300,8 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
     });
   });
 
-  describe("DELETE /api/v1/events/[id] (Exclusão Restrita de Eventos)", () => {
-    it("deve retornar 403 Forbidden se usuário EVENTOS tentar excluir evento inteiro", async () => {
+  describe("DELETE /api/v1/events/[id] (Exclusão com Regra de 30 minutos)", () => {
+    it("deve permitir que usuário EVENTOS exclua evento com mais de 30 minutos de antecedência", async () => {
       vi.mocked(getServerSession).mockResolvedValue({
         user: { id: "u-eventos", role: Role.EVENTOS, name: "Operador Eventos" },
       } as any);
@@ -312,12 +312,49 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
         role: Role.EVENTOS,
       } as any);
 
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        name: "Evento Futuro",
+        date: new Date("2099-12-31T00:00:00.000Z"),
+        time: "18:00",
+      } as any);
+
+      const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
+        method: "DELETE",
+      });
+
+      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+    });
+
+    it("deve bloquear usuário EVENTOS se faltar menos de 30 minutos para o evento ou já iniciado", async () => {
+      vi.mocked(getServerSession).mockResolvedValue({
+        user: { id: "u-eventos", role: Role.EVENTOS, name: "Operador Eventos" },
+      } as any);
+
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        id: "u-eventos",
+        active: true,
+        role: Role.EVENTOS,
+      } as any);
+
+      vi.mocked(prisma.event.findUnique).mockResolvedValue({
+        id: "ev-1",
+        name: "Evento Próximo ou Passado",
+        date: new Date("2020-01-01T00:00:00.000Z"),
+        time: "10:00",
+      } as any);
+
       const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
         method: "DELETE",
       });
 
       const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
       expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("30 minutos de antecedência");
     });
 
     it("deve permitir que ADMIN exclua evento a qualquer momento", async () => {
@@ -343,60 +380,6 @@ describe("API Security Guard & State Rules for Role EVENTOS", () => {
 
       const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
       expect(res.status).toBe(200);
-    });
-
-    it("deve permitir que OPERADOR exclua evento com mais de 30 minutos de antecedência", async () => {
-      vi.mocked(getServerSession).mockResolvedValue({
-        user: { id: "op-1", role: Role.OPERADOR, name: "Operador Multimídia" },
-      } as any);
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        id: "op-1",
-        active: true,
-        role: Role.OPERADOR,
-      } as any);
-
-      vi.mocked(prisma.event.findUnique).mockResolvedValue({
-        id: "ev-1",
-        name: "Evento Futuro",
-        date: new Date("2099-12-31T00:00:00.000Z"),
-        time: "18:00",
-      } as any);
-
-      const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
-        method: "DELETE",
-      });
-
-      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
-      expect(res.status).toBe(200);
-    });
-
-    it("deve bloquear OPERADOR se faltar menos de 30 minutos para o evento ou já iniciado", async () => {
-      vi.mocked(getServerSession).mockResolvedValue({
-        user: { id: "op-1", role: Role.OPERADOR, name: "Operador Multimídia" },
-      } as any);
-
-      vi.mocked(prisma.user.findUnique).mockResolvedValue({
-        id: "op-1",
-        active: true,
-        role: Role.OPERADOR,
-      } as any);
-
-      vi.mocked(prisma.event.findUnique).mockResolvedValue({
-        id: "ev-1",
-        name: "Evento Próximo ou Passado",
-        date: new Date("2020-01-01T00:00:00.000Z"),
-        time: "10:00",
-      } as any);
-
-      const req = new NextRequest("http://localhost:3000/api/v1/events/ev-1", {
-        method: "DELETE",
-      });
-
-      const res = await deleteEventRoute(req, { params: Promise.resolve({ id: "ev-1" }) });
-      expect(res.status).toBe(403);
-      const json = await res.json();
-      expect(json.error).toContain("Operadores só podem excluir eventos com mais de 30 minutos");
     });
   });
 });

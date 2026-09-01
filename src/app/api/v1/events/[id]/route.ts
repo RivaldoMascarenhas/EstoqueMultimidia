@@ -115,6 +115,7 @@ export async function DELETE(
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
+    Role.EVENTOS,
   ]);
   if (error) {
     return NextResponse.json(

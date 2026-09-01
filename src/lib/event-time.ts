@@ -109,12 +109,12 @@ export function canDeleteEventByRoleAndTime(
     return { allowed: true };
   }
 
-  if (userRole !== "OPERADOR" && userRole !== "GESTOR") {
+  if (userRole !== "EVENTOS" && userRole !== "OPERADOR" && userRole !== "GESTOR") {
     return { allowed: false, reason: "Perfil não possui permissão para excluir eventos." };
   }
 
   if (!event || !event.date) {
-    // Sem data definida (rascunho): operador pode excluir
+    // Sem data definida (rascunho): operador/eventos pode excluir
     return { allowed: true };
   }
 
@@ -131,7 +131,7 @@ export function canDeleteEventByRoleAndTime(
       allowed: false,
       remainingMinutes: Math.round(diffMinutes),
       reason:
-        "Operadores só podem excluir eventos com mais de 30 minutos de antecedência do início. Para excluir este evento, solicite a um Administrador.",
+        "O perfil de eventos só pode excluir eventos com mais de 30 minutos de antecedência do início. Faltando menos de 30 minutos, solicite a um Administrador.",
     };
   }
 
