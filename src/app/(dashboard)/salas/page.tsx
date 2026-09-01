@@ -838,13 +838,12 @@ export default function SalasPage() {
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Status da Lâmpada</label>
+                  <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Status da Lâmpada (Auto)</label>
                   <input
                     type="text"
-                    placeholder="Ex: Bom, TROCAR LÂMPADA"
                     value={lampStatus}
-                    onChange={(e) => setLampStatus(e.target.value)}
-                    className="w-full h-8 text-xs rounded-xl border border-border bg-background px-2.5 text-foreground"
+                    readOnly
+                    className="w-full h-8 text-xs rounded-xl border border-border bg-muted px-2.5 text-muted-foreground cursor-not-allowed"
                   />
                 </div>
 
@@ -858,10 +857,17 @@ export default function SalasPage() {
                     onChange={(e) => {
                       if (!e.target.value) {
                         setLampHours("");
+                        setLampStatus("Bom");
                         return;
                       }
                       const val = parseInt(e.target.value, 10);
-                      setLampHours(isNaN(val) ? "" : Math.max(0, val));
+                      const hours = isNaN(val) ? "" : Math.max(0, val);
+                      setLampHours(hours);
+                      if (typeof hours === "number") {
+                        if (hours <= 2500) setLampStatus("Bom");
+                        else if (hours <= 4000) setLampStatus("Razoável");
+                        else setLampStatus("Trocar Lâmpada");
+                      }
                     }}
                     className="w-full h-8 text-xs rounded-xl border border-border bg-background px-2.5 text-foreground"
                   />

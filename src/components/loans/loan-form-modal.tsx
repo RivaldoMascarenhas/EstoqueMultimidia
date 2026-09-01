@@ -215,9 +215,14 @@ export function LoanFormModal({
       return;
     }
 
+    const combinedDateTime = new Date(`${returnDate}T${returnTime}:00`);
+    if (combinedDateTime <= new Date()) {
+      toast.error("A data prevista de retorno deve ser no futuro.");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      const combinedDateTime = new Date(`${returnDate}T${returnTime}:00`);
 
       const payload = {
         assetId: selectedAssetId,

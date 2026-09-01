@@ -141,6 +141,11 @@ export function AssetFormModal({
       return;
     }
 
+    if (purchaseValue !== undefined && purchaseValue < 0) {
+      toast.error("O valor de aquisição não pode ser negativo.");
+      return;
+    }
+
     try {
       setIsLoading(true);
 
