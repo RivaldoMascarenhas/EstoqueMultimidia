@@ -77,6 +77,9 @@ export function QrScannerModal({
   const initialTouchDistRef = useRef<number | null>(null);
   const initialZoomOnPinchRef = useRef<number>(1);
 
+  // Trava síncrona anti-spam
+  const isProcessingRef = useRef<boolean>(false);
+
   // Zoom Suave
   const applyZoom = useCallback(async (level: number, targetX?: number, targetY?: number) => {
     setZoomLevel(level);
@@ -201,7 +204,7 @@ export function QrScannerModal({
     }
 
     const checkFrame = async () => {
-      if (!isMountedRef.current || !isScanningRef.current) return;
+      if (!isMountedRef.current || !isScanningRef.current || isProcessingRef.current) return;
 
       const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
       if (video && video.readyState >= 2 && video.videoWidth > 0) {
@@ -225,7 +228,7 @@ export function QrScannerModal({
               });
 
               const now = Date.now();
-              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2500) {
+              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 3000) {
                 lastAutoZoomTimeRef.current = now;
                 const centerX = relX + relW / 2;
                 const centerY = relY + relH / 2;
@@ -238,7 +241,7 @@ export function QrScannerModal({
         }
       }
 
-      if (isMountedRef.current && isScanningRef.current) {
+      if (isMountedRef.current && isScanningRef.current && !isProcessingRef.current) {
         detectLoopRef.current = requestAnimationFrame(checkFrame);
       }
     };
@@ -247,6 +250,13 @@ export function QrScannerModal({
   }, [autoZoomEnabled, applyZoom]);
 
   const handleScanSuccess = (rawText: string) => {
+    const clean = rawText?.trim();
+    if (!clean) return;
+
+    // Trava síncrona imediata
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     playBeep();
     triggerHaptic([40, 60, 40]);
     setIsRedirecting(true);
@@ -257,17 +267,23 @@ export function QrScannerModal({
       detectLoopRef.current = null;
     }
 
-    const clean = rawText.trim();
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.pause(true);
+      } catch {}
+    }
 
     setTimeout(() => {
       killAllVideoHardware();
       stopScanner();
       onClose();
 
+      toast.dismiss();
+
       if (clean.includes("/validar/")) {
         const parts = clean.split("/validar/");
         const code = parts[1]?.split("?")[0]?.trim();
-        toast.success("Documento identificado! Redirecionando...");
+        toast.success("Documento identificado!");
         router.push(`/validar/${encodeURIComponent(code || "")}`);
         return;
       }
@@ -318,6 +334,7 @@ export function QrScannerModal({
       if (!isMountedRef.current) return;
       setCameraError(null);
       setIsRedirecting(false);
+      isProcessingRef.current = false;
 
       await stopScanner();
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -654,7 +671,6 @@ export function QrScannerModal({
                   onClick={() => {
                     const next = !autoZoomEnabled;
                     setAutoZoomEnabled(next);
-                    toast.info(next ? "Auto-Zoom ativado" : "Auto-Zoom desativado");
                   }}
                   className={cn(
                     "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",

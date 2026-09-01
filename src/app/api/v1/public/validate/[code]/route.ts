@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { code } = await context.params;
-    const cleanCode = decodeURIComponent(code || "").trim();
+    let cleanCode = decodeURIComponent(code || "").trim();
 
     if (!cleanCode) {
       return NextResponse.json(
@@ -16,14 +16,25 @@ export async function GET(
       );
     }
 
+    // 0. Se vier como URL completa (ex: https://.../validar/cmthzzf6n0), extrai apenas a chave
+    if (cleanCode.includes("/validar/")) {
+      const parts = cleanCode.split("/validar/");
+      cleanCode = parts[parts.length - 1]?.split("?")[0]?.split("#")[0]?.trim() || cleanCode;
+    }
+
+    const rawCode = cleanCode;
+    const strippedLoanCode = cleanCode.replace(/^LOAN-/i, "").replace(/^#/, "").trim();
+    const strippedOsCode = cleanCode.replace(/^OS-/i, "").replace(/^#/, "").trim();
+
     // 1. Procurar por Empréstimo / Termo de Cautela
-    // Aceita: loan.id, prefixo de loan.id (ex: cmthzzf6n0), ou protocolo "LOAN-XXXXXX"
     let loan = await prisma.loan.findFirst({
       where: {
         OR: [
-          { id: cleanCode },
-          { id: { startsWith: cleanCode.toLowerCase() } },
-          { id: { endsWith: cleanCode.replace(/^LOAN-/i, "").toLowerCase() } },
+          { id: rawCode },
+          { id: rawCode.toLowerCase() },
+          { id: { startsWith: rawCode.toLowerCase() } },
+          { id: { endsWith: strippedLoanCode.toLowerCase() } },
+          { id: { contains: strippedLoanCode.toLowerCase() } },
         ],
       },
       include: {
@@ -93,14 +104,18 @@ export async function GET(
     }
 
     // 2. Procurar por Ordem de Serviço de Manutenção
-    // Aceita: maintenance.id, maintenance.orderNumber (ex: OS-2026-0001), ou prefixo do ID
     let maintenance = await prisma.maintenance.findFirst({
       where: {
         OR: [
-          { id: cleanCode },
-          { id: { startsWith: cleanCode.toLowerCase() } },
-          { orderNumber: { equals: cleanCode, mode: "insensitive" } },
-          { orderNumber: { equals: `OS-${cleanCode}`, mode: "insensitive" } },
+          { id: rawCode },
+          { id: rawCode.toLowerCase() },
+          { id: { startsWith: rawCode.toLowerCase() } },
+          { id: { endsWith: strippedOsCode.toLowerCase() } },
+          { id: { contains: strippedOsCode.toLowerCase() } },
+          { orderNumber: { equals: rawCode, mode: "insensitive" } },
+          { orderNumber: { equals: `OS-${strippedOsCode}`, mode: "insensitive" } },
+          { orderNumber: { equals: `#OS-${strippedOsCode}`, mode: "insensitive" } },
+          { orderNumber: { contains: strippedOsCode, mode: "insensitive" } },
         ],
       },
       include: {
@@ -160,8 +175,8 @@ export async function GET(
     }
 
     // 3. Procurar ou validar Relatório Oficial do Sistema (REL-*)
-    if (cleanCode.startsWith("REL-") || cleanCode.startsWith("rel-")) {
-      const parts = cleanCode.split("-");
+    if (rawCode.toUpperCase().startsWith("REL-")) {
+      const parts = rawCode.split("-");
       const reportType = parts[1]?.toUpperCase() || "GERAL";
       
       const typeLabels: Record<string, string> = {
@@ -178,8 +193,8 @@ export async function GET(
         data: {
           documentType: "OFFICIAL_REPORT",
           documentTitle: typeLabels[reportType] || "Relatório Oficial de Gestão e Controle",
-          protocol: cleanCode.toUpperCase(),
-          authenticationCode: cleanCode.toUpperCase(),
+          protocol: rawCode.toUpperCase(),
+          authenticationCode: rawCode.toUpperCase(),
           status: "AUTHENTIC",
           statusLabel: "Relatório Emitido e Autenticado",
           statusColor: "emerald",
@@ -196,11 +211,12 @@ export async function GET(
     return NextResponse.json(
       {
         success: false,
-        error: `Nenhum documento institucional foi localizado com o código ou protocolo "${cleanCode}".`,
+        error: `Nenhum documento institucional foi localizado com o código ou protocolo "${rawCode}".`,
       },
       { status: 404 }
     );
   } catch (error: any) {
+    console.error("Erro na validação de documento:", error);
     return NextResponse.json(
       { success: false, error: "Erro ao validar documento de autenticidade." },
       { status: 500 }

@@ -2,19 +2,36 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Search, FileText, CheckCircle2, ArrowRight } from "lucide-react";
+import { 
+  ShieldCheck, 
+  Search, 
+  CheckCircle2, 
+  ArrowRight, 
+  Camera, 
+  QrCode 
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { QrScannerModal } from "@/components/scanner/qr-scanner-modal";
 
 export default function ValidarDocumentosPage() {
   const [code, setCode] = useState("");
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const router = useRouter();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) return;
-    router.push(`/validar/${encodeURIComponent(code.trim())}`);
+
+    let cleanCode = code.trim();
+    // Se colou uma URL completa (ex: https://meusite.com/validar/cmthzzf6n0), extrai só o código
+    if (cleanCode.includes("/validar/")) {
+      const parts = cleanCode.split("/validar/");
+      cleanCode = parts[parts.length - 1]?.split("?")[0]?.split("#")[0]?.trim() || cleanCode;
+    }
+
+    router.push(`/validar/${encodeURIComponent(cleanCode)}`);
   };
 
   return (
@@ -63,27 +80,48 @@ export default function ValidarDocumentosPage() {
               Consultar por Chave de Autenticação
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Digite o código de verificação impresso no rodapé ou no QR Code do documento (ex: <code className="font-mono text-primary font-bold">LOAN-1234ABCD</code>, <code className="font-mono text-primary font-bold">OS-2026-0001</code> ou <code className="font-mono text-primary font-bold">cmthzzf6n0</code>).
+              Aponte a câmera para o QR Code impresso no documento ou digite o código de verificação abaixo.
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
+            {/* Botão de Câmera em Destaque */}
+            <div>
+              <Button
+                type="button"
+                onClick={() => setIsScannerOpen(true)}
+                className="w-full h-12 rounded-2xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-primary/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-[0.99]"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Escanear QR Code com a Câmera</span>
+              </Button>
+            </div>
+
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-border/80 w-full" />
+              <span className="bg-card px-3 text-[11px] text-muted-foreground uppercase font-bold tracking-wider absolute">
+                ou digite o código
+              </span>
+            </div>
+
+            {/* Formulário de Busca Manual */}
             <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-3.5" />
                 <Input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="Ex: LOAN-72B9A1F4 ou cmthzzf6n0"
+                  placeholder="Ex: LOAN-72B9A1F4, OS-2026-0001 ou cole o link do QR"
                   className="pl-10 h-11 text-xs sm:text-sm font-mono rounded-xl bg-background border-input uppercase"
                   required
                 />
               </div>
               <Button
                 type="submit"
-                className="h-11 px-6 text-xs sm:text-sm font-bold rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20 gap-2 cursor-pointer shrink-0"
+                variant="secondary"
+                className="h-11 px-6 text-xs sm:text-sm font-bold rounded-xl shadow-sm gap-2 cursor-pointer shrink-0"
               >
-                <span>Verificar Documento</span>
+                <span>Verificar</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </form>
@@ -101,6 +139,14 @@ export default function ValidarDocumentosPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Modal do Leitor de Câmera */}
+      <QrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        title="Escanear Selo do Documento"
+        description="Aponte a câmera para o QR Code de autenticidade no documento impresso."
+      />
 
       {/* Rodapé */}
       <footer className="max-w-4xl w-full mx-auto py-6 border-t border-border/60 text-center text-xs text-muted-foreground space-y-1">

@@ -13,14 +13,12 @@ import {
   History, 
   CheckCircle2, 
   AlertTriangle, 
-  Sparkles, 
   Volume2, 
   VolumeX, 
   Keyboard, 
   ArrowRight, 
   SwitchCamera,
   Flashlight,
-  FlashlightOff,
   Zap,
   QrCode,
   Check
@@ -88,6 +86,11 @@ export default function ScannerPage() {
   const resultSectionRef = useRef<HTMLDivElement>(null);
   const cameraCardRef = useRef<HTMLDivElement>(null);
 
+  // TRAVAS SÍNCRONAS ANTI-SPAM (Impedem disparos múltiplos a cada frame)
+  const isProcessingRef = useRef<boolean>(false);
+  const lastScannedCodeRef = useRef<string | null>(null);
+  const lastScannedTimeRef = useRef<number>(0);
+
   // Som suave de bip
   const playDecodeSuccessSound = () => {
     if (!soundEnabled) return;
@@ -122,7 +125,6 @@ export default function ScannerPage() {
   const applyZoom = useCallback(async (level: number, targetX?: number, targetY?: number) => {
     setZoomLevel(level);
 
-    // Zoom visual 60fps com ponto focal inteligente
     const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
     if (video) {
       video.style.transition = "transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.45s ease";
@@ -134,7 +136,6 @@ export default function ScannerPage() {
       video.style.transform = `scale(${level})`;
     }
 
-    // Hardware zoom (se suportado pelo sensor do celular)
     if (activeStreamRef.current) {
       const track = activeStreamRef.current.getVideoTracks()[0];
       if (track) {
@@ -151,7 +152,6 @@ export default function ScannerPage() {
     }
   }, []);
 
-  // Encerra imediatamente hardware da câmera ao desmontar
   const killAllVideoHardware = useCallback(() => {
     if (detectLoopRef.current) {
       cancelAnimationFrame(detectLoopRef.current);
@@ -223,7 +223,7 @@ export default function ScannerPage() {
     }
 
     const checkFrame = async () => {
-      if (!isMountedRef.current || !isScanningRef.current) return;
+      if (!isMountedRef.current || !isScanningRef.current || isProcessingRef.current) return;
 
       const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
       if (video && video.readyState >= 2 && video.videoWidth > 0) {
@@ -249,7 +249,7 @@ export default function ScannerPage() {
 
               // Auto-Zoom Suave se o código estiver pequeno/distante
               const now = Date.now();
-              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2500) {
+              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 3000) {
                 lastAutoZoomTimeRef.current = now;
                 const centerX = relX + relW / 2;
                 const centerY = relY + relH / 2;
@@ -262,7 +262,7 @@ export default function ScannerPage() {
         }
       }
 
-      if (isMountedRef.current && isScanningRef.current) {
+      if (isMountedRef.current && isScanningRef.current && !isProcessingRef.current) {
         detectLoopRef.current = requestAnimationFrame(checkFrame);
       }
     };
@@ -289,6 +289,7 @@ export default function ScannerPage() {
       setCameraError(null);
       setScanResult(null);
       setJustScannedCode(null);
+      isProcessingRef.current = false;
 
       await stopCamera();
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -442,7 +443,6 @@ export default function ScannerPage() {
     }
   };
 
-  // Gesto Pinch-to-Zoom
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dist = Math.hypot(
@@ -492,22 +492,44 @@ export default function ScannerPage() {
     };
   }, []);
 
-  // Processamento do Código SEM TELA PRETA e com Auto-Scroll no Mobile
+  // PROCESSAMENTO DO CÓDIGO COM TRAVA SÍNCRONA (ZERO NOTIFICAÇÕES EM MASSA)
   const handleCodeDetected = async (code: string) => {
-    if (isLoadingLookup) return;
+    const clean = code?.trim();
+    if (!clean) return;
 
-    playDecodeSuccessSound();
-    triggerHaptic([40, 60, 40]);
-    setJustScannedCode(code);
+    const now = Date.now();
 
-    // Pausa apenas o loop de leitura, MANTENDO o vídeo visível (sem tela preta!)
+    // 1. TRAVA SÍNCRONA IMEDIATA: Se já estiver processando um código, rejeita na hora
+    if (isProcessingRef.current) return;
+
+    // 2. DEBOUNCE: Ignora se for exatamente o mesmo código lido a menos de 4 segundos
+    if (lastScannedCodeRef.current === clean && now - lastScannedTimeRef.current < 4000) {
+      return;
+    }
+
+    // Trava ativada instantaneamente
+    isProcessingRef.current = true;
+    lastScannedCodeRef.current = clean;
+    lastScannedTimeRef.current = now;
+
+    // Pausa a câmera de forma limpa (sem tela preta)
     isScanningRef.current = false;
     if (detectLoopRef.current) {
       cancelAnimationFrame(detectLoopRef.current);
       detectLoopRef.current = null;
     }
 
-    await processCodeLookup(code);
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.pause(true);
+      } catch {}
+    }
+
+    playDecodeSuccessSound();
+    triggerHaptic([40, 60, 40]);
+    setJustScannedCode(clean);
+
+    await processCodeLookup(clean);
   };
 
   const processCodeLookup = async (codeToLookup: string) => {
@@ -535,9 +557,11 @@ export default function ScannerPage() {
           ...prev.slice(0, 9),
         ]);
 
-        toast.success("Código identificado com sucesso!");
+        // Única notificação limpa
+        toast.dismiss();
+        toast.success("Código identificado!");
 
-        // Auto-Scroll Suave no Mobile para exibir os detalhes encontrados
+        // Auto-Scroll Suave no Mobile
         setTimeout(() => {
           if (resultSectionRef.current) {
             resultSectionRef.current.scrollIntoView({
@@ -556,14 +580,26 @@ export default function ScannerPage() {
         }
       } else {
         toast.error(json.error || "Item ou documento não encontrado no sistema.");
-        // Se falhar a busca, reativa a câmera
-        isScanningRef.current = true;
-        startDetectionLoop();
+        // Se não encontrou, destrava para permitir nova leitura após 1.5s
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          isScanningRef.current = true;
+          if (scannerRef.current) {
+            try { scannerRef.current.resume(); } catch {}
+          }
+          startDetectionLoop();
+        }, 1500);
       }
     } catch {
       toast.error("Erro ao consultar o banco de dados.");
-      isScanningRef.current = true;
-      startDetectionLoop();
+      setTimeout(() => {
+        isProcessingRef.current = false;
+        isScanningRef.current = true;
+        if (scannerRef.current) {
+          try { scannerRef.current.resume(); } catch {}
+        }
+        startDetectionLoop();
+      }, 1500);
     } finally {
       setIsLoadingLookup(false);
       setJustScannedCode(null);
@@ -584,13 +620,21 @@ export default function ScannerPage() {
     setJustScannedCode(null);
     applyZoom(1);
 
-    // Se a câmera estiver parada, reinicia
-    if (!isScanning) {
-      startCamera();
-    } else {
-      isScanningRef.current = true;
-      startDetectionLoop();
+    // Destrava síncrona
+    isProcessingRef.current = false;
+    lastScannedCodeRef.current = null;
+
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.resume();
+      } catch {
+        startCamera();
+        return;
+      }
     }
+
+    isScanningRef.current = true;
+    startDetectionLoop();
 
     // Scroll suave de volta para a câmera no mobile
     setTimeout(() => {
@@ -807,7 +851,6 @@ export default function ScannerPage() {
                   onClick={() => {
                     const next = !autoZoomEnabled;
                     setAutoZoomEnabled(next);
-                    toast.info(next ? "Auto-Zoom ativado" : "Auto-Zoom desativado");
                   }}
                   className={cn(
                     "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",

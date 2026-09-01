@@ -43,69 +43,73 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Tentar extrair de URL (ex: https://.../caixas/C001, /patrimonio/123458 ou /validar/cmthzzf6n0)
+    // 2. Extrair de URL (ex: https://.../caixas/C001, /patrimonio/123458 ou /validar/cmthzzf6n0)
     if (parsedTag.includes("/validar/")) {
       const parts = parsedTag.split("/validar/");
-      parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
+      parsedTag = parts[parts.length - 1]?.split("?")[0]?.split("#")[0]?.trim() || parsedTag;
     } else if (parsedTag.includes("/caixas/")) {
       const parts = parsedTag.split("/caixas/");
-      parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
+      parsedTag = parts[parts.length - 1]?.split("?")[0]?.split("#")[0]?.trim() || parsedTag;
     } else if (parsedTag.includes("/patrimonio/")) {
       const parts = parsedTag.split("/patrimonio/");
-      parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
+      parsedTag = parts[parts.length - 1]?.split("?")[0]?.split("#")[0]?.trim() || parsedTag;
     }
 
     // Limpar prefixos comuns como #, #PAT-, #OS-
-    const cleanTag = parsedTag.replace(/^#/, "").replace(/^PAT-/, "");
+    const cleanTag = parsedTag.replace(/^#/, "").replace(/^PAT-/i, "").trim();
+    const strippedLoan = parsedTag.replace(/^[Ll][Oo][Aa][Nn]-/, "").replace(/^#/, "").trim();
+    const strippedOs = parsedTag.replace(/^[Oo][Ss]-/, "").replace(/^#/, "").trim();
 
     // ----------------------------------------------------
     // RESOLVER ENTIDADES
     // ----------------------------------------------------
 
     // A. Buscar por EMPRÉSTIMO / TERMO DE CAUTELA (Loan)
-    // Suporta código completo, ID parcial (ex: cmthzzf6n0), protocolo (LOAN-XXXXXX)
-    const isLoanFormat = parsedTag.startsWith("LOAN-") || parsedTag.startsWith("loan-") || (parsedTag.length >= 8 && parsedTag.length <= 32);
-    if (isLoanFormat) {
-      const cleanLoanCode = parsedTag.replace(/^[Ll][Oo][Aa][Nn]-/, "").toLowerCase();
-      const loan = await prisma.loan.findFirst({
-        where: {
-          OR: [
-            { id: parsedTag },
-            { id: cleanLoanCode },
-            { id: { startsWith: cleanLoanCode } },
-            { id: { endsWith: cleanLoanCode } },
-          ],
-        },
-        include: {
-          asset: {
-            include: {
-              item: true,
-              currentBox: { include: { door: true } },
-            },
+    const loan = await prisma.loan.findFirst({
+      where: {
+        OR: [
+          { id: parsedTag },
+          { id: parsedTag.toLowerCase() },
+          { id: strippedLoan },
+          { id: strippedLoan.toLowerCase() },
+          { id: { startsWith: strippedLoan.toLowerCase() } },
+          { id: { endsWith: strippedLoan.toLowerCase() } },
+          { id: { contains: strippedLoan.toLowerCase() } },
+        ],
+      },
+      include: {
+        asset: {
+          include: {
+            item: true,
+            currentBox: { include: { door: true } },
           },
-          createdByUser: { select: { name: true, email: true } },
         },
-      });
+        createdByUser: { select: { name: true, email: true } },
+      },
+    });
 
-      if (loan) {
-        return NextResponse.json({
-          success: true,
-          entityType: "LOAN",
-          data: sanitizeLoanForRole(loan, session?.user?.role),
-        });
-      }
+    if (loan) {
+      return NextResponse.json({
+        success: true,
+        entityType: "LOAN",
+        data: sanitizeLoanForRole(loan, session?.user?.role),
+      });
     }
 
     // B. Buscar por ORDEM DE SERVIÇO (Maintenance / OS)
-    const isOsFormat = parsedTag.startsWith("OS-") || parsedTag.startsWith("os-") || parsedTag.startsWith("#OS-");
     const maintenance = await prisma.maintenance.findFirst({
       where: {
         OR: [
+          { id: parsedTag },
+          { id: parsedTag.toLowerCase() },
+          { id: { startsWith: parsedTag.toLowerCase() } },
+          { id: { endsWith: strippedOs.toLowerCase() } },
+          { id: { contains: strippedOs.toLowerCase() } },
           { orderNumber: { equals: parsedTag, mode: "insensitive" } },
           { orderNumber: { equals: `#${cleanTag}`, mode: "insensitive" } },
-          { id: parsedTag },
-          { id: { startsWith: parsedTag.toLowerCase() } },
-          { id: { endsWith: parsedTag.toLowerCase() } },
+          { orderNumber: { equals: `OS-${strippedOs}`, mode: "insensitive" } },
+          { orderNumber: { equals: `#OS-${strippedOs}`, mode: "insensitive" } },
+          { orderNumber: { contains: strippedOs, mode: "insensitive" } },
         ],
       },
       include: {
@@ -127,7 +131,7 @@ export async function POST(req: NextRequest) {
     }
 
     // C. Buscar por RELATÓRIO OFICIAL (Report / REL-*)
-    if (parsedTag.startsWith("REL-") || parsedTag.startsWith("rel-")) {
+    if (parsedTag.toUpperCase().startsWith("REL-")) {
       const parts = parsedTag.split("-");
       const reportType = parts[1] || "GERAL";
       const hash = parts[2] || "OFICIAL";
