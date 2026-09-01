@@ -213,6 +213,10 @@ export class LoanService {
         throw new Error("Data prevista de devolução inválida.");
       }
 
+      if (expectedDate <= new Date()) {
+        throw new Error("A data prevista de devolução não pode ser no passado.");
+      }
+
       // 1.1 Validar se o equipamento está agendado/em atendimento na Agenda
       const now = new Date();
       const overlappingReservation = await tx.reservation.findFirst({
@@ -517,6 +521,10 @@ export class LoanService {
       const newDate = new Date(data.newExpectedReturnDate);
       if (isNaN(newDate.getTime())) {
         throw new Error("Nova data de devolução inválida.");
+      }
+
+      if (newDate <= new Date()) {
+        throw new Error("A nova data prevista de devolução não pode ser no passado.");
       }
 
       const previousDate = loan.expectedReturnDate;
