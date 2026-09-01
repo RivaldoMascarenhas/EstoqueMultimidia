@@ -464,20 +464,29 @@ function PresentationContent({ eventId }: { eventId: string }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [soundEnabled]);
 
+  const primaryColor = event?.primaryColor || "#002B49";
+  const secondaryColor = event?.secondaryColor || "#EAA023";
+
   return (
     <div
       className="fixed inset-0 bg-[#000E1A] text-white flex flex-col justify-between p-6 sm:p-10 select-none overflow-hidden font-sans"
       style={{
         backgroundImage: `
-          radial-gradient(circle at 50% -20%, rgba(0, 128, 200, 0.25) 0%, transparent 60%),
-          radial-gradient(circle at 100% 100%, rgba(234, 160, 35, 0.15) 0%, transparent 50%),
-          radial-gradient(circle at 0% 100%, rgba(0, 43, 73, 0.6) 0%, transparent 60%)
+          radial-gradient(circle at 50% -20%, ${primaryColor}40 0%, transparent 60%),
+          radial-gradient(circle at 100% 100%, ${secondaryColor}25 0%, transparent 50%),
+          radial-gradient(circle at 0% 100%, ${primaryColor}80 0%, transparent 60%)
         `,
       }}
     >
       {/* Background Aura */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#0080C8]/10 rounded-full blur-[160px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-[500px] h-[500px] bg-[#EAA023]/10 rounded-full blur-[140px] pointer-events-none" />
+      <div
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[160px] pointer-events-none"
+        style={{ backgroundColor: `${primaryColor}20` }}
+      />
+      <div
+        className="absolute bottom-10 right-10 w-[500px] h-[500px] rounded-full blur-[140px] pointer-events-none"
+        style={{ backgroundColor: `${secondaryColor}20` }}
+      />
 
       {/* Top Header */}
       <header className="relative z-20 flex items-center justify-between">

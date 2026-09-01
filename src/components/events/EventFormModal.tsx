@@ -25,11 +25,51 @@ import {
   Building,
   Check,
   Activity,
+  RotateCcw,
 } from "lucide-react";
 import { normalizeImageUrl } from "@/lib/formatImageUrl";
 import { getBrazilDateString } from "@/lib/event-time";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const PRESET_COLOR_THEMES = [
+  {
+    name: "UniFAP Oficial",
+    primary: "#002B49",
+    secondary: "#EAA023",
+    tag: "Institucional",
+  },
+  {
+    name: "Esmeralda Tech",
+    primary: "#064e3b",
+    secondary: "#10b981",
+    tag: "Moderno",
+  },
+  {
+    name: "Cyberpunk Neon",
+    primary: "#311042",
+    secondary: "#ec4899",
+    tag: "Festivo",
+  },
+  {
+    name: "Sunset & Rubi",
+    primary: "#450a0a",
+    secondary: "#f59e0b",
+    tag: "Vibrante",
+  },
+  {
+    name: "Oceanic Cyan",
+    primary: "#082f49",
+    secondary: "#06b6d4",
+    tag: "Gala",
+  },
+  {
+    name: "Midnight Prata",
+    primary: "#09090b",
+    secondary: "#94a3b8",
+    tag: "Sleek",
+  },
+];
 
 interface EventFormModalProps {
   isOpen: boolean;
@@ -616,25 +656,96 @@ export function EventFormModal({
               </div>
 
               {/* Personalização Visual do Telão */}
-              <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
-                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Palette className="h-4 w-4 text-primary" />
-                  <span>Cores Temáticas do Telão da Roleta</span>
-                </span>
+              <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Palette className="h-4 w-4 text-primary" />
+                    <span>Cores Temáticas do Telão e Roleta</span>
+                  </span>
 
-                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrimaryColor("#002B49");
+                      setSecondaryColor("#EAA023");
+                      toast.info("Cores redefinidas para o padrão institucional UniFAP.");
+                    }}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 hover:underline transition-colors cursor-pointer"
+                    title="Redefinir para Azul Marinho (#002B49) e Dourado (#EAA023)"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Redefinir Padrão</span>
+                  </button>
+                </div>
+
+                {/* Paletas Rápidas Recomendadas */}
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground block mb-2">
+                    Paletas Rápidas Recomendadas:
+                  </label>
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                    {PRESET_COLOR_THEMES.map((theme) => {
+                      const isSelected =
+                        primaryColor.toLowerCase() === theme.primary.toLowerCase() &&
+                        secondaryColor.toLowerCase() === theme.secondary.toLowerCase();
+                      return (
+                        <button
+                          key={theme.name}
+                          type="button"
+                          onClick={() => {
+                            setPrimaryColor(theme.primary);
+                            setSecondaryColor(theme.secondary);
+                          }}
+                          className={`flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all cursor-pointer text-left ${
+                            isSelected
+                              ? "bg-primary/10 border-primary ring-2 ring-primary/20 shadow-xs"
+                              : "bg-background/80 border-border/70 hover:bg-background hover:border-border"
+                          }`}
+                          title={`${theme.name} (${theme.primary} & ${theme.secondary})`}
+                        >
+                          <div className="flex items-center -space-x-1">
+                            <span
+                              className="w-4 h-4 rounded-full border border-white/20 shadow-xs shrink-0"
+                              style={{ backgroundColor: theme.primary }}
+                            />
+                            <span
+                              className="w-4 h-4 rounded-full border border-white/20 shadow-xs shrink-0"
+                              style={{ backgroundColor: theme.secondary }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-foreground truncate w-full text-center">
+                            {theme.name.split(" ")[0]}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Controles com Input Color + Hex Text */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-semibold text-muted-foreground block">
                       Cor Primária (Fundo & Acentos)
                     </label>
-                    <div className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border">
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border focus-within:border-primary transition-all">
                       <input
                         type="color"
                         value={primaryColor}
                         onChange={(e) => setPrimaryColor(e.target.value)}
-                        className="h-6 w-6 rounded-lg cursor-pointer border-0 bg-transparent"
+                        className="h-7 w-7 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
                       />
-                      <span className="text-xs font-mono font-bold text-foreground">{primaryColor}</span>
+                      <input
+                        type="text"
+                        value={primaryColor}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setPrimaryColor(val.startsWith("#") ? val : `#${val}`);
+                        }}
+                        className="w-full bg-transparent text-xs font-mono font-bold text-foreground uppercase focus:outline-none"
+                        placeholder="#002B49"
+                        maxLength={7}
+                      />
                     </div>
                   </div>
 
@@ -642,16 +753,54 @@ export function EventFormModal({
                     <label className="text-[11px] font-semibold text-muted-foreground block">
                       Cor Secundária (Destaques & Ouro)
                     </label>
-                    <div className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border">
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border focus-within:border-primary transition-all">
                       <input
                         type="color"
                         value={secondaryColor}
                         onChange={(e) => setSecondaryColor(e.target.value)}
-                        className="h-6 w-6 rounded-lg cursor-pointer border-0 bg-transparent"
+                        className="h-7 w-7 rounded-lg cursor-pointer border-0 bg-transparent shrink-0"
                       />
-                      <span className="text-xs font-mono font-bold text-foreground">{secondaryColor}</span>
+                      <input
+                        type="text"
+                        value={secondaryColor}
+                        onChange={(e) => {
+                          const val = e.target.value.trim();
+                          setSecondaryColor(val.startsWith("#") ? val : `#${val}`);
+                        }}
+                        className="w-full bg-transparent text-xs font-mono font-bold text-foreground uppercase focus:outline-none"
+                        placeholder="#EAA023"
+                        maxLength={7}
+                      />
                     </div>
                   </div>
+                </div>
+
+                {/* Pré-visualização Dinâmica do Tema */}
+                <div
+                  className="rounded-xl p-3 border border-white/10 shadow-inner flex items-center justify-between"
+                  style={{
+                    backgroundColor: primaryColor || "#002B49",
+                    backgroundImage: `linear-gradient(135deg, ${primaryColor || "#002B49"} 0%, #000000 100%)`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles
+                      className="h-4 w-4"
+                      style={{ color: secondaryColor || "#EAA023" }}
+                    />
+                    <span className="text-xs font-black tracking-wide text-white">
+                      Prévia do Telão 4K
+                    </span>
+                  </div>
+                  <span
+                    className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: secondaryColor || "#EAA023",
+                      color: "#000000",
+                    }}
+                  >
+                    Destaque ao Vivo
+                  </span>
                 </div>
               </div>
             </div>
