@@ -146,7 +146,7 @@ describe("Users API - Security & Role Authorization", () => {
 
       expect(res.status).toBe(400);
       const json = await res.json();
-      expect(json.error).toMatch(/no mínimo 8 caracteres/);
+      expect(json.error).toMatch(/no mínimo 10 caracteres/);
     });
 
     it("deve exigir que a senha contenha letras e números", async () => {
@@ -156,7 +156,7 @@ describe("Users API - Security & Role Authorization", () => {
 
       const reqOnlyNumbers = new NextRequest("http://localhost:3000/api/v1/users", {
         method: "POST",
-        body: JSON.stringify({ name: "Novo", email: "novo@unifap.br", password: "12345678" }),
+        body: JSON.stringify({ name: "Novo", email: "novo@unifap.br", password: "1234567890!" }),
       });
       const resOnlyNumbers = await createUser(reqOnlyNumbers);
       expect(resOnlyNumbers.status).toBe(400);

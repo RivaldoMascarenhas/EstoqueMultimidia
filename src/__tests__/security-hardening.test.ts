@@ -22,15 +22,16 @@ describe("Security Hardening & Vulnerability Suite", () => {
 
   describe("2. Password Security Policy Validation", () => {
     it("should reject weak passwords and enforce minimum security constraints", () => {
-      // Too short (< 8 chars)
+      // Too short (< 10 chars)
       expect(validatePasswordPolicy("Ab1!").isValid).toBe(false);
+      expect(validatePasswordPolicy("Abc1234!").isValid).toBe(false);
       // No letters
-      expect(validatePasswordPolicy("123456789!").isValid).toBe(false);
+      expect(validatePasswordPolicy("1234567890!").isValid).toBe(false);
       // No numbers
       expect(validatePasswordPolicy("PasswordOnly!").isValid).toBe(false);
       // No special characters
-      expect(validatePasswordPolicy("Password123").isValid).toBe(false);
-      // Valid strong password
+      expect(validatePasswordPolicy("Password1234").isValid).toBe(false);
+      // Valid strong password (>= 10 chars)
       expect(validatePasswordPolicy("UniFAP@2026!").isValid).toBe(true);
     });
   });

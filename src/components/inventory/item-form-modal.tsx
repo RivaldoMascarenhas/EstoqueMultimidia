@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Package, Plus, Loader2, Check, X, Tag, Monitor, Layers, Box, CheckCircle2, Sliders, Sparkles } from "lucide-react";
+import { Package, Plus, Loader2, Check, X, Tag, Monitor, Layers, Box, CheckCircle2, Sliders, Sparkles, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -354,6 +354,18 @@ export function ItemFormModal({
             </div>
           </div>
         </DialogHeader>
+
+        {isEditing && itemType === "ASSET_EQUIPMENT" && (
+          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-bold">Atenção: Edição Global do Modelo</span>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Alterações aqui afetam o nome e as especificações de todos os equipamentos deste modelo. Para alterar apenas um patrimônio específico, edite a unidade na tela de Patrimônio.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5 pt-2">
           {/* 1. SELEÇÃO VISUAL DO TIPO DE ITEM (NATUREZA) */}

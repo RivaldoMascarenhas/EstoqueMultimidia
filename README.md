@@ -1,12 +1,12 @@
 # 🎓 UniFAP — Sistema Integrado de Gestão de Estoque, Patrimônio, Eventos & Biometria Facial
 
-[![Next.js 14](https://img.shields.io/badge/Next.js-14.2.35-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.5.24-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111_Python_3.10-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL_16-pgvector-336791?style=for-the-badge&logo=postgresql)](https://github.com/pgvector/pgvector)
-[![Prisma ORM](https://img.shields.io/badge/Prisma-5.18-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
+[![Prisma ORM](https://img.shields.io/badge/Prisma-5.18_(36_Modelos)-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
 [![Cloudflare Tunnel](https://img.shields.io/badge/Cloudflare_Tunnel-Zero_Trust-F38020?style=for-the-badge&logo=cloudflare)](https://www.cloudflare.com/products/tunnel/)
-[![Vitest](https://img.shields.io/badge/Vitest-135_Testes_100%25_Passing-6E9F18?style=for-the-badge&logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-303_Testes_100%25_Passing-6E9F18?style=for-the-badge&logo=vitest)](https://vitest.dev/)
 [![LGPD](https://img.shields.io/badge/Conformidade-LGPD_Auditada-success?style=for-the-badge)]()
 
 Sistema institucional oficial desenvolvido para o setor de **Suporte de Tecnologia da Informação & Multimídia do Centro Universitário Paraíso (UniFAP - Juazeiro do Norte/CE)** • [unifapce.edu.br](https://unifapce.edu.br/).
@@ -414,17 +414,19 @@ Esta é a opção recomendada para produção. Todos os serviços (Next.js, Fast
 
 ---
 
-## 🔑 Usuários Pré-Configurados (Seed)
+## 🔑 Contas de Demonstração & Seed Local
 
-O script de seed (`prisma/seed.ts`) cria contas de teste para validação dos perfis de acesso. Todos os usuários criados via seed possuem **troca obrigatória de senha ativada (`mustChangePassword: true`)** no primeiro acesso:
+O script de inicialização (`prisma/seed.ts`) permite popular o banco local com perfis de teste para validação de fluxos e permissões. 
 
-| Nome | E-mail | Perfil de Acesso | Permissões |
+> [!IMPORTANT]
+> **Segurança de Produção**: Em ambientes de produção, o seed não utiliza credenciais pré-fixadas e exige a definição da variável `SEED_DEFAULT_PASSWORD` (ou gera senhas seguras pseudo-aleatórias descartáveis), ativando **troca obrigatória de senha (`mustChangePassword: true`)** para todas as contas criadas.
+
+| Perfil de Teste | E-mail de Exemplo | Role RBAC | Escopo de Permissões |
 | :--- | :--- | :--- | :--- |
-| **Rivaldo** | `rivaldo@unifap.br` | **`ADMIN`** | Acesso total irrestrito a todo o sistema, usuários, auditoria e APIs. |
-| **Rodrigo** | `rodrigo@unifap.br` | **`GESTOR`** | Gestão de estoque, patrimônios, OS, eventos, relatórios e auditoria. |
-| **Thomas** | `thomas@unifap.br` | **`OPERADOR`** | Empréstimos, devoluções, baixas, entradas, presenças e scanner mobile. |
-| **Pedro** | `pedro@unifap.br` | **`OPERADOR`** | Empréstimos, devoluções, baixas, entradas, presenças e scanner mobile. |
-| **Paloma** | `paloma@unifap.br` | **`ACADEMIC_SUPPORT`** | Agendamento e requisição de salas e equipamentos pedagógicos. |
+| **Administrador** | `admin@exemplo.local` | **`ADMIN`** | Acesso total a configurações, usuários, auditoria e chaves de API. |
+| **Gestor Multimídia** | `gestor@exemplo.local` | **`GESTOR`** | Gestão de patrimônio, estoque, OS, eventos, relatórios e auditoria. |
+| **Operador de TI** | `operador@exemplo.local` | **`OPERADOR`** | Empréstimos, devoluções, baixas/entradas, presenças e scanner. |
+| **Apoio Acadêmico** | `docente@exemplo.local` | **`ACADEMIC_SUPPORT`** | Requisição de equipamentos pedagógicos e agendamento de salas. |
 
 ---
 

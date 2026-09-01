@@ -8,7 +8,7 @@ on:
 
 jobs:
   validate-and-test:
-    name: Typecheck, Lint & Automated Tests
+    name: Typecheck, Lint, Security Scanning & Automated Tests
     runs-on: ubuntu-latest
 
     services:
@@ -29,6 +29,14 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: Setup Node.js Environment
         uses: actions/setup-node@v4

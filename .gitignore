@@ -3,7 +3,17 @@ node_modules/
 .pnp/
 .pnp.js
 
+# Scratch & Temporary Scripts
 scratch/
+fix_*.js
+*.py
+*.sh.bak
+
+# Uploads & User Media (Only preserve directory structure)
+public/uploads/**
+!public/uploads/**/.gitkeep
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
 
 # Next.js build output
 .next/
@@ -11,10 +21,14 @@ out/
 build/
 dist/
 
-# Environment Variables
+# Environment Variables & Secrets
 .env
 .env*.local
 !.env.example
+*.pem
+*.key
+*.cert
+*.crt
 
 # Logs
 npm-debug.log*
@@ -34,40 +48,19 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
 biometric-api/lib/
 biometric-api/lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 biometric-api/.venv/
 biometric-api/venv/
 biometric-api/__pycache__/
 biometric-api/*/__pycache__/
+.venv/
+venv/
+env/
 
 # IDE & OS Files
 .DS_Store
-*.pem
 .vscode/
 .idea/
 Thumbs.db
 *.tsbuildinfo
-

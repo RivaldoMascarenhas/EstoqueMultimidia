@@ -1,22 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { RateLimiter } from "@/lib/rate-limiter";
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ code: string }> }
 ) {
   try {
+    // 1. Rate Limiting Público (Prevenção de DoS e Fuzzing/Enumeração)
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      "anonymous";
+
+    const rateCheck = await RateLimiter.consume(`public:validate:${ip}`, 30, 60 * 1000);
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Muitas consultas consecutivas. Por favor, aguarde 1 minuto.",
+        },
+        { status: 429 }
+      );
+    }
+
     const { code } = await context.params;
     let cleanCode = decodeURIComponent(code || "").trim();
 
-    if (!cleanCode) {
+    if (!cleanCode || cleanCode.length < 5) {
       return NextResponse.json(
-        { success: false, error: "Código de autenticidade não informado." },
+        { success: false, error: "Código de autenticidade inválido ou incompleto (mínimo de 5 caracteres)." },
         { status: 400 }
       );
     }
 
-    // 0. Se vier como URL completa (ex: https://.../validar/cmthzzf6n0), extrai apenas a chave
+    // Se vier como URL completa (ex: https://.../validar/cmthzzf6n0), extrai apenas a chave
     if (cleanCode.includes("/validar/")) {
       const parts = cleanCode.split("/validar/");
       cleanCode = parts[parts.length - 1]?.split("?")[0]?.split("#")[0]?.trim() || cleanCode;
@@ -26,16 +44,19 @@ export async function GET(
     const strippedLoanCode = cleanCode.replace(/^LOAN-/i, "").replace(/^#/, "").trim();
     const strippedOsCode = cleanCode.replace(/^OS-/i, "").replace(/^#/, "").trim();
 
-    // 1. Procurar por Empréstimo / Termo de Cautela
+    // 2. Procurar por Empréstimo / Termo de Cautela (Busca Segura sem Wildcard Aberto)
+    const loanConditions: any[] = [
+      { id: rawCode },
+      { id: rawCode.toLowerCase() },
+    ];
+
+    if (strippedLoanCode.length >= 8) {
+      loanConditions.push({ id: { endsWith: strippedLoanCode.toLowerCase() } });
+    }
+
     let loan = await prisma.loan.findFirst({
       where: {
-        OR: [
-          { id: rawCode },
-          { id: rawCode.toLowerCase() },
-          { id: { startsWith: rawCode.toLowerCase() } },
-          { id: { endsWith: strippedLoanCode.toLowerCase() } },
-          { id: { contains: strippedLoanCode.toLowerCase() } },
-        ],
+        OR: loanConditions,
       },
       include: {
         asset: {
@@ -103,20 +124,21 @@ export async function GET(
       });
     }
 
-    // 2. Procurar por Ordem de Serviço de Manutenção
+    // 3. Procurar por Ordem de Serviço de Manutenção
+    const maintenanceConditions: any[] = [
+      { id: rawCode },
+      { id: rawCode.toLowerCase() },
+      { orderNumber: { equals: rawCode, mode: "insensitive" } },
+      { orderNumber: { equals: `OS-${strippedOsCode}`, mode: "insensitive" } },
+    ];
+
+    if (strippedOsCode.length >= 8) {
+      maintenanceConditions.push({ id: { endsWith: strippedOsCode.toLowerCase() } });
+    }
+
     let maintenance = await prisma.maintenance.findFirst({
       where: {
-        OR: [
-          { id: rawCode },
-          { id: rawCode.toLowerCase() },
-          { id: { startsWith: rawCode.toLowerCase() } },
-          { id: { endsWith: strippedOsCode.toLowerCase() } },
-          { id: { contains: strippedOsCode.toLowerCase() } },
-          { orderNumber: { equals: rawCode, mode: "insensitive" } },
-          { orderNumber: { equals: `OS-${strippedOsCode}`, mode: "insensitive" } },
-          { orderNumber: { equals: `#OS-${strippedOsCode}`, mode: "insensitive" } },
-          { orderNumber: { contains: strippedOsCode, mode: "insensitive" } },
-        ],
+        OR: maintenanceConditions,
       },
       include: {
         asset: {
@@ -174,8 +196,8 @@ export async function GET(
       });
     }
 
-    // 3. Procurar ou validar Relatório Oficial do Sistema (REL-*)
-    if (rawCode.toUpperCase().startsWith("REL-")) {
+    // 4. Procurar ou validar Relatório Oficial do Sistema (REL-*)
+    if (rawCode.toUpperCase().startsWith("REL-") && rawCode.length >= 8) {
       const parts = rawCode.split("-");
       const reportType = parts[1]?.toUpperCase() || "GERAL";
       

@@ -2,10 +2,11 @@
  * Política de Segurança Institucional de Senhas - UniFAP
  * 
  * Regras:
- * 1. Mínimo de 8 caracteres
+ * 1. Mínimo de 10 caracteres
  * 2. Conter pelo menos uma letra (a-z ou A-Z)
  * 3. Conter pelo menos um número (0-9)
- * 4. Rejeitar senhas triviais e padrões comuns conhecidos
+ * 4. Conter pelo menos um caractere especial (!@#$%^&*...)
+ * 5. Rejeitar senhas triviais e padrões comuns conhecidos
  */
 
 export interface PasswordValidationResult {
@@ -24,13 +25,12 @@ const TRIVIAL_PASSWORDS = new Set([
   "1234567890",
   "password",
   "password123",
-  "admin123",
-  "admin1234",
-  "unifap123",
+  "admin12345",
+  "unifap1234",
   "unifap2026",
-  "qwerty123",
-  "mudar123",
-  "trocar123",
+  "qwerty1234",
+  "mudar12345",
+  "trocar1234",
 ]);
 
 export function validatePasswordPolicy(password: string): PasswordValidationResult {
@@ -45,7 +45,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
     };
   }
 
-  const hasMinLength = password.length >= 8;
+  const hasMinLength = password.length >= 10;
   const hasLetter = /[a-zA-Z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
@@ -59,7 +59,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasNumber,
       hasSpecialChar,
       isNotCommon,
-      error: "A senha deve possuir no mínimo 8 caracteres.",
+      error: "A senha deve possuir no mínimo 10 caracteres.",
     };
   }
 
@@ -107,7 +107,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
       hasNumber,
       hasSpecialChar,
       isNotCommon,
-      error: "Esta senha é muito comum e insegura. Escolha uma senha mais forte.",
+      error: "Esta senha é muito comum e insegura. Escolha uma senha mais complexa.",
     };
   }
 
@@ -116,7 +116,7 @@ export function validatePasswordPolicy(password: string): PasswordValidationResu
     hasMinLength: true,
     hasLetter: true,
     hasNumber: true,
-    hasSpecialChar,
+    hasSpecialChar: true,
     isNotCommon: true,
   };
 }
