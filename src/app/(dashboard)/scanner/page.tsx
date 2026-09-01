@@ -21,10 +21,9 @@ import {
   SwitchCamera,
   Flashlight,
   FlashlightOff,
-  Maximize2,
   Zap,
-  Target,
-  QrCode
+  QrCode,
+  Check
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +59,7 @@ export default function ScannerPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [manualCode, setManualCode] = useState("");
   const [isLoadingLookup, setIsLoadingLookup] = useState(false);
+  const [justScannedCode, setJustScannedCode] = useState<string | null>(null);
 
   // Estados de Zoom & Detecção Inteligente
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -85,30 +85,10 @@ export default function ScannerPage() {
   const initialTouchDistRef = useRef<number | null>(null);
   const initialZoomOnPinchRef = useRef<number>(1);
   const lastAutoZoomTimeRef = useRef<number>(0);
+  const resultSectionRef = useRef<HTMLDivElement>(null);
+  const cameraCardRef = useRef<HTMLDivElement>(null);
 
-  // Som sutil de detecção
-  const playTargetLockSound = () => {
-    if (!soundEnabled) return;
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === "suspended") ctx.resume();
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(1400, ctx.currentTime);
-      gain.gain.setValueAtTime(0.04, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.05);
-    } catch {}
-  };
-
+  // Som suave de bip
   const playDecodeSuccessSound = () => {
     if (!soundEnabled) return;
     try {
@@ -121,8 +101,8 @@ export default function ScannerPage() {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.setValueAtTime(900, ctx.currentTime);
-      osc.frequency.setValueAtTime(1800, ctx.currentTime + 0.06);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.06);
       gain.gain.setValueAtTime(0.12, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.14);
       osc.connect(gain);
@@ -138,10 +118,23 @@ export default function ScannerPage() {
     }
   };
 
-  // Aplicação do Nível de Zoom (Hardware WebRTC + Fallback Digital CSS)
-  const applyZoom = useCallback(async (level: number) => {
+  // Zoom Suave (Animação Fluida via CSS + Hardware WebRTC)
+  const applyZoom = useCallback(async (level: number, targetX?: number, targetY?: number) => {
     setZoomLevel(level);
 
+    // Zoom visual 60fps com ponto focal inteligente
+    const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
+    if (video) {
+      video.style.transition = "transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.45s ease";
+      if (typeof targetX === "number" && typeof targetY === "number") {
+        video.style.transformOrigin = `${Math.min(Math.max(targetX, 20), 80)}% ${Math.min(Math.max(targetY, 20), 80)}%`;
+      } else {
+        video.style.transformOrigin = "center center";
+      }
+      video.style.transform = `scale(${level})`;
+    }
+
+    // Hardware zoom (se suportado pelo sensor do celular)
     if (activeStreamRef.current) {
       const track = activeStreamRef.current.getVideoTracks()[0];
       if (track) {
@@ -153,21 +146,12 @@ export default function ScannerPage() {
               advanced: [{ zoom: clamped }] as any,
             });
           }
-        } catch (e) {
-          console.warn("Hardware zoom error:", e);
-        }
+        } catch {}
       }
-    }
-
-    const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
-    if (video) {
-      video.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
-      video.style.transform = `scale(${level})`;
-      video.style.transformOrigin = "center center";
     }
   }, []);
 
-  // Encerra imediatamente hardware da câmera
+  // Encerra imediatamente hardware da câmera ao desmontar
   const killAllVideoHardware = useCallback(() => {
     if (detectLoopRef.current) {
       cancelAnimationFrame(detectLoopRef.current);
@@ -185,15 +169,15 @@ export default function ScannerPage() {
     }
 
     if (typeof document !== "undefined") {
-      document.querySelectorAll("video").forEach((video) => {
+      document.querySelectorAll("#scanner-viewfinder video").forEach((video) => {
         try {
-          if (video.srcObject) {
-            const stream = video.srcObject as MediaStream;
+          if ((video as HTMLVideoElement).srcObject) {
+            const stream = (video as HTMLVideoElement).srcObject as MediaStream;
             stream.getTracks().forEach((t) => {
               t.stop();
               t.enabled = false;
             });
-            video.srcObject = null;
+            (video as HTMLVideoElement).srcObject = null;
           }
         } catch {}
       });
@@ -225,7 +209,7 @@ export default function ScannerPage() {
     }
   }, [killAllVideoHardware]);
 
-  // Loop contínuo de detecção de QR Code inteligente (Estilo Google Lens / Apple Camera)
+  // Loop contínuo de detecção de QR Code e Auto-Zoom Suave
   const startDetectionLoop = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -263,12 +247,13 @@ export default function ScannerPage() {
                 rawValue: b.rawValue,
               });
 
+              // Auto-Zoom Suave se o código estiver pequeno/distante
               const now = Date.now();
-              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2000) {
+              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2500) {
                 lastAutoZoomTimeRef.current = now;
-                playTargetLockSound();
-                applyZoom(2.2);
-                triggerHaptic(40);
+                const centerX = relX + relW / 2;
+                const centerY = relY + relH / 2;
+                applyZoom(1.9, centerX, centerY);
               }
             } else {
               setDetectedBox(null);
@@ -303,6 +288,7 @@ export default function ScannerPage() {
       if (!isMountedRef.current) return;
       setCameraError(null);
       setScanResult(null);
+      setJustScannedCode(null);
 
       await stopCamera();
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -506,13 +492,21 @@ export default function ScannerPage() {
     };
   }, []);
 
+  // Processamento do Código SEM TELA PRETA e com Auto-Scroll no Mobile
   const handleCodeDetected = async (code: string) => {
     if (isLoadingLookup) return;
 
     playDecodeSuccessSound();
     triggerHaptic([40, 60, 40]);
+    setJustScannedCode(code);
 
-    stopCamera();
+    // Pausa apenas o loop de leitura, MANTENDO o vídeo visível (sem tela preta!)
+    isScanningRef.current = false;
+    if (detectLoopRef.current) {
+      cancelAnimationFrame(detectLoopRef.current);
+      detectLoopRef.current = null;
+    }
+
     await processCodeLookup(code);
   };
 
@@ -543,6 +537,16 @@ export default function ScannerPage() {
 
         toast.success("Código identificado com sucesso!");
 
+        // Auto-Scroll Suave no Mobile para exibir os detalhes encontrados
+        setTimeout(() => {
+          if (resultSectionRef.current) {
+            resultSectionRef.current.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }
+        }, 120);
+
         if (selectedMode === "LOAN" && json.entityType === "ASSET") {
           router.push(`/emprestimos?assetTag=${json.data.asset.assetTag}`);
         } else if (selectedMode === "MAINTENANCE" && json.entityType === "ASSET") {
@@ -552,11 +556,17 @@ export default function ScannerPage() {
         }
       } else {
         toast.error(json.error || "Item ou documento não encontrado no sistema.");
+        // Se falhar a busca, reativa a câmera
+        isScanningRef.current = true;
+        startDetectionLoop();
       }
     } catch {
       toast.error("Erro ao consultar o banco de dados.");
+      isScanningRef.current = true;
+      startDetectionLoop();
     } finally {
       setIsLoadingLookup(false);
+      setJustScannedCode(null);
     }
   };
 
@@ -571,8 +581,24 @@ export default function ScannerPage() {
   const handleScanNext = () => {
     setScanResult(null);
     setDetectedBox(null);
+    setJustScannedCode(null);
     applyZoom(1);
-    startCamera();
+
+    // Se a câmera estiver parada, reinicia
+    if (!isScanning) {
+      startCamera();
+    } else {
+      isScanningRef.current = true;
+      startDetectionLoop();
+    }
+
+    // Scroll suave de volta para a câmera no mobile
+    setTimeout(() => {
+      cameraCardRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 80);
   };
 
   return (
@@ -656,7 +682,7 @@ export default function ScannerPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         
         {/* Card do Viewfinder Moderno & Minimalista */}
-        <Card className="rounded-3xl border-border/80 overflow-hidden shadow-xl bg-slate-950 relative">
+        <Card ref={cameraCardRef} className="rounded-3xl border-border/80 overflow-hidden shadow-xl bg-slate-950 relative">
           
           <div 
             onTouchStart={handleTouchStart}
@@ -667,7 +693,7 @@ export default function ScannerPage() {
             {/* Viewfinder da Câmera (Edge-to-Edge) */}
             <div id="scanner-viewfinder" className="w-full h-full" />
 
-            {/* Vinheta sutil e moderna nas bordas */}
+            {/* Vinheta sutil nas bordas */}
             <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.55)] z-10" />
 
             {/* Top Toolbar Minimalista (Câmera & Lanterna) */}
@@ -706,11 +732,10 @@ export default function ScannerPage() {
               </button>
             </div>
 
-            {/* Mira Minimalista Central (Apenas 4 cantinhos sutis no meio) */}
-            {isScanning && !scanResult && !detectedBox && (
+            {/* Mira Minimalista Central */}
+            {isScanning && !scanResult && !detectedBox && !isLoadingLookup && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
                 <div className="relative w-48 h-48 sm:w-56 sm:h-56">
-                  {/* Cantos sutis translúcidos */}
                   <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
                   <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/40 rounded-tr-lg" />
                   <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/40 rounded-bl-lg" />
@@ -719,8 +744,8 @@ export default function ScannerPage() {
               </div>
             )}
 
-            {/* RETÍCULO DINÂMICO (ENQUADRA EXATAMENTE O QR CODE QUANDO ENCONTRADO) */}
-            {isScanning && !scanResult && detectedBox && (
+            {/* RETÍCULO DINÂMICO SOBRE O QR CODE DETECTADO */}
+            {isScanning && !scanResult && detectedBox && !isLoadingLookup && (
               <div
                 className="qr-target-bounding-box"
                 style={{
@@ -735,7 +760,6 @@ export default function ScannerPage() {
                 <div className="qr-target-corner-bl" />
                 <div className="qr-target-corner-br" />
 
-                {/* Tag de Ação Flutuante Estilo Apple Camera */}
                 <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-500/90 text-black text-[10px] font-bold shadow-lg backdrop-blur-sm whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
                   <QrCode className="w-3 h-3" />
                   <span>QR Detectado</span>
@@ -743,8 +767,22 @@ export default function ScannerPage() {
               </div>
             )}
 
-            {/* CONTROLES DE ZOOM FLUTUANTES (ESTILO APPLE CAMERA) */}
-            {isScanning && !scanResult && (
+            {/* FEEDBACK INSTANTÂNEO DE LEITURA (SEM TELA PRETA!) */}
+            {isLoadingLookup && (
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-emerald-500/50 text-white shadow-2xl">
+                  <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-300">
+                    {justScannedCode ? `Identificado: ${justScannedCode}` : "Consultando dados..."}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* CONTROLES DE ZOOM FLUTUANTES */}
+            {isScanning && !scanResult && !isLoadingLookup && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl">
                 {[1, 2, 3].map((lvl) => (
                   <button
@@ -800,14 +838,6 @@ export default function ScannerPage() {
                 </Button>
               </div>
             )}
-
-            {/* Loading */}
-            {isLoadingLookup && (
-              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 z-40">
-                <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                <span className="text-xs text-white font-medium">Processando...</span>
-              </div>
-            )}
           </div>
 
           {/* Campo de Entrada Manual */}
@@ -829,8 +859,8 @@ export default function ScannerPage() {
           </div>
         </Card>
 
-        {/* Coluna Direita: Resultado ou Histórico */}
-        <div className="space-y-4">
+        {/* Coluna Direita: Resultado com Auto-Scroll no Mobile */}
+        <div ref={resultSectionRef} className="space-y-4 scroll-mt-6">
           {scanResult ? (
             <ScannerResultSheet
               result={scanResult}

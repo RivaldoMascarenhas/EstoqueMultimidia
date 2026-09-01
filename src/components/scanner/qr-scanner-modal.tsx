@@ -17,7 +17,7 @@ import {
   Boxes,
   Monitor,
   Zap,
-  Target
+  Check
 } from "lucide-react";
 import {
   Dialog,
@@ -59,6 +59,7 @@ export function QrScannerModal({
   const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
   const [activeCameraLabel, setActiveCameraLabel] = useState<string>("");
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Estados de Zoom & Detecção Inteligente
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -76,9 +77,20 @@ export function QrScannerModal({
   const initialTouchDistRef = useRef<number | null>(null);
   const initialZoomOnPinchRef = useRef<number>(1);
 
-  // Aplicação do Nível de Zoom
-  const applyZoom = useCallback(async (level: number) => {
+  // Zoom Suave
+  const applyZoom = useCallback(async (level: number, targetX?: number, targetY?: number) => {
     setZoomLevel(level);
+
+    const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
+    if (video) {
+      video.style.transition = "transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.45s ease";
+      if (typeof targetX === "number" && typeof targetY === "number") {
+        video.style.transformOrigin = `${Math.min(Math.max(targetX, 20), 80)}% ${Math.min(Math.max(targetY, 20), 80)}%`;
+      } else {
+        video.style.transformOrigin = "center center";
+      }
+      video.style.transform = `scale(${level})`;
+    }
 
     if (activeStreamRef.current) {
       const track = activeStreamRef.current.getVideoTracks()[0];
@@ -91,17 +103,8 @@ export function QrScannerModal({
               advanced: [{ zoom: clamped }] as any,
             });
           }
-        } catch (e) {
-          console.warn("Modal zoom hardware error:", e);
-        }
+        } catch {}
       }
-    }
-
-    const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
-    if (video) {
-      video.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
-      video.style.transform = `scale(${level})`;
-      video.style.transformOrigin = "center center";
     }
   }, []);
 
@@ -222,10 +225,11 @@ export function QrScannerModal({
               });
 
               const now = Date.now();
-              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2000) {
+              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2500) {
                 lastAutoZoomTimeRef.current = now;
-                applyZoom(2.2);
-                triggerHaptic(40);
+                const centerX = relX + relW / 2;
+                const centerY = relY + relH / 2;
+                applyZoom(1.9, centerX, centerY);
               }
             } else {
               setDetectedBox(null);
@@ -245,64 +249,75 @@ export function QrScannerModal({
   const handleScanSuccess = (rawText: string) => {
     playBeep();
     triggerHaptic([40, 60, 40]);
-    killAllVideoHardware();
-    stopScanner();
-    onClose();
+    setIsRedirecting(true);
+
+    isScanningRef.current = false;
+    if (detectLoopRef.current) {
+      cancelAnimationFrame(detectLoopRef.current);
+      detectLoopRef.current = null;
+    }
 
     const clean = rawText.trim();
 
-    if (clean.includes("/validar/")) {
-      const parts = clean.split("/validar/");
-      const code = parts[1]?.split("?")[0]?.trim();
-      toast.success("Documento identificado! Abrindo...");
-      router.push(`/validar/${encodeURIComponent(code || "")}`);
-      return;
-    }
+    setTimeout(() => {
+      killAllVideoHardware();
+      stopScanner();
+      onClose();
 
-    if (clean.includes("/caixas/")) {
-      const parts = clean.split("/caixas/");
-      const boxCode = parts[parts.length - 1].replace(/[^a-zA-Z0-9_-]/g, "");
-      toast.success(`Caixa ${boxCode.toUpperCase()} identificada!`);
-      router.push(`/caixas/${boxCode.toUpperCase()}`);
-      return;
-    }
+      if (clean.includes("/validar/")) {
+        const parts = clean.split("/validar/");
+        const code = parts[1]?.split("?")[0]?.trim();
+        toast.success("Documento identificado! Redirecionando...");
+        router.push(`/validar/${encodeURIComponent(code || "")}`);
+        return;
+      }
 
-    if (clean.includes("/patrimonio/")) {
-      const parts = clean.split("/patrimonio/");
-      const assetId = parts[parts.length - 1].split("?")[0]?.trim();
-      toast.success(`Patrimônio identificado!`);
-      router.push(`/patrimonio/${assetId}`);
-      return;
-    }
+      if (clean.includes("/caixas/")) {
+        const parts = clean.split("/caixas/");
+        const boxCode = parts[parts.length - 1].replace(/[^a-zA-Z0-9_-]/g, "");
+        toast.success(`Caixa ${boxCode.toUpperCase()} identificada!`);
+        router.push(`/caixas/${boxCode.toUpperCase()}`);
+        return;
+      }
 
-    if (clean.startsWith("LOAN-") || clean.startsWith("loan-") || clean.startsWith("OS-") || clean.startsWith("os-") || clean.startsWith("REL-")) {
-      toast.success("Documento identificado!");
-      router.push(`/validar/${encodeURIComponent(clean)}`);
-      return;
-    }
+      if (clean.includes("/patrimonio/")) {
+        const parts = clean.split("/patrimonio/");
+        const assetId = parts[parts.length - 1].split("?")[0]?.trim();
+        toast.success(`Patrimônio identificado!`);
+        router.push(`/patrimonio/${assetId}`);
+        return;
+      }
 
-    if (clean.startsWith("#") || clean.startsWith("PAT-") || clean.startsWith("pat-")) {
-      const tag = clean.replace(/^#/, "").replace(/^[Pp][Aa][Tt]-/, "");
-      toast.success(`Patrimônio #${tag} identificado!`);
-      router.push(`/patrimonio?search=${tag}`);
-      return;
-    }
+      if (clean.startsWith("LOAN-") || clean.startsWith("loan-") || clean.startsWith("OS-") || clean.startsWith("os-") || clean.startsWith("REL-")) {
+        toast.success("Documento identificado!");
+        router.push(`/validar/${encodeURIComponent(clean)}`);
+        return;
+      }
 
-    const isLikelyBox = /^[cC][0-9]{1,4}$/.test(clean) || /^[cC][xX]-[0-9]{1,4}$/.test(clean) || clean.toLowerCase().startsWith("cx");
-    if (isLikelyBox) {
-      const boxCode = clean.toUpperCase();
-      toast.success(`Caixa ${boxCode} identificada!`);
-      router.push(`/caixas/${boxCode}`);
-      return;
-    }
+      if (clean.startsWith("#") || clean.startsWith("PAT-") || clean.startsWith("pat-")) {
+        const tag = clean.replace(/^#/, "").replace(/^[Pp][Aa][Tt]-/, "");
+        toast.success(`Patrimônio #${tag} identificado!`);
+        router.push(`/patrimonio?search=${tag}`);
+        return;
+      }
 
-    router.push(`/scanner?search=${encodeURIComponent(clean)}`);
+      const isLikelyBox = /^[cC][0-9]{1,4}$/.test(clean) || /^[cC][xX]-[0-9]{1,4}$/.test(clean) || clean.toLowerCase().startsWith("cx");
+      if (isLikelyBox) {
+        const boxCode = clean.toUpperCase();
+        toast.success(`Caixa ${boxCode} identificada!`);
+        router.push(`/caixas/${boxCode}`);
+        return;
+      }
+
+      router.push(`/scanner?search=${encodeURIComponent(clean)}`);
+    }, 200);
   };
 
   const startScanner = async (targetCameraId?: string, targetIndex?: number) => {
     try {
       if (!isMountedRef.current) return;
       setCameraError(null);
+      setIsRedirecting(false);
 
       await stopScanner();
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -565,7 +580,7 @@ export function QrScannerModal({
             )}
 
             {/* Mira Minimalista Central */}
-            {isScanning && !cameraError && !detectedBox && (
+            {isScanning && !cameraError && !detectedBox && !isRedirecting && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
                 <div className="relative w-44 h-44">
                   <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
@@ -577,7 +592,7 @@ export function QrScannerModal({
             )}
 
             {/* RETÍCULO DINÂMICO SOBRE O QR CODE DETECTADO */}
-            {isScanning && !cameraError && detectedBox && (
+            {isScanning && !cameraError && detectedBox && !isRedirecting && (
               <div
                 className="qr-target-bounding-box"
                 style={{
@@ -599,8 +614,22 @@ export function QrScannerModal({
               </div>
             )}
 
+            {/* Feedback Instantâneo de Leitura */}
+            {isRedirecting && (
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-emerald-500/50 text-white shadow-2xl">
+                  <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
+                    <Check className="w-3 h-3 stroke-[3]" />
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-300">
+                    Código lido! Abrindo...
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Zoom Bar Minimalista */}
-            {isScanning && !cameraError && (
+            {isScanning && !cameraError && !isRedirecting && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl">
                 {[1, 2, 3].map((lvl) => (
                   <button
