@@ -90,7 +90,7 @@ export class InventoryService {
     // Mapear itens com cálculos de quantidade total, caixas físicas efetivas e status
     const mappedItems = items.map((item) => {
       let totalQuantity = 0;
-      let effectiveInventories = [...(item.inventories || [])];
+      let effectiveInventories: any[] = [...(item.inventories || [])];
 
       if (item.itemType === ItemType.MATERIAL) {
         totalQuantity = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
@@ -207,7 +207,7 @@ export class InventoryService {
 
     if (!item) return null;
 
-    let effectiveInventories = [...(item.inventories || [])];
+    let effectiveInventories: any[] = [...(item.inventories || [])];
     if (effectiveInventories.length === 0 && item.assets && item.assets.length > 0) {
       const boxMap = new Map<string, { id: string; box: any; quantity: number }>();
       item.assets.forEach((ast) => {
