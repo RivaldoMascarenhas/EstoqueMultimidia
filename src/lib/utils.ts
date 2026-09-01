@@ -192,3 +192,17 @@ export function formatZodError(error: any, defaultMessage: string = "Erro de val
   if (error?.name === "ZodError" && Array.isArray(error.errors)) return error.errors[0]?.message || defaultMessage;
   return error?.message || defaultMessage;
 }
+
+/**
+ * Calcula o status da lâmpada de um projetor baseado nas horas de uso.
+ * Regras:
+ * - BOM (0 a 2500 horas)
+ * - REGULAR (2501 a 4000 horas)
+ * - CRITICO (4001 horas ou mais)
+ */
+export function calculateLampStatus(hours: number | null | undefined): string | null {
+  if (hours === null || hours === undefined) return null;
+  if (hours <= 2500) return "BOM";
+  if (hours <= 4000) return "REGULAR";
+  return "CRITICO";
+}

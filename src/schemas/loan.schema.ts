@@ -1,5 +1,16 @@
 import { z } from "zod";
 import { isValidPhone } from "@/lib/validators";
+import { getBrazilDateString } from "@/lib/event-time";
+
+const dateRefine = (d: string) => {
+  try {
+    const dateStr = getBrazilDateString(d);
+    const todayStr = getBrazilDateString(new Date());
+    return !dateStr || !todayStr || dateStr >= todayStr;
+  } catch {
+    return true;
+  }
+};
 
 export const loanCreateSchema = z.object({
   assetId: z.string().min(1, "Selecione o equipamento a ser emprestado"),
@@ -12,7 +23,7 @@ export const loanCreateSchema = z.object({
     .or(z.literal("")),
   borrowerDepartment: z.string().optional().or(z.literal("")),
   destination: z.string().min(2, "Informe a sala, laboratório ou destino de uso"),
-  expectedReturnDate: z.string().min(1, "Informe a data e horário previstos para devolução"),
+  expectedReturnDate: z.string().min(1, "Informe a data e horário previstos para devolução").refine(dateRefine, "A devolução não pode ser agendada para uma data no passado"),
   notes: z.string().optional().or(z.literal("")),
 });
 
@@ -24,7 +35,7 @@ export const loanReturnSchema = z.object({
 });
 
 export const loanRenewSchema = z.object({
-  newExpectedReturnDate: z.string().min(1, "Informe a nova data e horário previstos de devolução"),
+  newExpectedReturnDate: z.string().min(1, "Informe a nova data e horário previstos de devolução").refine(dateRefine, "A devolução não pode ser agendada para uma data no passado"),
   reason: z.string().min(3, "Informe a justificativa da renovação de prazo"),
 });
 

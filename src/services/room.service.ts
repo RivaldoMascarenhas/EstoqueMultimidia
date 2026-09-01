@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { RoomCreateInput, RoomUpdateInput } from "@/schemas/room.schema";
+import { calculateLampStatus } from "@/lib/utils";
 
 export class RoomService {
   /**
@@ -148,7 +149,7 @@ export class RoomService {
           vgaCableOk: data.vgaCableOk ?? null,
           hdmiCableOk: data.hdmiCableOk ?? null,
           lampHours: data.lampHours ?? null,
-          lampStatus: data.lampStatus?.trim() || null,
+          lampStatus: data.lampHours !== undefined && data.lampHours !== null ? calculateLampStatus(data.lampHours) : (data.lampStatus?.trim() || null),
           lastVisitAt: data.lastVisitAt ? new Date(data.lastVisitAt) : null,
           fixedEquipment: data.fixedEquipment && data.fixedEquipment.length > 0
             ? {
@@ -305,7 +306,9 @@ export class RoomService {
           hdmiCableOk: data.hdmiCableOk !== undefined ? data.hdmiCableOk : undefined,
           lampHours: data.lampHours !== undefined ? data.lampHours : undefined,
           lampStatus:
-            data.lampStatus !== undefined
+            data.lampHours !== undefined
+              ? (data.lampHours !== null ? calculateLampStatus(data.lampHours) : null)
+              : data.lampStatus !== undefined
               ? (data.lampStatus ? data.lampStatus.trim() : null)
               : undefined,
           lastVisitAt:
