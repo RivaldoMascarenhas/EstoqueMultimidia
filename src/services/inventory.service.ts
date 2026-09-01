@@ -36,12 +36,24 @@ export class InventoryService {
     }
 
     if (boxId && boxId !== "ALL") {
-      whereClause.inventories = {
-        some: {
-          boxId: boxId,
-          quantity: { gt: 0 },
+      whereClause.OR = [
+        {
+          inventories: {
+            some: {
+              boxId: boxId,
+              quantity: { gt: 0 },
+            },
+          },
         },
-      };
+        {
+          assets: {
+            some: {
+              currentBoxId: boxId,
+              active: true,
+            },
+          },
+        },
+      ];
     }
 
     if (itemType) {
@@ -75,15 +87,37 @@ export class InventoryService {
       }),
     ]);
 
-    // Mapear itens com cálculos de quantidade total e status
+    // Mapear itens com cálculos de quantidade total, caixas físicas efetivas e status
     const mappedItems = items.map((item) => {
       let totalQuantity = 0;
+      let effectiveInventories = [...(item.inventories || [])];
 
       if (item.itemType === ItemType.MATERIAL) {
         totalQuantity = item.inventories.reduce((acc, inv) => acc + inv.quantity, 0);
       } else {
         // Para equipamentos patrimoniais, total de ativos ativos
         totalQuantity = item.assets.length;
+
+        // Se não possui registro direto em Inventory, agrupar ativos por caixa física atual
+        if (effectiveInventories.length === 0 && item.assets.length > 0) {
+          const boxMap = new Map<string, { id: string; box: any; quantity: number }>();
+          item.assets.forEach((ast) => {
+            if (ast.currentBox) {
+              const bId = ast.currentBox.id;
+              const existing = boxMap.get(bId);
+              if (existing) {
+                existing.quantity += 1;
+              } else {
+                boxMap.set(bId, {
+                  id: `asset-box-${ast.id}`,
+                  box: ast.currentBox,
+                  quantity: 1,
+                });
+              }
+            }
+          });
+          effectiveInventories = Array.from(boxMap.values());
+        }
       }
 
       let statusLevel: "NORMAL" | "LOW" | "CRITICAL" = "NORMAL";
@@ -95,6 +129,7 @@ export class InventoryService {
 
       return {
         ...item,
+        inventories: effectiveInventories,
         totalQuantity,
         statusLevel,
         isCritical: statusLevel === "CRITICAL",
@@ -172,6 +207,27 @@ export class InventoryService {
 
     if (!item) return null;
 
+    let effectiveInventories = [...(item.inventories || [])];
+    if (effectiveInventories.length === 0 && item.assets && item.assets.length > 0) {
+      const boxMap = new Map<string, { id: string; box: any; quantity: number }>();
+      item.assets.forEach((ast) => {
+        if (ast.currentBox) {
+          const bId = ast.currentBox.id;
+          const existing = boxMap.get(bId);
+          if (existing) {
+            existing.quantity += 1;
+          } else {
+            boxMap.set(bId, {
+              id: `asset-box-${ast.id}`,
+              box: ast.currentBox,
+              quantity: 1,
+            });
+          }
+        }
+      });
+      effectiveInventories = Array.from(boxMap.values());
+    }
+
     const totalQuantity =
       item.itemType === ItemType.MATERIAL
         ? item.inventories.reduce((acc, inv) => acc + inv.quantity, 0)
@@ -186,6 +242,7 @@ export class InventoryService {
 
     return {
       ...item,
+      inventories: effectiveInventories,
       totalQuantity,
       statusLevel,
     };

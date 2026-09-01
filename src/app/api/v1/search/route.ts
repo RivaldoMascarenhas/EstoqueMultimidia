@@ -61,6 +61,14 @@ export async function GET(req: NextRequest) {
                   },
                 },
               },
+              assets: {
+                where: { active: true },
+                include: {
+                  currentBox: {
+                    include: { door: true },
+                  },
+                },
+              },
             },
             take: 5,
           })
@@ -230,10 +238,37 @@ export async function GET(req: NextRequest) {
       presencesCount: p._count?.presences || 0,
     }));
 
+    const mappedItems = items.map((item: any) => {
+      let effectiveInventories = [...(item.inventories || [])];
+      if (effectiveInventories.length === 0 && item.assets && item.assets.length > 0) {
+        const boxMap = new Map<string, { id: string; box: any; quantity: number }>();
+        item.assets.forEach((ast: any) => {
+          if (ast.currentBox) {
+            const bId = ast.currentBox.id;
+            const existing = boxMap.get(bId);
+            if (existing) {
+              existing.quantity += 1;
+            } else {
+              boxMap.set(bId, {
+                id: `asset-box-${ast.id}`,
+                box: ast.currentBox,
+                quantity: 1,
+              });
+            }
+          }
+        });
+        effectiveInventories = Array.from(boxMap.values());
+      }
+      return {
+        ...item,
+        inventories: effectiveInventories,
+      };
+    });
+
     return NextResponse.json({
       success: true,
       data: {
-        items,
+        items: mappedItems,
         assets,
         boxes,
         loans,
