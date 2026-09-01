@@ -15,7 +15,9 @@ import {
   Keyboard,
   ShieldCheck,
   Boxes,
-  Monitor
+  Monitor,
+  Zap,
+  Target
 } from "lucide-react";
 import {
   Dialog,
@@ -36,11 +38,18 @@ interface QrScannerModalProps {
   description?: string;
 }
 
+interface DetectedBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export function QrScannerModal({ 
   isOpen, 
   onClose,
-  title = "Leitor de QR Code & Scanner",
-  description = "Aponte a câmera para a etiqueta da caixa, equipamento ou documento oficial."
+  title = "Leitor Inteligente com Auto-Zoom",
+  description = "Aponte a câmera para o QR Code da caixa, equipamento ou documento oficial."
 }: QrScannerModalProps) {
   const router = useRouter();
   const [manualCode, setManualCode] = useState("");
@@ -51,15 +60,58 @@ export function QrScannerModal({
   const [activeCameraLabel, setActiveCameraLabel] = useState<string>("");
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
 
+  // Estados de Zoom & Detecção Inteligente
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [autoZoomEnabled, setAutoZoomEnabled] = useState<boolean>(true);
+  const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
   const isMountedRef = useRef(true);
   const isScanningRef = useRef(false);
   const camerasRef = useRef<Array<{ id: string; label: string }>>([]);
   const cameraIndexRef = useRef<number>(0);
+  const detectLoopRef = useRef<number | null>(null);
+  const lastAutoZoomTimeRef = useRef<number>(0);
+  const initialTouchDistRef = useRef<number | null>(null);
+  const initialZoomOnPinchRef = useRef<number>(1);
+
+  // Aplicação do Nível de Zoom (Hardware WebRTC + Fallback Digital CSS)
+  const applyZoom = useCallback(async (level: number) => {
+    setZoomLevel(level);
+
+    if (activeStreamRef.current) {
+      const track = activeStreamRef.current.getVideoTracks()[0];
+      if (track) {
+        try {
+          const cap = (track.getCapabilities && track.getCapabilities()) as any;
+          if (cap && cap.zoom) {
+            const clamped = Math.min(Math.max(level, cap.zoom.min || 1), cap.zoom.max || 5);
+            await track.applyConstraints({
+              advanced: [{ zoom: clamped }] as any,
+            });
+          }
+        } catch (e) {
+          console.warn("Modal zoom hardware error:", e);
+        }
+      }
+    }
+
+    const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
+    if (video) {
+      video.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+      video.style.transform = `scale(${level})`;
+      video.style.transformOrigin = "center center";
+    }
+  }, []);
 
   // Terminação imediata de faixas de vídeo e liberação do LED da webcam/celular
   const killAllVideoHardware = useCallback(() => {
+    if (detectLoopRef.current) {
+      cancelAnimationFrame(detectLoopRef.current);
+      detectLoopRef.current = null;
+    }
+
     if (activeStreamRef.current) {
       try {
         activeStreamRef.current.getTracks().forEach((t) => {
@@ -84,6 +136,8 @@ export function QrScannerModal({
         } catch {}
       });
     }
+
+    setDetectedBox(null);
   }, []);
 
   const stopScanner = useCallback(async () => {
@@ -126,16 +180,76 @@ export function QrScannerModal({
     } catch {}
   };
 
-  const triggerHaptic = () => {
+  const triggerHaptic = (pattern: number | number[] = 80) => {
     if (typeof window !== "undefined" && "navigator" in window && navigator.vibrate) {
-      navigator.vibrate(80);
+      navigator.vibrate(pattern);
     }
   };
+
+  // Loop contínuo de detecção de QR Code e Auto-Enquadramento / Auto-Zoom
+  const startDetectionLoop = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    let detector: any = null;
+    if ("BarcodeDetector" in window) {
+      try {
+        detector = new (window as any).BarcodeDetector({
+          formats: ["qr_code", "ean_13", "code_128", "data_matrix"],
+        });
+      } catch {}
+    }
+
+    const checkFrame = async () => {
+      if (!isMountedRef.current || !isScanningRef.current) return;
+
+      const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
+      if (video && video.readyState >= 2 && video.videoWidth > 0) {
+        if (detector) {
+          try {
+            const barcodes = await detector.detect(video);
+            if (barcodes && barcodes.length > 0) {
+              const b = barcodes[0];
+              const bbox = b.boundingBox;
+
+              const relX = (bbox.x / video.videoWidth) * 100;
+              const relY = (bbox.y / video.videoHeight) * 100;
+              const relW = (bbox.width / video.videoWidth) * 100;
+              const relH = (bbox.height / video.videoHeight) * 100;
+
+              setDetectedBox({
+                x: Math.max(0, relX),
+                y: Math.max(0, relY),
+                width: Math.min(100, relW),
+                height: Math.min(100, relH),
+              });
+
+              // Auto-Zoom Inteligente se o código estiver distante
+              const now = Date.now();
+              if (autoZoomEnabled && relW < 24 && now - lastAutoZoomTimeRef.current > 1800) {
+                lastAutoZoomTimeRef.current = now;
+                applyZoom(2.2);
+                triggerHaptic(40);
+                toast.info("Auto-Zoom: Enquadrando código...", { duration: 1500 });
+              }
+            } else {
+              setDetectedBox(null);
+            }
+          } catch {}
+        }
+      }
+
+      if (isMountedRef.current && isScanningRef.current) {
+        detectLoopRef.current = requestAnimationFrame(checkFrame);
+      }
+    };
+
+    detectLoopRef.current = requestAnimationFrame(checkFrame);
+  }, [autoZoomEnabled, applyZoom]);
 
   // Processamento inteligente do código escaneado
   const handleScanSuccess = (rawText: string) => {
     playBeep();
-    triggerHaptic();
+    triggerHaptic([40, 60, 40]);
     killAllVideoHardware();
     stopScanner();
     onClose();
@@ -211,10 +325,10 @@ export function QrScannerModal({
       scannerRef.current = html5QrCode;
 
       const scanConfig = {
-        fps: 20,
+        fps: 24,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.72);
+          const qrboxSize = Math.floor(minEdge * 0.76);
           return { width: qrboxSize, height: qrboxSize };
         },
         aspectRatio: 1.0,
@@ -224,7 +338,6 @@ export function QrScannerModal({
         handleScanSuccess(decodedText);
       };
 
-      // Enumerar câmeras disponíveis
       let availableCams = camerasRef.current;
       if (availableCams.length === 0) {
         const devices = await Html5Qrcode.getCameras().catch(() => []);
@@ -242,7 +355,6 @@ export function QrScannerModal({
           let idx = typeof targetIndex === "number" ? targetIndex : cameraIndexRef.current;
           if (idx >= availableCams.length) idx = 0;
 
-          // Se não especificado, preferir câmera traseira
           if (typeof targetIndex !== "number") {
             const backIdx = availableCams.findIndex((c) => /back|rear|environment|traseira/i.test(c.label));
             if (backIdx !== -1) idx = backIdx;
@@ -262,7 +374,6 @@ export function QrScannerModal({
       try {
         await html5QrCode.start(configToUse, scanConfig, handleSuccess, () => {});
       } catch (err1) {
-        console.warn("Tentativa 1 falhou, tentando fallback...", err1);
         try {
           if (availableCams.length > 0) {
             await html5QrCode.start(availableCams[0].id, scanConfig, handleSuccess, () => {});
@@ -279,7 +390,6 @@ export function QrScannerModal({
         return;
       }
 
-      // Capturar stream para controle de hardware
       const videoEl = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
       if (videoEl && videoEl.srcObject) {
         activeStreamRef.current = videoEl.srcObject as MediaStream;
@@ -288,6 +398,7 @@ export function QrScannerModal({
       isScanningRef.current = true;
       if (isMountedRef.current) {
         setIsScanning(true);
+        startDetectionLoop();
       }
     } catch (err: any) {
       console.warn("Erro ao iniciar câmera no modal:", err);
@@ -324,11 +435,6 @@ export function QrScannerModal({
 
         await startScanner(nextCam.id, nextIndex);
         toast.info(`Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`);
-      } else if (availableCams.length === 1) {
-        const isCurrentlyFront = /front|user|frontal/i.test(availableCams[0].label);
-        const targetMode = isCurrentlyFront ? "environment" : "user";
-        await startScanner({ facingMode: targetMode } as any);
-        toast.info(`Alternado para modo ${targetMode === "environment" ? "Traseira" : "Frontal"}`);
       } else {
         await startScanner({ facingMode: "environment" } as any);
       }
@@ -339,7 +445,35 @@ export function QrScannerModal({
     }
   };
 
-  // Ciclo de vida: Inicia uma única vez ao abrir e desliga limpo ao fechar
+  // Suporte a Gesto Pinch-to-Zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialTouchDistRef.current = dist;
+      initialZoomOnPinchRef.current = zoomLevel;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialTouchDistRef.current) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = currentDist / initialTouchDistRef.current;
+      const target = Math.min(Math.max(initialZoomOnPinchRef.current * factor, 1.0), 3.5);
+      applyZoom(Number(target.toFixed(1)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    initialTouchDistRef.current = null;
+  };
+
+  // Ciclo de vida
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -384,7 +518,7 @@ export function QrScannerModal({
         hideClose={true}
         className="sm:max-w-md p-5 sm:p-6 rounded-3xl border-border bg-card shadow-2xl overflow-hidden"
       >
-        {/* Header Personalizado sem colisão de botões */}
+        {/* Header Personalizado */}
         <div className="flex items-center justify-between border-b border-border/70 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
@@ -411,8 +545,13 @@ export function QrScannerModal({
         </div>
 
         <div className="space-y-4 pt-1">
-          {/* Visor da Câmera com Efeito HUD */}
-          <div className="relative overflow-hidden rounded-2xl border border-border bg-slate-950 aspect-square flex flex-col items-center justify-center shadow-inner">
+          {/* Visor da Câmera com Suporte a Pinch-to-Zoom e HUD */}
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative overflow-hidden rounded-2xl border border-border bg-slate-950 aspect-square flex flex-col items-center justify-center shadow-inner touch-none"
+          >
             <div id="qr-modal-viewfinder" className="w-full h-full" />
 
             {/* Toolbar Superior sobre o Visor (Botão de Alternar Câmera) */}
@@ -437,6 +576,71 @@ export function QrScannerModal({
               </div>
             )}
 
+            {/* BARRA FLUTUANTE DE ZOOM (1x, 2x, 3x + Auto-Zoom IA) */}
+            {isScanning && !cameraError && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 border border-white/20 backdrop-blur-xl shadow-2xl">
+                {[1, 2, 3].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => applyZoom(lvl)}
+                    className={cn(
+                      "w-7 h-7 rounded-full text-[11px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
+                      zoomLevel === lvl 
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/40 scale-105" 
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    {lvl}x
+                  </button>
+                ))}
+
+                <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !autoZoomEnabled;
+                    setAutoZoomEnabled(next);
+                    toast.info(next ? "Auto-Zoom IA ativado" : "Auto-Zoom desativado");
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
+                    autoZoomEnabled 
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" 
+                      : "text-white/50 hover:text-white"
+                  )}
+                  title="Auto-Zoom Inteligente"
+                >
+                  <Zap className={cn("w-2.5 h-2.5", autoZoomEnabled ? "text-emerald-400" : "text-white/40")} />
+                  <span>Auto IA</span>
+                </button>
+              </div>
+            )}
+
+            {/* ENQUADRAMENTO INTELIGENTE DINÂMICO (SNAP BOUNDING BOX) */}
+            {isScanning && !cameraError && detectedBox && (
+              <div
+                className="qr-target-bounding-box"
+                style={{
+                  left: `${detectedBox.x}%`,
+                  top: `${detectedBox.y}%`,
+                  width: `${detectedBox.width}%`,
+                  height: `${detectedBox.height}%`,
+                }}
+              >
+                <div className="qr-target-corner-tl" />
+                <div className="qr-target-corner-tr" />
+                <div className="qr-target-corner-bl" />
+                <div className="qr-target-corner-br" />
+                
+                <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase text-emerald-400 bg-black/80 px-2 py-0.5 rounded-full border border-emerald-500/40 whitespace-nowrap shadow-lg flex items-center gap-1">
+                  <Target className="w-2 h-2 animate-spin" />
+                  Alvo
+                </span>
+              </div>
+            )}
+
             {/* Laser e cantoneiras visuais */}
             {isScanning && !cameraError && (
               <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 z-20">
@@ -446,9 +650,6 @@ export function QrScannerModal({
                   <div className="absolute bottom-0 left-0 w-5 h-5 border-b-3 border-l-3 border-primary rounded-bl-xl" />
                   <div className="absolute bottom-0 right-0 w-5 h-5 border-b-3 border-r-3 border-primary rounded-br-xl" />
                 </div>
-                <span className="mt-3 text-[10px] font-semibold text-white/90 bg-black/60 px-3 py-1 rounded-full border border-white/10 backdrop-blur-sm">
-                  Posicione o QR Code dentro do quadro
-                </span>
               </div>
             )}
 

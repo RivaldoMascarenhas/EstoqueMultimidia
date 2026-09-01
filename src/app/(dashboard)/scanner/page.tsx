@@ -21,7 +21,10 @@ import {
   SwitchCamera,
   Flashlight,
   FlashlightOff,
-  Maximize2
+  Maximize2,
+  ZoomIn,
+  Zap,
+  Target
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,14 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type ScanMode = "LOOKUP" | "LOAN" | "RETURN" | "AUDIT" | "MAINTENANCE";
+
+interface DetectedBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rawValue?: string;
+}
 
 export default function ScannerPage() {
   const router = useRouter();
@@ -50,6 +61,13 @@ export default function ScannerPage() {
   const [manualCode, setManualCode] = useState("");
   const [isLoadingLookup, setIsLoadingLookup] = useState(false);
 
+  // Estados de Zoom & Detecção Inteligente
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [autoZoomEnabled, setAutoZoomEnabled] = useState<boolean>(true);
+  const [hasHardwareZoom, setHasHardwareZoom] = useState<boolean>(false);
+  const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
+  const [isTargetLocked, setIsTargetLocked] = useState<boolean>(false);
+
   // Resultado
   const [scanResult, setScanResult] = useState<{
     entityType: "ASSET" | "BOX" | "ITEM" | "LOAN" | "MAINTENANCE" | "DOCUMENT_VALIDATION";
@@ -64,40 +82,104 @@ export default function ScannerPage() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isSwitchingRef = useRef(false);
   const isMountedRef = useRef(true);
+  const isScanningRef = useRef(false);
+  const detectLoopRef = useRef<number | null>(null);
+  const initialTouchDistRef = useRef<number | null>(null);
+  const initialZoomOnPinchRef = useRef<number>(1);
+  const lastAutoZoomTimeRef = useRef<number>(0);
 
-  // Tocar beep suave usando Web Audio API nativo
-  const playBeep = () => {
+  // Tocar som de trava de alvo e bipe de leitura
+  const playTargetLockSound = () => {
     if (!soundEnabled) return;
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
       const ctx = audioCtxRef.current;
-      if (ctx.state === "suspended") {
-        ctx.resume();
+      if (ctx.state === "suspended") ctx.resume();
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(1200, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } catch {}
+  };
+
+  const playDecodeSuccessSound = () => {
+    if (!soundEnabled) return;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.06);
       gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.16);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.12);
+      osc.stop(ctx.currentTime + 0.16);
     } catch {}
   };
 
-  // Disparar vibração háptica no celular
-  const triggerHaptic = () => {
+  const triggerHaptic = (pattern: number | number[] = 80) => {
     if (typeof window !== "undefined" && "navigator" in window && navigator.vibrate) {
-      navigator.vibrate(80);
+      navigator.vibrate(pattern);
     }
   };
 
-  // Encerra imediatamente todas as faixas e libera a webcam no Windows/Android/iOS (LED desliga na hora)
+  // Aplicação do Nível de Zoom (Hardware WebRTC + Fallback Digital CSS)
+  const applyZoom = useCallback(async (level: number) => {
+    setZoomLevel(level);
+
+    // 1. Tentar zoom óptico / digital via hardware da câmera
+    if (activeStreamRef.current) {
+      const track = activeStreamRef.current.getVideoTracks()[0];
+      if (track) {
+        try {
+          const cap = (track.getCapabilities && track.getCapabilities()) as any;
+          if (cap && cap.zoom) {
+            const clamped = Math.min(Math.max(level, cap.zoom.min || 1), cap.zoom.max || 5);
+            await track.applyConstraints({
+              advanced: [{ zoom: clamped }] as any,
+            });
+            setHasHardwareZoom(true);
+          }
+        } catch (e) {
+          console.warn("Hardware zoom error, using visual fallback:", e);
+        }
+      }
+    }
+
+    // 2. Aplicar zoom visual fluido CSS para resposta instantânea
+    const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
+    if (video) {
+      video.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+      video.style.transform = `scale(${level})`;
+      video.style.transformOrigin = "center center";
+    }
+  }, []);
+
+  // Encerra imediatamente todas as faixas e libera a webcam no Windows/Android/iOS
   const killAllVideoHardware = useCallback(() => {
+    if (detectLoopRef.current) {
+      cancelAnimationFrame(detectLoopRef.current);
+      detectLoopRef.current = null;
+    }
+
     if (activeStreamRef.current) {
       try {
         activeStreamRef.current.getTracks().forEach((track) => {
@@ -125,6 +207,8 @@ export default function ScannerPage() {
 
     setIsTorchOn(false);
     setHasTorchSupport(false);
+    setDetectedBox(null);
+    setIsTargetLocked(false);
   }, []);
 
   // Parar câmera e limpar Html5Qrcode
@@ -149,7 +233,70 @@ export default function ScannerPage() {
     }
   }, [killAllVideoHardware]);
 
-  // Atualizar lista de dispositivos de câmera
+  // Loop contínuo de detecção de QR Code e Auto-Enquadramento / Auto-Zoom
+  const startDetectionLoop = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    let detector: any = null;
+    if ("BarcodeDetector" in window) {
+      try {
+        detector = new (window as any).BarcodeDetector({
+          formats: ["qr_code", "ean_13", "code_128", "data_matrix"],
+        });
+      } catch {}
+    }
+
+    const checkFrame = async () => {
+      if (!isMountedRef.current || !isScanningRef.current) return;
+
+      const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
+      if (video && video.readyState >= 2 && video.videoWidth > 0) {
+        if (detector) {
+          try {
+            const barcodes = await detector.detect(video);
+            if (barcodes && barcodes.length > 0) {
+              const b = barcodes[0];
+              const bbox = b.boundingBox;
+
+              // Calcular percentuais em relação ao vídeo exibido
+              const relX = (bbox.x / video.videoWidth) * 100;
+              const relY = (bbox.y / video.videoHeight) * 100;
+              const relW = (bbox.width / video.videoWidth) * 100;
+              const relH = (bbox.height / video.videoHeight) * 100;
+
+              setDetectedBox({
+                x: Math.max(0, relX),
+                y: Math.max(0, relY),
+                width: Math.min(100, relW),
+                height: Math.min(100, relH),
+                rawValue: b.rawValue,
+              });
+              setIsTargetLocked(true);
+
+              // Auto-Zoom Inteligente: se o QR Code for pequeno/distante, dá zoom automático
+              const now = Date.now();
+              if (autoZoomEnabled && relW < 24 && now - lastAutoZoomTimeRef.current > 1800) {
+                lastAutoZoomTimeRef.current = now;
+                playTargetLockSound();
+                applyZoom(2.2);
+                toast.info("Auto-Zoom IA: Aproximando código para leitura perfeita...", { duration: 1500 });
+              }
+            } else {
+              setDetectedBox(null);
+              setIsTargetLocked(false);
+            }
+          } catch {}
+        }
+      }
+
+      if (isMountedRef.current && isScanningRef.current) {
+        detectLoopRef.current = requestAnimationFrame(checkFrame);
+      }
+    };
+
+    detectLoopRef.current = requestAnimationFrame(checkFrame);
+  }, [autoZoomEnabled, applyZoom]);
+
   const refreshCameraList = async (): Promise<Array<{ id: string; label: string }>> => {
     try {
       const devices = await Html5Qrcode.getCameras();
@@ -163,39 +310,14 @@ export default function ScannerPage() {
     return [];
   };
 
-  // Alternar Lanterna / Flash (Torch) em dispositivos móveis compatíveis
-  const handleToggleTorch = async () => {
-    if (!activeStreamRef.current) return;
-    const track = activeStreamRef.current.getVideoTracks()[0];
-    if (track) {
-      try {
-        const capabilities = (track.getCapabilities && track.getCapabilities()) as any;
-        if (capabilities && capabilities.torch) {
-          const nextState = !isTorchOn;
-          await track.applyConstraints({
-            advanced: [{ torch: nextState } as any],
-          });
-          setIsTorchOn(nextState);
-          toast.success(nextState ? "Lanterna ligada" : "Lanterna desligada");
-        } else {
-          toast.info("Lanterna não suportada nesta câmera.");
-        }
-      } catch (e) {
-        toast.error("Não foi possível acionar a lanterna.");
-      }
-    }
-  };
-
-  // Iniciar Leitura da Câmera com suporte total a PC (deviceId) e Mobile (facingMode)
-  const startCamera = useCallback(async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
+  // Iniciar Leitura da Câmera
+  const startCamera = async (targetCameraIdOrMode?: string | { facingMode: string }, cameraIndex?: number) => {
     try {
       if (!isMountedRef.current) return;
       setCameraError(null);
+      setScanResult(null);
 
-      // Parar qualquer instância e faixas anteriores para liberar o hardware
       await stopCamera();
-
-      // Buffer de 150ms para liberação de hardware
       await new Promise((resolve) => setTimeout(resolve, 150));
       if (!isMountedRef.current) return;
 
@@ -203,10 +325,10 @@ export default function ScannerPage() {
       scannerRef.current = html5QrCode;
 
       const scanConfig = {
-        fps: 20,
+        fps: 24,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.72);
+          const qrboxSize = Math.floor(minEdge * 0.76);
           return {
             width: qrboxSize,
             height: qrboxSize,
@@ -219,7 +341,6 @@ export default function ScannerPage() {
         handleCodeDetected(decodedText);
       };
 
-      // 1. Obter lista de câmeras disponíveis
       let availableCams = cameras;
       if (availableCams.length === 0) {
         availableCams = await refreshCameraList();
@@ -228,7 +349,6 @@ export default function ScannerPage() {
       let configToUse: any = targetCameraIdOrMode;
 
       if (!configToUse) {
-        // Verificar se há preferência salva no localStorage
         const savedCamId = typeof window !== "undefined" ? localStorage.getItem("unifap_scanner_cam_id") : null;
         if (savedCamId && availableCams.some((c) => c.id === savedCamId)) {
           configToUse = savedCamId;
@@ -241,9 +361,7 @@ export default function ScannerPage() {
 
           if (typeof cameraIndex !== "number") {
             const backIdx = availableCams.findIndex((c) => /back|rear|environment|traseira/i.test(c.label));
-            if (backIdx !== -1) {
-              idx = backIdx;
-            }
+            if (backIdx !== -1) idx = backIdx;
           }
 
           setSelectedCameraIndex(idx);
@@ -254,11 +372,10 @@ export default function ScannerPage() {
         }
       }
 
-      // Executar inicialização com fallbacks resilientes
       try {
         await html5QrCode.start(configToUse, scanConfig, handleSuccess, () => {});
       } catch (firstErr) {
-        console.warn("Tentativa 1 falhou, tentando fallback ideal...", firstErr);
+        console.warn("Tentativa 1 falhou, tentando fallback...", firstErr);
         try {
           if (typeof configToUse === "string") {
             await html5QrCode.start({ deviceId: { exact: configToUse } }, scanConfig, handleSuccess, () => {});
@@ -266,14 +383,9 @@ export default function ScannerPage() {
             await html5QrCode.start({ facingMode: { ideal: configToUse.facingMode || "environment" } }, scanConfig, handleSuccess, () => {});
           }
         } catch (secondErr) {
-          console.warn("Tentativa 2 falhou, tentando qualquer câmera disponível...", secondErr);
           const devs = await Html5Qrcode.getCameras().catch(() => []);
           if (devs.length > 0) {
             await html5QrCode.start(devs[0].id, scanConfig, handleSuccess, () => {});
-            if (isMountedRef.current) {
-              setSelectedCameraIndex(0);
-              setActiveCameraLabel(devs[0].label || "Câmera 1");
-            }
           } else {
             await html5QrCode.start({ facingMode: "user" }, scanConfig, handleSuccess, () => {});
           }
@@ -285,7 +397,6 @@ export default function ScannerPage() {
         return;
       }
 
-      // Rastrear MediaStream ativo para suporte a lanterna e desligamento seguro
       const videoEl = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
       if (videoEl && videoEl.srcObject) {
         const stream = videoEl.srcObject as MediaStream;
@@ -294,31 +405,45 @@ export default function ScannerPage() {
         if (track) {
           const cap = (track.getCapabilities && track.getCapabilities()) as any;
           setHasTorchSupport(!!(cap && cap.torch));
+          setHasHardwareZoom(!!(cap && cap.zoom));
         }
       }
 
-      // Atualizar lista de câmeras com rótulos concedidos
-      const updatedDevices = await refreshCameraList();
-      if (updatedDevices.length > 0 && isMountedRef.current) {
-        const currentIdx = typeof cameraIndex === "number" ? cameraIndex : selectedCameraIndex;
-        if (updatedDevices[currentIdx]) {
-          setActiveCameraLabel(updatedDevices[currentIdx].label);
-        }
+      isScanningRef.current = true;
+      if (isMountedRef.current) {
+        setIsScanning(true);
+        startDetectionLoop();
       }
-
-      setIsScanning(true);
     } catch (err: any) {
-      console.warn("Erro câmera:", err);
+      console.warn("Erro ao iniciar câmera:", err);
       if (isMountedRef.current) {
         setCameraError(
-          "Não foi possível acessar a câmera. Verifique as permissões do navegador ou digite o código no campo abaixo."
+          "Não foi possível acessar a câmera do dispositivo. Verifique as permissões do navegador."
         );
         setIsScanning(false);
       }
     }
-  }, [stopCamera, killAllVideoHardware, cameras, selectedCameraIndex]);
+  };
 
-  // Alternar entre câmeras disponíveis (PC multi-webcam e Mobile frontal/traseira)
+  // Alternar Lanterna
+  const handleToggleTorch = async () => {
+    if (!activeStreamRef.current) return;
+    const track = activeStreamRef.current.getVideoTracks()[0];
+    if (!track) return;
+
+    try {
+      const nextState = !isTorchOn;
+      await track.applyConstraints({
+        advanced: [{ torch: nextState }] as any,
+      });
+      setIsTorchOn(nextState);
+      toast.info(nextState ? "Lanterna ligada" : "Lanterna desligada");
+    } catch {
+      toast.error("Não foi possível controlar a lanterna neste dispositivo.");
+    }
+  };
+
+  // Alternar entre Câmeras
   const handleToggleFacingMode = async () => {
     if (isSwitchingRef.current) return;
     isSwitchingRef.current = true;
@@ -341,27 +466,10 @@ export default function ScannerPage() {
         }
 
         await startCamera(nextCam.id, nextIndex);
-
-        toast.info(
-          `Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`
-        );
-      } else if (availableCams.length === 1) {
-        const isCurrentlyFront = /front|user|frontal/i.test(availableCams[0].label);
-        const targetMode = isCurrentlyFront ? "environment" : "user";
-
-        try {
-          await startCamera({ facingMode: targetMode });
-          toast.info(`Alternando para modo ${targetMode === "environment" ? "Traseira" : "Frontal"}...`);
-        } catch {
-          toast.info(
-            `Apenas 1 câmera detectada (${availableCams[0].label || "Webcam Principal"}). Conecte outra webcam ou use no celular para alternar câmeras.`,
-            { duration: 4000 }
-          );
-        }
+        toast.info(`Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`);
       } else {
         const nextMode = activeCameraLabel.includes("Frontal") ? "environment" : "user";
         await startCamera({ facingMode: nextMode });
-        toast.info(`Alternado para modo ${nextMode === "environment" ? "Traseira" : "Frontal"}`);
       }
     } catch {
       toast.error("Não foi possível alternar a câmera.");
@@ -371,7 +479,35 @@ export default function ScannerPage() {
     }
   };
 
-  // Ciclo de Vida: Desligamento instantâneo do hardware ao mudar de página
+  // Suporte a Gesto Pinch-to-Zoom (2 dedos na tela do celular)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialTouchDistRef.current = dist;
+      initialZoomOnPinchRef.current = zoomLevel;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialTouchDistRef.current) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = currentDist / initialTouchDistRef.current;
+      const target = Math.min(Math.max(initialZoomOnPinchRef.current * factor, 1.0), 3.5);
+      applyZoom(Number(target.toFixed(1)));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    initialTouchDistRef.current = null;
+  };
+
+  // Ciclo de Vida
   useEffect(() => {
     isMountedRef.current = true;
     startCamera();
@@ -384,33 +520,26 @@ export default function ScannerPage() {
       }
     };
 
-    const handleBeforeUnload = () => {
-      killAllVideoHardware();
-    };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
       isMountedRef.current = false;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      // Desligamento instantâneo síncrono e assíncrono
       killAllVideoHardware();
       stopCamera();
     };
   }, []);
 
-  // Processar código lido
+  // Processar código lido com feedback de alta tecnologia
   const handleCodeDetected = async (code: string) => {
     if (isLoadingLookup) return;
 
-    playBeep();
-    triggerHaptic();
+    playDecodeSuccessSound();
+    triggerHaptic([40, 60, 40]);
+    setIsTargetLocked(true);
 
     // Pausar câmera temporariamente
     stopCamera();
-
     await processCodeLookup(code);
   };
 
@@ -428,7 +557,6 @@ export default function ScannerPage() {
       if (json.success) {
         setScanResult(json);
         
-        // Adicionar ao histórico da sessão
         setSessionHistory((prev) => [
           {
             id: Date.now(),
@@ -451,7 +579,7 @@ export default function ScannerPage() {
           router.push(`/caixas/${json.data.code}`);
         }
       } else {
-        toast.error(json.error || "Item não encontrado no sistema.");
+        toast.error(json.error || "Item ou documento não encontrado no sistema.");
       }
     } catch {
       toast.error("Erro ao consultar o banco de dados.");
@@ -463,13 +591,16 @@ export default function ScannerPage() {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCode.trim()) return;
-    triggerHaptic();
+    triggerHaptic(60);
     processCodeLookup(manualCode.trim());
     setManualCode("");
   };
 
   const handleScanNext = () => {
     setScanResult(null);
+    setDetectedBox(null);
+    setIsTargetLocked(false);
+    applyZoom(1);
     startCamera();
   };
 
@@ -482,19 +613,19 @@ export default function ScannerPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <Camera className="w-6 h-6 text-primary" />
-              Scanner Mobile & QR Code
+              Scanner Inteligente com Auto-Zoom
             </h1>
             <Badge variant={isScanning ? "default" : "secondary"} className="text-xs">
-              {isScanning ? "Câmera Ativa" : "Câmera Pausada"}
+              {isScanning ? "IA Ativa" : "Pausado"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Aponte a câmera para o QR Code da caixa, do equipamento patrimonial ou do termo para ações imediatas.
+            Detecção automática com enquadramento de alvo, zoom inteligente e leitura universal.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          {/* Botão de Trocar Câmera (Frontal / Traseira / Webcams) */}
+          {/* Botão de Trocar Câmera */}
           <Button
             variant="outline"
             size="sm"
@@ -515,33 +646,33 @@ export default function ScannerPage() {
             </span>
           </Button>
 
-          {/* Lanterna / Flash (Se suportado pelo dispositivo) */}
+          {/* Lanterna */}
           {hasTorchSupport && (
             <Button
               variant={isTorchOn ? "default" : "outline"}
               size="sm"
               onClick={handleToggleTorch}
               className={cn("rounded-xl text-xs h-9 gap-1.5 cursor-pointer", isTorchOn && "bg-amber-500 text-amber-950 font-bold hover:bg-amber-400")}
-              title={isTorchOn ? "Desligar lanterna" : "Ligar lanterna (iluminação do código)"}
+              title={isTorchOn ? "Desligar lanterna" : "Ligar lanterna"}
             >
               {isTorchOn ? <Flashlight className="w-4 h-4" /> : <FlashlightOff className="w-4 h-4" />}
               <span className="hidden sm:inline">{isTorchOn ? "Lanterna Ligada" : "Lanterna"}</span>
             </Button>
           )}
 
-          {/* Som Ativar/Desativar */}
+          {/* Som */}
           <Button
             variant="outline"
             size="sm"
             onClick={() => setSoundEnabled(!soundEnabled)}
             className="rounded-xl text-xs h-9 gap-1.5 cursor-pointer"
-            title={soundEnabled ? "Desativar som do beep" : "Ativar som do beep"}
+            title={soundEnabled ? "Desativar áudio" : "Ativar áudio"}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
             <span className="hidden sm:inline">{soundEnabled ? "Som Ativo" : "Mudo"}</span>
           </Button>
 
-          {/* Resetar / Reiniciar Câmera */}
+          {/* Resetar */}
           <Button
             variant="ghost"
             size="sm"
@@ -550,7 +681,7 @@ export default function ScannerPage() {
               startCamera();
             }}
             className="rounded-xl text-xs h-9 gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
-            title="Recarregar/Resetar o leitor da câmera"
+            title="Reiniciar câmera"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Resetar</span>
@@ -589,14 +720,19 @@ export default function ScannerPage() {
       {/* Grid Principal: Viewfinder e Resultados */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         
-        {/* Viewfinder da Câmera */}
-        <Card className="rounded-3xl border-border/80 overflow-hidden shadow-md bg-black relative">
-          <div className="relative aspect-square w-full bg-slate-950 flex flex-col items-center justify-center overflow-hidden">
+        {/* Viewfinder da Câmera com Suporte a Pinch-to-Zoom */}
+        <Card className="rounded-3xl border-border/80 overflow-hidden shadow-2xl bg-black relative">
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="relative aspect-square w-full bg-slate-950 flex flex-col items-center justify-center overflow-hidden touch-none"
+          >
             
             {/* Elemento de Leitura Html5Qrcode */}
             <div id="scanner-viewfinder" className="w-full h-full" />
 
-            {/* Controles Flutuantes Sobrepostos ao Visor */}
+            {/* Controles Flutuantes Superiores (Lanterna e Câmera) */}
             <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
               {hasTorchSupport && (
                 <button
@@ -634,42 +770,100 @@ export default function ScannerPage() {
               </button>
             </div>
 
-            {/* Laser e Mira Holográfica se estiver escaneando */}
+            {/* BARRA FLUTUANTE DE ZOOM (1x, 2x, 3x + Auto-Zoom IA) */}
+            {isScanning && !scanResult && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 border border-white/20 backdrop-blur-xl shadow-2xl">
+                {[1, 2, 3].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => applyZoom(lvl)}
+                    className={cn(
+                      "w-8 h-8 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
+                      zoomLevel === lvl 
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/40 scale-105" 
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    {lvl}x
+                  </button>
+                ))}
+
+                <div className="w-[1px] h-4 bg-white/20 mx-1" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !autoZoomEnabled;
+                    setAutoZoomEnabled(next);
+                    toast.info(next ? "Auto-Zoom IA ativado" : "Auto-Zoom desativado");
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
+                    autoZoomEnabled 
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" 
+                      : "text-white/50 hover:text-white"
+                  )}
+                  title="Auto-Zoom Inteligente ao detectar códigos distantes"
+                >
+                  <Zap className={cn("w-3 h-3", autoZoomEnabled ? "text-emerald-400" : "text-white/40")} />
+                  <span>Auto IA</span>
+                </button>
+              </div>
+            )}
+
+            {/* ENQUADRAMENTO INTELIGENTE DINÂMICO (SNAP BOUNDING BOX) */}
+            {isScanning && !scanResult && detectedBox && (
+              <div
+                className="qr-target-bounding-box"
+                style={{
+                  left: `${detectedBox.x}%`,
+                  top: `${detectedBox.y}%`,
+                  width: `${detectedBox.width}%`,
+                  height: `${detectedBox.height}%`,
+                }}
+              >
+                <div className="qr-target-corner-tl" />
+                <div className="qr-target-corner-tr" />
+                <div className="qr-target-corner-bl" />
+                <div className="qr-target-corner-br" />
+                
+                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase text-emerald-400 bg-black/80 px-2 py-0.5 rounded-full border border-emerald-500/40 whitespace-nowrap shadow-lg flex items-center gap-1">
+                  <Target className="w-2.5 h-2.5 animate-spin" />
+                  Alvo Detectado
+                </span>
+              </div>
+            )}
+
+            {/* Laser e Mira Holográfica Padrão */}
             {isScanning && !scanResult && (
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                {/* Moldura de Foco com Cantoneiras & Laser Animado */}
                 <div className="relative h-[68%] max-h-[320px] min-w-[220px] aspect-square rounded-3xl overflow-hidden flex items-center justify-center">
-                  
-                  {/* Borda HUD com brilho pulsante */}
                   <div className="absolute inset-0 rounded-3xl border-2 border-primary/60 scanner-frame-hud" />
 
-                  {/* Cantoneiras Futuristas */}
                   <div className="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-primary rounded-tl-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
                   <div className="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-primary rounded-tr-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
                   <div className="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-primary rounded-bl-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
                   <div className="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-primary rounded-br-2xl shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
 
-                  {/* Mira central / Crosshair reticle */}
                   <div className="absolute w-4 h-4 border border-white/25 rounded-full flex items-center justify-center">
                     <div className="w-1 h-1 bg-white/40 rounded-full" />
                   </div>
 
-                  {/* Feixe Laser Animado (Varredura Contínua) */}
                   <div className="scanner-laser-line" />
                   <div className="scanner-laser-glow" />
                 </div>
 
-                {/* Indicador de Status & Instrução */}
                 <div className="mt-4 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/70 border border-white/10 backdrop-blur-md shadow-lg">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                   <span className="text-[11px] font-medium text-white/90">
-                    Posicione o QR Code dentro do enquadramento
+                    Posicione o QR Code no quadro • Pinch ou botões para Zoom
                   </span>
                 </div>
               </div>
             )}
 
-            {/* Aviso se a câmera estiver pausada / com erro */}
+            {/* Aviso de erro */}
             {cameraError && (
               <div className="p-6 text-center space-y-3 max-w-xs z-10">
                 <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
@@ -685,16 +879,16 @@ export default function ScannerPage() {
               </div>
             )}
 
-            {/* Loading de Busca */}
+            {/* Loading */}
             {isLoadingLookup && (
-              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 z-20">
+              <div className="absolute inset-0 bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 z-40">
                 <div className="h-8 w-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
                 <span className="text-xs text-white font-semibold">Identificando código...</span>
               </div>
             )}
           </div>
 
-          {/* Fallback de Entrada Manual de Código */}
+          {/* Entrada Manual de Código */}
           <div className="p-4 bg-card border-t border-border/80">
             <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -713,10 +907,8 @@ export default function ScannerPage() {
           </div>
         </Card>
 
-        {/* Coluna Direita: Resultado da Leitura ou Histórico da Sessão */}
+        {/* Coluna Direita: Resultado ou Histórico */}
         <div className="space-y-4">
-          
-          {/* Card de Resultado da Leitura */}
           {scanResult ? (
             <ScannerResultSheet
               result={scanResult}
@@ -724,66 +916,62 @@ export default function ScannerPage() {
               onScanNext={handleScanNext}
             />
           ) : (
-            /* Histórico das Últimas Leituras da Sessão */
-            <Card className="rounded-3xl border-border/80 shadow-xs">
-              <CardContent className="p-5 space-y-4">
-                <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-foreground">
-                      Histórico da Sessão ({sessionHistory.length})
-                    </h3>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    Últimas leituras
-                  </span>
+            <Card className="rounded-3xl border-border/80 shadow-md p-5 space-y-4 bg-card">
+              <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">
+                    Histórico Recente da Sessão
+                  </h3>
                 </div>
+                <Badge variant="outline" className="text-[10px]">
+                  {sessionHistory.length} Leituras
+                </Badge>
+              </div>
 
-                {sessionHistory.length === 0 ? (
-                  <div className="py-8 text-center space-y-2">
-                    <Sparkles className="w-8 h-8 text-primary/40 mx-auto" />
-                    <p className="text-xs font-semibold text-foreground">
-                      Aguardando primeira leitura
-                    </p>
-                    <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
-                      Aponte a câmera para qualquer código ou digite no campo ao lado para visualizar os dados instantaneamente.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
-                    {sessionHistory.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => processCodeLookup(item.code)}
-                        className="w-full text-left p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between group transition-colors cursor-pointer"
-                      >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-primary">
-                              {item.code}
-                            </span>
-                            <Badge variant="default" className="text-[9px]">
-                              {item.entityType}
-                            </Badge>
-                          </div>
-                          <p className="text-[11px] text-foreground font-medium">
-                            {item.entityType === "ASSET" ? item.data.asset.item?.name : item.entityType === "BOX" ? item.data.name : item.data.item?.name || item.code}
-                          </p>
+              {sessionHistory.length === 0 ? (
+                <div className="py-12 text-center space-y-2 text-muted-foreground">
+                  <Camera className="w-8 h-8 mx-auto opacity-40 text-primary" />
+                  <p className="text-xs">Nenhum código escaneado nesta sessão.</p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
+                    Aproxime a câmera de caixas físicas, equipamentos patrimoniais ou termos de cautela impressos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  {sessionHistory.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => setScanResult(item)}
+                      className="p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between transition-colors cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono text-xs font-bold shrink-0">
+                          {item.entityType === "ASSET" ? "#" : item.entityType === "BOX" ? "CX" : "DOC"}
                         </div>
+                        <div>
+                          <strong className="text-xs font-bold text-foreground block">
+                            {item.entityType === "ASSET" 
+                              ? `#${item.data.asset?.assetTag} - ${item.data.asset?.item?.name}`
+                              : item.entityType === "BOX"
+                              ? `${item.data.code} - ${item.data.name}`
+                              : item.code}
+                          </strong>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(item.timestamp).toLocaleTimeString("pt-BR")}
+                          </span>
+                        </div>
+                      </div>
 
-                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
-
         </div>
-
       </div>
-
     </div>
   );
 }
