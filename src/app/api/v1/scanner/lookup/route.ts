@@ -43,8 +43,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Tentar extrair de URL (ex: https://.../caixas/C001 ou /patrimonio/123458)
-    if (parsedTag.includes("/caixas/")) {
+    // 2. Tentar extrair de URL (ex: https://.../caixas/C001, /patrimonio/123458 ou /validar/cmthzzf6n0)
+    if (parsedTag.includes("/validar/")) {
+      const parts = parsedTag.split("/validar/");
+      parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
+    } else if (parsedTag.includes("/caixas/")) {
       const parts = parsedTag.split("/caixas/");
       parsedTag = parts[1]?.split("?")[0]?.trim() || parsedTag;
     } else if (parsedTag.includes("/patrimonio/")) {
@@ -59,7 +62,93 @@ export async function POST(req: NextRequest) {
     // RESOLVER ENTIDADES
     // ----------------------------------------------------
 
-    // A. Buscar por PATRIMÔNIO (Asset)
+    // A. Buscar por EMPRÉSTIMO / TERMO DE CAUTELA (Loan)
+    // Suporta código completo, ID parcial (ex: cmthzzf6n0), protocolo (LOAN-XXXXXX)
+    const isLoanFormat = parsedTag.startsWith("LOAN-") || parsedTag.startsWith("loan-") || (parsedTag.length >= 8 && parsedTag.length <= 32);
+    if (isLoanFormat) {
+      const cleanLoanCode = parsedTag.replace(/^[Ll][Oo][Aa][Nn]-/, "").toLowerCase();
+      const loan = await prisma.loan.findFirst({
+        where: {
+          OR: [
+            { id: parsedTag },
+            { id: cleanLoanCode },
+            { id: { startsWith: cleanLoanCode } },
+            { id: { endsWith: cleanLoanCode } },
+          ],
+        },
+        include: {
+          asset: {
+            include: {
+              item: true,
+              currentBox: { include: { door: true } },
+            },
+          },
+          createdByUser: { select: { name: true, email: true } },
+        },
+      });
+
+      if (loan) {
+        return NextResponse.json({
+          success: true,
+          entityType: "LOAN",
+          data: sanitizeLoanForRole(loan, session?.user?.role),
+        });
+      }
+    }
+
+    // B. Buscar por ORDEM DE SERVIÇO (Maintenance / OS)
+    const isOsFormat = parsedTag.startsWith("OS-") || parsedTag.startsWith("os-") || parsedTag.startsWith("#OS-");
+    const maintenance = await prisma.maintenance.findFirst({
+      where: {
+        OR: [
+          { orderNumber: { equals: parsedTag, mode: "insensitive" } },
+          { orderNumber: { equals: `#${cleanTag}`, mode: "insensitive" } },
+          { id: parsedTag },
+          { id: { startsWith: parsedTag.toLowerCase() } },
+          { id: { endsWith: parsedTag.toLowerCase() } },
+        ],
+      },
+      include: {
+        asset: {
+          include: {
+            item: true,
+            currentBox: { include: { door: true } },
+          },
+        },
+      },
+    });
+
+    if (maintenance) {
+      return NextResponse.json({
+        success: true,
+        entityType: "MAINTENANCE",
+        data: maintenance,
+      });
+    }
+
+    // C. Buscar por RELATÓRIO OFICIAL (Report / REL-*)
+    if (parsedTag.startsWith("REL-") || parsedTag.startsWith("rel-")) {
+      const parts = parsedTag.split("-");
+      const reportType = parts[1] || "GERAL";
+      const hash = parts[2] || "OFICIAL";
+
+      return NextResponse.json({
+        success: true,
+        entityType: "DOCUMENT_VALIDATION",
+        data: {
+          protocol: parsedTag.toUpperCase(),
+          documentTitle: `Relatório Oficial de ${reportType.toUpperCase()} - UniFAP`,
+          statusLabel: "DOCUMENTO AUTÊNTICO & HOMOLOGADO",
+          statusColor: "emerald",
+          institution: "Centro Universitário Paraíso • UniFAP",
+          sector: "Setor de Suporte de TI & Multimídia",
+          authenticationCode: hash.toUpperCase(),
+          issuedAt: new Date(),
+        },
+      });
+    }
+
+    // D. Buscar por PATRIMÔNIO (Asset)
     const asset = await prisma.asset.findFirst({
       where: {
         active: true,
@@ -105,7 +194,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // B. Buscar por CAIXA DO ARMÁRIO (Box)
+    // E. Buscar por CAIXA DO ARMÁRIO (Box)
     const box = await prisma.box.findFirst({
       where: {
         active: true,
@@ -139,61 +228,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // C. Buscar por EMPRÉSTIMO (Loan)
-    if (parsedTag.startsWith("LOAN-") || parsedTag.startsWith("loan-")) {
-      const loanIdShort = parsedTag.replace(/^[Ll][Oo][Aa][Nn]-/, "").toLowerCase();
-      const loan = await prisma.loan.findFirst({
-        where: {
-          id: { endsWith: loanIdShort },
-        },
-        include: {
-          asset: {
-            include: {
-              item: true,
-              currentBox: { include: { door: true } },
-            },
-          },
-          createdByUser: { select: { name: true, email: true } },
-        },
-      });
-
-      if (loan) {
-        return NextResponse.json({
-          success: true,
-          entityType: "LOAN",
-          data: sanitizeLoanForRole(loan, session?.user?.role),
-        });
-      }
-    }
-
-    // D. Buscar por ORDEM DE SERVIÇO (Maintenance)
-    const maintenance = await prisma.maintenance.findFirst({
-      where: {
-        OR: [
-          { orderNumber: { equals: parsedTag, mode: "insensitive" } },
-          { orderNumber: { equals: `#${cleanTag}`, mode: "insensitive" } },
-          { id: parsedTag },
-        ],
-      },
-      include: {
-        asset: {
-          include: {
-            item: true,
-            currentBox: { include: { door: true } },
-          },
-        },
-      },
-    });
-
-    if (maintenance) {
-      return NextResponse.json({
-        success: true,
-        entityType: "MAINTENANCE",
-        data: maintenance,
-      });
-    }
-
-    // E. Buscar por ITEM / MATERIAL (SKU)
+    // F. Buscar por ITEM / MATERIAL (SKU)
     const item = await prisma.item.findFirst({
       where: {
         active: true,

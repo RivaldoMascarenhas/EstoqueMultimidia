@@ -52,7 +52,7 @@ export default function ScannerPage() {
 
   // Resultado
   const [scanResult, setScanResult] = useState<{
-    entityType: "ASSET" | "BOX" | "ITEM" | "LOAN" | "MAINTENANCE";
+    entityType: "ASSET" | "BOX" | "ITEM" | "LOAN" | "MAINTENANCE" | "DOCUMENT_VALIDATION";
     data: any;
   } | null>(null);
 
@@ -702,7 +702,7 @@ export default function ScannerPage() {
                 <Input
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
-                  placeholder="Digitar patrimônio (#123458), caixa (C001) ou SKU..."
+                  placeholder="Patrimônio (#PAT-1002), Caixa (CX-01), Termo (LOAN-...), OS ou chave..."
                   className="pl-9 h-10 rounded-xl text-xs bg-background"
                 />
               </div>

@@ -11,7 +11,10 @@ import {
   X, 
   MapPin, 
   ExternalLink, 
-  RefreshCw
+  RefreshCw,
+  ShieldCheck,
+  CheckCircle2,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +22,7 @@ import { formatDateTime, formatDate } from "@/lib/utils";
 
 interface ScannerResultSheetProps {
   result: {
-    entityType: "ASSET" | "BOX" | "ITEM" | "LOAN" | "MAINTENANCE";
+    entityType: "ASSET" | "BOX" | "ITEM" | "LOAN" | "MAINTENANCE" | "DOCUMENT_VALIDATION";
     data: any;
   } | null;
   onClose: () => void;
@@ -68,13 +71,19 @@ export function ScannerResultSheet({
           {entityType === "LOAN" && (
             <Badge variant="default" className="gap-1 bg-purple-600 text-white font-bold">
               <Handshake className="w-3 h-3" />
-              Termo de Empréstimo
+              Termo de Cautela Autêntico
             </Badge>
           )}
           {entityType === "MAINTENANCE" && (
             <Badge variant="default" className="gap-1 bg-amber-600 text-white font-bold">
               <Wrench className="w-3 h-3" />
-              Ordem de Serviço (OS)
+              Ordem de Serviço (OS) Autêntica
+            </Badge>
+          )}
+          {entityType === "DOCUMENT_VALIDATION" && (
+            <Badge variant="default" className="gap-1 bg-emerald-600 text-white font-bold">
+              <ShieldCheck className="w-3 h-3" />
+              Documento Oficial Autêntico
             </Badge>
           )}
         </div>
@@ -299,67 +308,180 @@ export function ScannerResultSheet({
         </div>
       )}
 
-      {/* 4. EMPRÉSTIMO */}
+      {/* 4. EMPRÉSTIMO / TERMO DE CAUTELA */}
       {entityType === "LOAN" && (
         <div className="space-y-4">
-          <div className="space-y-1">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <div>
+                <span className="text-[11px] font-black uppercase text-emerald-700 dark:text-emerald-300 block">
+                  Documento Oficial Autêntico
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Centro Universitário Paraíso • UniFAP
+                </span>
+              </div>
+            </div>
+            <Badge variant={data.status === "ACTIVE" ? "loaned" : "available"} className="text-[10px]">
+              {data.status === "ACTIVE" ? "EM ANDAMENTO" : data.status === "RETURNED" ? "DEVOLVIDO" : data.status}
+            </Badge>
+          </div>
+
+          <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-lg">
                 LOAN-{data.id.slice(-8).toUpperCase()}
               </span>
-              <Badge variant={data.status === "ACTIVE" ? "loaned" : "available"} className="text-[10px]">
-                {data.status}
-              </Badge>
+              <span className="text-xs text-muted-foreground font-mono">
+                Chave: {data.id.slice(0, 10)}
+              </span>
             </div>
             <h3 className="text-base font-bold text-foreground">
               {data.borrowerName}
             </h3>
             <p className="text-xs text-muted-foreground">
-              Destino: {data.destination} • Previsto: {formatDateTime(data.expectedReturnDate)}
+              Local: {data.destination} {data.borrowerPhone ? `• Contato: ${data.borrowerPhone}` : ""}
             </p>
           </div>
 
-          <Button
-            asChild
-            size="sm"
-            className="w-full rounded-xl text-xs h-9 bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 shadow-md shadow-purple-600/20"
-          >
-            <Link href={`/emprestimos?search=${data.borrowerName}`}>
-              <Handshake className="w-4 h-4" />
-              <span>Acessar Termo Oficial</span>
-            </Link>
-          </Button>
+          {data.asset && (
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 text-xs space-y-1">
+              <span className="text-muted-foreground block text-[10px] uppercase font-bold">Equipamento Vinculado:</span>
+              <strong className="text-foreground block">
+                #{data.asset.assetTag} — {data.asset.item?.name}
+              </strong>
+              <span className="text-muted-foreground text-[11px] block">
+                Prazo Previsto: {formatDateTime(data.expectedReturnDate)}
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button
+              asChild
+              size="sm"
+              className="w-full rounded-xl text-xs h-9 bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 shadow-md shadow-purple-600/20"
+            >
+              <Link href={`/validar/${data.id}`} target="_blank">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Ver Selo de Validação</span>
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="w-full rounded-xl text-xs h-9 font-semibold gap-1.5"
+            >
+              <Link href={`/emprestimos?search=${data.borrowerName}`}>
+                <Handshake className="w-4 h-4 text-purple-600" />
+                <span>Painel de Empréstimos</span>
+              </Link>
+            </Button>
+          </div>
         </div>
       )}
 
       {/* 5. ORDEM DE SERVIÇO */}
       {entityType === "MAINTENANCE" && (
         <div className="space-y-4">
+          <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <div>
+                <span className="text-[11px] font-black uppercase text-emerald-700 dark:text-emerald-300 block">
+                  Ordem de Serviço Oficial
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Suporte Técnico • TI Multimídia
+                </span>
+              </div>
+            </div>
+            <Badge variant="maintenance" className="text-[10px]">
+              {data.status}
+            </Badge>
+          </div>
+
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg">
                 {data.orderNumber}
               </span>
-              <Badge variant="maintenance" className="text-[10px]">
-                {data.status}
-              </Badge>
             </div>
             <h3 className="text-base font-bold text-foreground">
               {data.asset?.item?.name} (#{data.asset?.assetTag})
             </h3>
             <p className="text-xs text-muted-foreground">
-              Defeito: {data.issueDescription}
+              Problema: {data.issueDescription}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Button
+              asChild
+              size="sm"
+              className="w-full rounded-xl text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5 shadow-md shadow-amber-600/20"
+            >
+              <Link href={`/validar/${data.id}`} target="_blank">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Ver Selo de Validação</span>
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="w-full rounded-xl text-xs h-9 font-semibold gap-1.5"
+            >
+              <Link href={`/manutencao?search=${data.orderNumber}`}>
+                <Wrench className="w-4 h-4 text-amber-600" />
+                <span>Ver Manutenção</span>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 6. RELATÓRIO OFICIAL / VALIDAÇÃO INSTITUCIONAL */}
+      {entityType === "DOCUMENT_VALIDATION" && (
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300 block">
+                {data.statusLabel}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                {data.institution} • {data.sector}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
+              {data.protocol}
+            </span>
+            <h3 className="text-base font-bold text-foreground">
+              {data.documentTitle}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Código de Autenticação: <strong className="font-mono text-foreground">{data.authenticationCode}</strong>
             </p>
           </div>
 
           <Button
             asChild
             size="sm"
-            className="w-full rounded-xl text-xs h-9 bg-amber-600 hover:bg-amber-700 text-white font-semibold gap-1.5 shadow-md shadow-amber-600/20"
+            className="w-full rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold gap-1.5 shadow-md shadow-primary/20"
           >
-            <Link href={`/manutencao?search=${data.orderNumber}`}>
-              <Wrench className="w-4 h-4" />
-              <span>Ver Ordem de Serviço (OS)</span>
+            <Link href={`/validar/${encodeURIComponent(data.protocol)}`} target="_blank">
+              <ExternalLink className="w-4 h-4" />
+              <span>Abrir Certificado Completo</span>
             </Link>
           </Button>
         </div>
