@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestLegacyConfirmSchema } from "@/schemas/request.schema";
@@ -34,7 +35,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao confirmar revisão da solicitação." },
+      { success: false, error: formatZodError(error, "Erro ao confirmar revisão da solicitação.") },
       { status: 400 }
     );
   }

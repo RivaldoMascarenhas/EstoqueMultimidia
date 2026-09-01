@@ -6,11 +6,23 @@ export const assetCreateSchema = z.object({
   serialNumber: z.string().optional(),
   model: z.string().optional(),
   currentBoxId: z.string().optional(),
-  acquisitionDate: z.string().optional(),
-  purchaseDate: z.string().optional(), // alias
+  acquisitionDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de aquisição não pode ser no futuro e deve ser válida"),
+  purchaseDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de compra não pode ser no futuro e deve ser válida"),
   acquisitionValue: z.number().nonnegative().optional(),
   purchaseValue: z.number().nonnegative().optional(), // alias
-  warrantyExpiry: z.string().optional(),
+  warrantyExpiry: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime());
+  }, "Data de garantia inválida"),
   notes: z.string().optional(),
 });
 
@@ -22,11 +34,23 @@ export const assetBatchCreateSchema = z.object({
   tags: z.array(z.string()).optional(),
   model: z.string().optional(),
   currentBoxId: z.string().optional(),
-  acquisitionDate: z.string().optional(),
-  purchaseDate: z.string().optional(),
+  acquisitionDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de aquisição não pode ser no futuro e deve ser válida"),
+  purchaseDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de compra não pode ser no futuro e deve ser válida"),
   acquisitionValue: z.number().nonnegative().optional(),
   purchaseValue: z.number().nonnegative().optional(),
-  warrantyExpiry: z.string().optional(),
+  warrantyExpiry: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime());
+  }, "Data de garantia inválida"),
   notes: z.string().optional(),
 });
 

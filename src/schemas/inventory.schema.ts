@@ -43,8 +43,12 @@ export const itemCreateSchema = z.object({
   startNumber: z.number().int().nonnegative().optional(),
   assetTag: z.string().optional(),
   serialNumber: z.string().optional(),
-  acquisitionDate: z.string().optional(),
-  acquisitionValue: z.number().optional(),
+  acquisitionDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de aquisição não pode ser no futuro e deve ser válida"),
+  acquisitionValue: z.number().nonnegative("O valor de aquisição não pode ser negativo").optional(),
   notes: z.string().optional(),
 });
 

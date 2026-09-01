@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestAllocateAssetSchema } from "@/schemas/request.schema";
@@ -34,7 +35,7 @@ export async function POST(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao alocar patrimônio." },
+      { success: false, error: formatZodError(error, "Erro ao alocar patrimônio.") },
       { status: 400 }
     );
   }

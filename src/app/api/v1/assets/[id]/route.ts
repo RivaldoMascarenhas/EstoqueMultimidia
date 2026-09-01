@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { AssetService } from "@/services/asset.service";
 import { assetStatusUpdateSchema } from "@/schemas/asset.schema";
@@ -78,7 +79,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar status do equipamento." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar status do equipamento.") },
       { status: 400 }
     );
   }

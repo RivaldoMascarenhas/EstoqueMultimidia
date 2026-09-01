@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestSwapAssetSchema } from "@/schemas/request.schema";
@@ -35,7 +36,7 @@ export async function POST(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao substituir patrimônio." },
+      { success: false, error: formatZodError(error, "Erro ao substituir patrimônio.") },
       { status: 400 }
     );
   }

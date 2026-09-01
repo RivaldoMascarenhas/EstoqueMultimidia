@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { LoanService } from "@/services/loan.service";
 import { loanRenewSchema } from "@/schemas/loan.schema";
@@ -39,7 +40,7 @@ export async function POST(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao renovar empréstimo." },
+      { success: false, error: formatZodError(error, "Erro ao renovar empréstimo.") },
       { status: 400 }
     );
   }

@@ -187,3 +187,8 @@ export function getStockStatusLevel(current: number, min: number, ideal: number)
     badgeClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30",
   };
 }
+
+export function formatZodError(error: any, defaultMessage: string = "Erro de validação"): string {
+  if (error?.name === "ZodError" && Array.isArray(error.errors)) return error.errors[0]?.message || defaultMessage;
+  return error?.message || defaultMessage;
+}

@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { AssetService } from "@/services/asset.service";
 import { assetBatchCreateSchema } from "@/schemas/asset.schema";
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao cadastrar equipamentos em lote." },
+      { success: false, error: formatZodError(error, "Erro ao cadastrar equipamentos em lote.") },
       { status: 400 }
     );
   }

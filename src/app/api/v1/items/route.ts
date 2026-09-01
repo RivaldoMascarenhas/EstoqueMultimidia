@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services/inventory.service";
 import { itemCreateSchema } from "@/schemas/inventory.schema";
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao cadastrar novo item." },
+      { success: false, error: formatZodError(error, "Erro ao cadastrar novo item.") },
       { status: 400 }
     );
   }

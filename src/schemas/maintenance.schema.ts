@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidPhone } from "@/lib/validators";
 
 export const maintenanceTypeEnum = z.enum([
   "CORRECTIVE",
@@ -30,7 +31,11 @@ export const maintenanceCreateSchema = z.object({
   cost: z.number().min(0, "O custo não pode ser negativo").optional().nullable(),
   diagnosis: z.string().optional().or(z.literal("")),
   contactName: z.string().optional().or(z.literal("")),
-  contactPhone: z.string().optional().or(z.literal("")),
+  contactPhone: z
+    .string()
+    .refine((val) => !val || isValidPhone(val), "Telefone inválido")
+    .optional()
+    .or(z.literal("")),
   technicalNotes: z.string().optional().or(z.literal("")),
 });
 
@@ -47,7 +52,11 @@ export const maintenanceUpdateSchema = z.object({
   replacedParts: z.string().optional().or(z.literal("")),
   lampHours: z.number().int().min(0, "Horas não podem ser negativas").optional().nullable(),
   contactName: z.string().optional().or(z.literal("")),
-  contactPhone: z.string().optional().or(z.literal("")),
+  contactPhone: z
+    .string()
+    .refine((val) => !val || isValidPhone(val), "Telefone inválido")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const maintenanceCompleteSchema = z.object({

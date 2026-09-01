@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { LoanService } from "@/services/loan.service";
 import { requireSession } from "@/lib/api-guard";
@@ -27,7 +28,7 @@ export async function GET(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar empréstimo." },
+      { success: false, error: formatZodError(error, "Erro ao consultar empréstimo.") },
       { status: 404 }
     );
   }

@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { LoanService } from "@/services/loan.service";
 import { loanReturnSchema } from "@/schemas/loan.schema";
@@ -44,7 +45,7 @@ export async function POST(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao processar devolução." },
+      { success: false, error: formatZodError(error, "Erro ao processar devolução.") },
       { status: 400 }
     );
   }

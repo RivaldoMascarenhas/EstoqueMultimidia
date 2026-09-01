@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { ShiftService } from "@/services/shift.service";
 import { updateShiftConfigsSchema } from "@/schemas/shift.schema";
@@ -50,7 +51,7 @@ export async function PUT(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar horários dos turnos." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar horários dos turnos.") },
       { status: 400 }
     );
   }

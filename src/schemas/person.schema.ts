@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidCPF, isValidPhone } from "@/lib/validators";
 
 export const createPersonSchema = z
   .object({
@@ -6,12 +7,17 @@ export const createPersonSchema = z
     cpf: z
       .string()
       .transform((val) => (val ? val.replace(/\D/g, "") : ""))
-      .refine((val) => !val || val.length === 11, "CPF deve ter 11 dígitos")
+      .refine((val) => !val || isValidCPF(val), "CPF inválido")
       .optional()
       .nullable(),
     registration: z.string().max(50).optional().nullable(),
     email: z.string().email("E-mail inválido").optional().nullable().or(z.literal("")),
-    phone: z.string().max(50).optional().nullable(),
+    phone: z
+      .string()
+      .max(50)
+      .refine((val) => !val || isValidPhone(val), "Telefone inválido. Formato esperado: (DDD) + 8 ou 9 dígitos")
+      .optional()
+      .nullable(),
     category: z.string().min(1, "Categoria é obrigatória (ex: Aluno, Professor, Técnico, Visitante)"),
     affiliation: z.string().max(100).optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),
@@ -33,12 +39,17 @@ export const updatePersonSchema = z
     cpf: z
       .string()
       .transform((val) => (val ? val.replace(/\D/g, "") : ""))
-      .refine((val) => !val || val.length === 11, "CPF deve ter 11 dígitos")
+      .refine((val) => !val || isValidCPF(val), "CPF inválido")
       .optional()
       .nullable(),
     registration: z.string().max(50).optional().nullable(),
     email: z.string().email("E-mail inválido").optional().nullable().or(z.literal("")),
-    phone: z.string().max(50).optional().nullable(),
+    phone: z
+      .string()
+      .max(50)
+      .refine((val) => !val || isValidPhone(val), "Telefone inválido. Formato esperado: (DDD) + 8 ou 9 dígitos")
+      .optional()
+      .nullable(),
     category: z.string().min(1, "Categoria é obrigatória").optional().nullable(),
     affiliation: z.string().max(100).optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),

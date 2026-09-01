@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { AssetService } from "@/services/asset.service";
 import { assetCreateSchema } from "@/schemas/asset.schema";
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao cadastrar patrimônio." },
+      { success: false, error: formatZodError(error, "Erro ao cadastrar patrimônio.") },
       { status: 400 }
     );
   }

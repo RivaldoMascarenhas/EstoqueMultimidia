@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requireSession } from "@/lib/api-guard";
@@ -32,7 +33,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar item de preparo." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar item de preparo.") },
       { status: 400 }
     );
   }

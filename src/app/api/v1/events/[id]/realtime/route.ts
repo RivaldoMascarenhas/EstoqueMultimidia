@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -180,6 +181,6 @@ export async function POST(
 
     return NextResponse.json({ success: true, state: realtimeService.getState(eventId) });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Erro no realtime" }, { status: 400 });
+    return NextResponse.json({ error: formatZodError(error, "Erro no realtime") }, { status: 400 });
   }
 }

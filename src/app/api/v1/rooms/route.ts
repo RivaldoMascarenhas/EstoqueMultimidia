@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/services/room.service";
 import { roomCreateSchema } from "@/schemas/room.schema";
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao cadastrar sala." },
+      { success: false, error: formatZodError(error, "Erro ao cadastrar sala.") },
       { status: 400 }
     );
   }

@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestUpdateSchema } from "@/schemas/request.schema";
@@ -38,7 +39,7 @@ export async function GET(
     return NextResponse.json({ success: true, data: request });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Solicitação não encontrada." },
+      { success: false, error: formatZodError(error, "Solicitação não encontrada.") },
       { status: 404 }
     );
   }
@@ -74,7 +75,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar solicitação." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar solicitação.") },
       { status: 400 }
     );
   }
@@ -115,7 +116,7 @@ export async function DELETE(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao processar exclusão do agendamento." },
+      { success: false, error: formatZodError(error, "Erro ao processar exclusão do agendamento.") },
       { status: 400 }
     );
   }

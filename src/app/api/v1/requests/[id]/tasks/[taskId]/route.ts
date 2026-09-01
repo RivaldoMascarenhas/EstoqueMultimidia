@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestTaskToggleSchema } from "@/schemas/request.schema";
@@ -34,7 +35,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar tarefa operacional." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar tarefa operacional.") },
       { status: 400 }
     );
   }
@@ -66,7 +67,7 @@ export async function DELETE(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao remover tarefa." },
+      { success: false, error: formatZodError(error, "Erro ao remover tarefa.") },
       { status: 400 }
     );
   }

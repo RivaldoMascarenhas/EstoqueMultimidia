@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RequestService } from "@/services/request.service";
 import { requestCreateSchema } from "@/schemas/request.schema";
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao criar solicitação." },
+      { success: false, error: formatZodError(error, "Erro ao criar solicitação.") },
       { status: 400 }
     );
   }

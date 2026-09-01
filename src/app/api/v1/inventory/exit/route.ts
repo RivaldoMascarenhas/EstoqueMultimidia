@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { InventoryService } from "@/services/inventory.service";
 import { stockExitSchema } from "@/schemas/inventory.schema";
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao registrar saída de estoque." },
+      { success: false, error: formatZodError(error, "Erro ao registrar saída de estoque.") },
       { status: 400 }
     );
   }

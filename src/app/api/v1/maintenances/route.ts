@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { MaintenanceService } from "@/services/maintenance.service";
 import { maintenanceCreateSchema } from "@/schemas/maintenance.schema";
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao abrir ordem de serviço." },
+      { success: false, error: formatZodError(error, "Erro ao abrir ordem de serviço.") },
       { status: 400 }
     );
   }

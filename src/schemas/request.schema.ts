@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RequestStatus, RequestOrigin, ResourceType, RequestPriority, TaskType } from "@prisma/client";
+import { getBrazilDateString } from "@/lib/event-time";
 
 export const requestItemInputSchema = z.object({
   id: z.string().optional(),
@@ -13,7 +14,15 @@ export const requestItemInputSchema = z.object({
 });
 
 export const requestCreateSchema = z.object({
-  date: z.string().min(1, "Data é obrigatória"),
+  date: z.string().min(1, "Data é obrigatória").refine((d) => {
+    try {
+      const dateStr = getBrazilDateString(d);
+      const todayStr = getBrazilDateString(new Date());
+      return !dateStr || !todayStr || dateStr >= todayStr;
+    } catch {
+      return true;
+    }
+  }, "O agendamento não pode ser para uma data no passado"),
   startTime: z.string().min(1, "Horário de início é obrigatório"),
   endTime: z.string().min(1, "Horário de término é obrigatório"),
   roomId: z.string().min(1, "Selecione a sala"),

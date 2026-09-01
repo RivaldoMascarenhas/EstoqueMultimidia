@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { MaintenanceService } from "@/services/maintenance.service";
 import { maintenanceCompleteSchema } from "@/schemas/maintenance.schema";
@@ -39,7 +40,7 @@ export async function POST(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao concluir ordem de serviço." },
+      { success: false, error: formatZodError(error, "Erro ao concluir ordem de serviço.") },
       { status: 400 }
     );
   }

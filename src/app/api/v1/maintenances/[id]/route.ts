@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { MaintenanceService } from "@/services/maintenance.service";
 import { maintenanceUpdateSchema } from "@/schemas/maintenance.schema";
@@ -29,7 +30,7 @@ export async function GET(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao buscar ordem de serviço." },
+      { success: false, error: formatZodError(error, "Erro ao buscar ordem de serviço.") },
       { status: 404 }
     );
   }
@@ -69,7 +70,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar ordem de serviço." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar ordem de serviço.") },
       { status: 400 }
     );
   }

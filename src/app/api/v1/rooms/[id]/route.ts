@@ -1,3 +1,4 @@
+import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { RoomService } from "@/services/room.service";
 import { roomUpdateSchema } from "@/schemas/room.schema";
@@ -17,7 +18,7 @@ export async function GET(
     return NextResponse.json({ success: true, data: room });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Sala não encontrada." },
+      { success: false, error: formatZodError(error, "Sala não encontrada.") },
       { status: 404 }
     );
   }
@@ -44,7 +45,7 @@ export async function PATCH(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao atualizar sala." },
+      { success: false, error: formatZodError(error, "Erro ao atualizar sala.") },
       { status: 400 }
     );
   }
@@ -68,7 +69,7 @@ export async function DELETE(
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao desativar sala." },
+      { success: false, error: formatZodError(error, "Erro ao desativar sala.") },
       { status: 400 }
     );
   }
