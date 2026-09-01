@@ -11,7 +11,7 @@ export const doorCreateSchema = z.object({
   code: z.string().min(2, "Código da porta deve ter pelo menos 2 caracteres (ex: PORTA-1)").toUpperCase(),
   name: z.string().min(2, "Nome da porta deve ter pelo menos 2 caracteres"),
   description: z.string().optional(),
-  orderIndex: z.number().int().default(0),
+  orderIndex: z.number().int().nonnegative("O índice de ordenação não pode ser negativo").default(0),
 });
 
 export type BoxCreateInput = z.infer<typeof boxCreateSchema>;

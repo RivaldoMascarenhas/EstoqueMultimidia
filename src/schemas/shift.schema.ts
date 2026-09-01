@@ -7,7 +7,7 @@ export const shiftConfigItemSchema = z.object({
   endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Formato de hora inválido (HH:mm)"),
   label: z.string().min(2, "Nome do turno é obrigatório"),
   emoji: z.string().optional().nullable(),
-  orderIndex: z.number().int().optional(),
+  orderIndex: z.number().int().nonnegative("A ordem não pode ser negativa").optional(),
 });
 
 export const updateShiftConfigsSchema = z.object({

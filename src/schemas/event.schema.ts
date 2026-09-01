@@ -42,7 +42,7 @@ export const createEventSchema = z.object({
   secondaryColor: z.string().optional().default("#EAA023"),
   allowRepeatWinners: z.boolean().optional().default(false),
   maxParticipants: z.number().int().positive().optional().nullable(),
-  checkinOpenMinutesBefore: z.number().int().optional().default(60),
+  checkinOpenMinutesBefore: z.number().int().nonnegative("Os minutos de abertura do check-in não podem ser negativos").optional().default(60),
 });
 
 export const updateEventSchema = z
@@ -64,7 +64,7 @@ export const updateEventSchema = z
     secondaryColor: z.string(),
     allowRepeatWinners: z.boolean(),
     maxParticipants: z.number().int().positive().nullable(),
-    checkinOpenMinutesBefore: z.number().int(),
+    checkinOpenMinutesBefore: z.number().int().nonnegative("Os minutos de abertura do check-in não podem ser negativos"),
   })
   .partial();
 

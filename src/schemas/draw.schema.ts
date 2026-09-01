@@ -10,10 +10,18 @@ export const executeDrawSchema = z.object({
   requireFacialPresenceOnly: z.boolean().default(false),
   allowRepeatWinners: z.boolean().optional(),
   categoryFilter: z.string().optional().nullable(),
-  minNumber: z.number().int().optional(),
-  maxNumber: z.number().int().optional(),
+  minNumber: z.number().int().nonnegative("O número mínimo não pode ser negativo").optional(),
+  maxNumber: z.number().int().nonnegative("O número máximo não pode ser negativo").optional(),
   notes: z.string().max(500).optional().nullable(),
   idempotencyKey: z.string().optional().nullable(),
+}).refine((data) => {
+  if (data.minNumber !== undefined && data.maxNumber !== undefined) {
+    return data.maxNumber >= data.minNumber;
+  }
+  return true;
+}, {
+  message: "O número máximo não pode ser menor que o número mínimo",
+  path: ["maxNumber"]
 });
 
 export const deliverPrizeSchema = z.object({

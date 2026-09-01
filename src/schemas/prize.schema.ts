@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PrizeStatus } from "@prisma/client";
+import { isValidPhone } from "@/lib/validators";
 
 export const createPrizeSchema = z.object({
   eventId: z.string().min(1, "ID do evento é obrigatório"),
@@ -8,7 +9,7 @@ export const createPrizeSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   imageUrl: z.string().optional().nullable().or(z.literal("")),
   quantity: z.number().int().min(1, "Quantidade mínima é 1").default(1),
-  estimatedValue: z.number().positive().optional().nullable(),
+  estimatedValue: z.number().nonnegative("O valor estimado não pode ser negativo").optional().nullable(),
   order: z.number().int().default(0),
   status: z.nativeEnum(PrizeStatus).default(PrizeStatus.AVAILABLE),
 });
@@ -21,7 +22,11 @@ export const createSponsorSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   website: z.string().optional().nullable().or(z.literal("")),
   instagram: z.string().max(100).optional().nullable(),
-  phone: z.string().max(50).optional().nullable(),
+  phone: z
+    .string()
+    .refine((val) => !val || isValidPhone(val), "Telefone inválido. Formato esperado: (DDD) + 8 ou 9 dígitos")
+    .optional()
+    .nullable(),
   email: z.string().email("E-mail inválido").optional().nullable().or(z.literal("")),
   notes: z.string().max(1000).optional().nullable(),
 });
