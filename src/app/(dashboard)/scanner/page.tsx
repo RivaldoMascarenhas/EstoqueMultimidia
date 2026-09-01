@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
 import { 
   Camera, 
@@ -21,7 +21,8 @@ import {
   Flashlight,
   Zap,
   QrCode,
-  Check
+  Check,
+  Loader2
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,9 @@ interface DetectedBox {
   rawValue?: string;
 }
 
-export default function ScannerPage() {
+function ScannerContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Estados do Scanner
   const [isScanning, setIsScanning] = useState(false);
@@ -127,9 +129,9 @@ export default function ScannerPage() {
 
     const video = document.querySelector("#scanner-viewfinder video") as HTMLVideoElement;
     if (video) {
-      video.style.transition = "transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.45s ease";
+      video.style.transition = "transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), transform-origin 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)";
       if (typeof targetX === "number" && typeof targetY === "number") {
-        video.style.transformOrigin = `${Math.min(Math.max(targetX, 20), 80)}% ${Math.min(Math.max(targetY, 20), 80)}%`;
+        video.style.transformOrigin = `${Math.min(Math.max(targetX, 15), 85)}% ${Math.min(Math.max(targetY, 15), 85)}%`;
       } else {
         video.style.transformOrigin = "center center";
       }
@@ -209,7 +211,7 @@ export default function ScannerPage() {
     }
   }, [killAllVideoHardware]);
 
-  // Loop contínuo de detecção de QR Code e Auto-Zoom Suave
+  // Loop contínuo de detecção de QR Code e Auto-Zoom Inteligente com Enquadramento
   const startDetectionLoop = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -247,13 +249,14 @@ export default function ScannerPage() {
                 rawValue: b.rawValue,
               });
 
-              // Auto-Zoom Suave se o código estiver pequeno/distante
+              // Auto-Zoom Suave e Centralização Focal no QR Code
               const now = Date.now();
-              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 3000) {
+              if (autoZoomEnabled && relW < 32 && now - lastAutoZoomTimeRef.current > 2200) {
                 lastAutoZoomTimeRef.current = now;
                 const centerX = relX + relW / 2;
                 const centerY = relY + relH / 2;
-                applyZoom(1.9, centerX, centerY);
+                const calculatedZoom = Math.min(Math.max(1.6, Number((32 / relW).toFixed(1))), 2.4);
+                applyZoom(calculatedZoom, centerX, centerY);
               }
             } else {
               setDetectedBox(null);
@@ -302,7 +305,7 @@ export default function ScannerPage() {
         fps: 25,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.85);
+          const qrboxSize = Math.floor(minEdge * 0.88);
           return {
             width: qrboxSize,
             height: qrboxSize,
@@ -474,6 +477,11 @@ export default function ScannerPage() {
     isMountedRef.current = true;
     startCamera();
 
+    const searchUrl = searchParams.get("search");
+    if (searchUrl) {
+      processCodeLookup(searchUrl);
+    }
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         killAllVideoHardware();
@@ -492,7 +500,7 @@ export default function ScannerPage() {
     };
   }, []);
 
-  // PROCESSAMENTO DO CÓDIGO COM TRAVA SÍNCRONA (ZERO NOTIFICAÇÕES EM MASSA)
+  // PROCESSAMENTO DO CÓDIGO COM TRAVA SÍNCRONA
   const handleCodeDetected = async (code: string) => {
     const clean = code?.trim();
     if (!clean) return;
@@ -512,7 +520,6 @@ export default function ScannerPage() {
     lastScannedCodeRef.current = clean;
     lastScannedTimeRef.current = now;
 
-    // Pausa a câmera de forma limpa (sem tela preta)
     isScanningRef.current = false;
     if (detectLoopRef.current) {
       cancelAnimationFrame(detectLoopRef.current);
@@ -557,7 +564,6 @@ export default function ScannerPage() {
           ...prev.slice(0, 9),
         ]);
 
-        // Única notificação limpa
         toast.dismiss();
         toast.success("Código identificado!");
 
@@ -580,7 +586,6 @@ export default function ScannerPage() {
         }
       } else {
         toast.error(json.error || "Item ou documento não encontrado no sistema.");
-        // Se não encontrou, destrava para permitir nova leitura após 1.5s
         setTimeout(() => {
           isProcessingRef.current = false;
           isScanningRef.current = true;
@@ -620,7 +625,6 @@ export default function ScannerPage() {
     setJustScannedCode(null);
     applyZoom(1);
 
-    // Destrava síncrona
     isProcessingRef.current = false;
     lastScannedCodeRef.current = null;
 
@@ -636,7 +640,6 @@ export default function ScannerPage() {
     isScanningRef.current = true;
     startDetectionLoop();
 
-    // Scroll suave de volta para a câmera no mobile
     setTimeout(() => {
       cameraCardRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -646,22 +649,22 @@ export default function ScannerPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in-50 duration-300 pb-12">
+    <div className="space-y-5 max-w-4xl mx-auto animate-in fade-in-50 duration-300 pb-16">
       
       {/* Header Limpo */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Camera className="w-6 h-6 text-primary" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
               Scanner Inteligente
             </h1>
-            <Badge variant={isScanning ? "default" : "secondary"} className="text-xs font-semibold">
+            <Badge variant={isScanning ? "default" : "secondary"} className="text-[11px] font-semibold">
               {isScanning ? "Pronto" : "Pausado"}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Aponte para qualquer QR Code institucional, caixa física ou etiqueta de patrimônio.
+            Aponte a câmera para QR Codes de caixas, patrimônios ou termos impressos.
           </p>
         </div>
 
@@ -671,10 +674,10 @@ export default function ScannerPage() {
             variant="outline"
             size="sm"
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="rounded-xl text-xs h-9 gap-1.5 cursor-pointer"
+            className="rounded-xl text-xs h-8 sm:h-9 gap-1.5 cursor-pointer"
             title={soundEnabled ? "Silenciar áudio" : "Ativar áudio"}
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+            {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-primary" /> : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
             <span className="hidden sm:inline">{soundEnabled ? "Som Ativo" : "Mudo"}</span>
           </Button>
 
@@ -682,10 +685,10 @@ export default function ScannerPage() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              toast.info("Reiniciando câmera...");
+              toast.info("Reiniciando leitor...");
               startCamera();
             }}
-            className="rounded-xl text-xs h-9 gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="rounded-xl text-xs h-8 sm:h-9 gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
             title="Recarregar leitor"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -695,7 +698,7 @@ export default function ScannerPage() {
       </div>
 
       {/* Seletor de Modo Operacional */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: "LOOKUP", label: "Consulta Geral", icon: Search },
           { id: "LOAN", label: "Empréstimo Rápido", icon: Handshake },
@@ -709,7 +712,7 @@ export default function ScannerPage() {
             <button
               key={mode.id}
               onClick={() => setSelectedMode(mode.id as ScanMode)}
-              className={`px-3.5 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-1.5 sm:py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                 isSelected
                   ? "bg-primary text-primary-foreground shadow-sm font-bold"
                   : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -723,24 +726,24 @@ export default function ScannerPage() {
       </div>
 
       {/* Grid Principal: Viewfinder e Resultados */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
         
-        {/* Card do Viewfinder Moderno & Minimalista */}
-        <Card ref={cameraCardRef} className="rounded-3xl border-border/80 overflow-hidden shadow-xl bg-slate-950 relative">
+        {/* Card do Viewfinder Moderno & Imersivo */}
+        <Card ref={cameraCardRef} className="rounded-3xl border-border/80 overflow-hidden shadow-2xl bg-slate-950 relative">
           
           <div 
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative aspect-square w-full bg-black flex flex-col items-center justify-center overflow-hidden touch-none select-none"
+            className="relative h-[65vh] sm:h-auto sm:aspect-square w-full bg-black flex flex-col items-center justify-center overflow-hidden touch-none select-none"
           >
             {/* Viewfinder da Câmera (Edge-to-Edge) */}
             <div id="scanner-viewfinder" className="w-full h-full" />
 
             {/* Vinheta sutil nas bordas */}
-            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.55)] z-10" />
+            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_80px_rgba(0,0,0,0.65)] z-10" />
 
-            {/* Top Toolbar Minimalista (Câmera & Lanterna) */}
+            {/* Top Toolbar Flutuante Minimalista (Lanterna & Troca de Câmera) */}
             <div className="absolute top-3.5 right-3.5 z-30 flex items-center gap-2">
               {hasTorchSupport && (
                 <button
@@ -749,8 +752,8 @@ export default function ScannerPage() {
                   className={cn(
                     "flex items-center justify-center w-9 h-9 rounded-full border backdrop-blur-md transition-all cursor-pointer",
                     isTorchOn 
-                      ? "bg-amber-400 text-black border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.6)]" 
-                      : "bg-black/50 hover:bg-black/75 text-white/90 border-white/15"
+                      ? "bg-amber-400 text-black border-amber-300 shadow-[0_0_20px_rgba(251,191,36,0.8)]" 
+                      : "bg-black/55 hover:bg-black/80 text-white/90 border-white/15"
                   )}
                   title="Lanterna"
                 >
@@ -762,7 +765,7 @@ export default function ScannerPage() {
                 type="button"
                 onClick={handleToggleFacingMode}
                 disabled={isSwitchingCamera}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/75 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/55 hover:bg-black/80 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
                 title="Trocar de Câmera"
               >
                 <SwitchCamera className={cn("w-3.5 h-3.5 text-primary", isSwitchingCamera && "animate-spin text-amber-400")} />
@@ -776,19 +779,19 @@ export default function ScannerPage() {
               </button>
             </div>
 
-            {/* Mira Minimalista Central */}
+            {/* Mira Minimalista Central (quando não detectou nada) */}
             {isScanning && !scanResult && !detectedBox && !isLoadingLookup && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
-                <div className="relative w-48 h-48 sm:w-56 sm:h-56">
-                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
-                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/40 rounded-tr-lg" />
-                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/40 rounded-bl-lg" />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/40 rounded-br-lg" />
+                <div className="relative w-52 h-52 sm:w-56 sm:h-56">
+                  <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-white/35 rounded-tl-xl" />
+                  <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-white/35 rounded-tr-xl" />
+                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-white/35 rounded-bl-xl" />
+                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-white/35 rounded-br-xl" />
                 </div>
               </div>
             )}
 
-            {/* RETÍCULO DINÂMICO SOBRE O QR CODE DETECTADO */}
+            {/* RETÍCULO DINÂMICO INTELIGENTE SOBRE O QR CODE DETECTADO */}
             {isScanning && !scanResult && detectedBox && !isLoadingLookup && (
               <div
                 className="qr-target-bounding-box"
@@ -804,30 +807,31 @@ export default function ScannerPage() {
                 <div className="qr-target-corner-bl" />
                 <div className="qr-target-corner-br" />
 
-                <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-500/90 text-black text-[10px] font-bold shadow-lg backdrop-blur-sm whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
-                  <QrCode className="w-3 h-3" />
-                  <span>QR Detectado</span>
+                {/* Floating Lens Pill estilo Google Lens */}
+                <div className="qr-lens-pill absolute -top-8 left-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400 text-black text-[11px] font-black shadow-2xl backdrop-blur-md whitespace-nowrap">
+                  <QrCode className="w-3.5 h-3.5" />
+                  <span>Enquadrando Código...</span>
                 </div>
               </div>
             )}
 
-            {/* FEEDBACK INSTANTÂNEO DE LEITURA (SEM TELA PRETA!) */}
+            {/* FEEDBACK INSTANTÂNEO DE LEITURA (SEM TELA PRETA) */}
             {isLoadingLookup && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-emerald-500/50 text-white shadow-2xl">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
-                    <Check className="w-3 h-3 stroke-[3]" />
+                <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-black/85 border border-emerald-500/50 text-white shadow-2xl animate-in zoom-in-95 duration-200">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
                   </div>
-                  <span className="text-xs font-semibold text-emerald-300">
-                    {justScannedCode ? `Identificado: ${justScannedCode}` : "Consultando dados..."}
+                  <span className="text-xs font-bold text-emerald-300">
+                    {justScannedCode ? `Lido: ${justScannedCode}` : "Carregando informações..."}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* CONTROLES DE ZOOM FLUTUANTES */}
+            {/* CONTROLES DE ZOOM FLUTUANTES (Estilo Apple / Google Camera) */}
             {isScanning && !scanResult && !isLoadingLookup && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/65 border border-white/15 backdrop-blur-xl shadow-2xl">
                 {[1, 2, 3].map((lvl) => (
                   <button
                     key={lvl}
@@ -836,7 +840,7 @@ export default function ScannerPage() {
                     className={cn(
                       "w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
                       zoomLevel === lvl 
-                        ? "bg-white text-black font-extrabold shadow-sm scale-105" 
+                        ? "bg-white text-black font-extrabold shadow-md scale-105" 
                         : "text-white/80 hover:bg-white/10 hover:text-white"
                     )}
                   >
@@ -853,9 +857,9 @@ export default function ScannerPage() {
                     setAutoZoomEnabled(next);
                   }}
                   className={cn(
-                    "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
+                    "px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
                     autoZoomEnabled 
-                      ? "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30" 
+                      ? "bg-yellow-400/25 text-yellow-300 border border-yellow-400/40" 
                       : "text-white/50 hover:text-white"
                   )}
                   title="Aproximação inteligente ao detectar código distante"
@@ -968,5 +972,18 @@ export default function ScannerPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ScannerPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground">Iniciando leitor de QR Code...</p>
+      </div>
+    }>
+      <ScannerContent />
+    </Suspense>
   );
 }

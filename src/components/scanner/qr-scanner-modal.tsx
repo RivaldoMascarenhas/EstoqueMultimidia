@@ -86,9 +86,9 @@ export function QrScannerModal({
 
     const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
     if (video) {
-      video.style.transition = "transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform-origin 0.45s ease";
+      video.style.transition = "transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1), transform-origin 0.45s cubic-bezier(0.2, 0.9, 0.3, 1)";
       if (typeof targetX === "number" && typeof targetY === "number") {
-        video.style.transformOrigin = `${Math.min(Math.max(targetX, 20), 80)}% ${Math.min(Math.max(targetY, 20), 80)}%`;
+        video.style.transformOrigin = `${Math.min(Math.max(targetX, 15), 85)}% ${Math.min(Math.max(targetY, 15), 85)}%`;
       } else {
         video.style.transformOrigin = "center center";
       }
@@ -228,11 +228,12 @@ export function QrScannerModal({
               });
 
               const now = Date.now();
-              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 3000) {
+              if (autoZoomEnabled && relW < 32 && now - lastAutoZoomTimeRef.current > 2200) {
                 lastAutoZoomTimeRef.current = now;
                 const centerX = relX + relW / 2;
                 const centerY = relY + relH / 2;
-                applyZoom(1.9, centerX, centerY);
+                const calculatedZoom = Math.min(Math.max(1.6, Number((32 / relW).toFixed(1))), 2.4);
+                applyZoom(calculatedZoom, centerX, centerY);
               }
             } else {
               setDetectedBox(null);
@@ -253,7 +254,6 @@ export function QrScannerModal({
     const clean = rawText?.trim();
     if (!clean) return;
 
-    // Trava síncrona imediata
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
@@ -282,7 +282,7 @@ export function QrScannerModal({
 
       if (clean.includes("/validar/")) {
         const parts = clean.split("/validar/");
-        const code = parts[1]?.split("?")[0]?.trim();
+        const code = parts[parts.length - 1]?.split("?")[0]?.trim();
         toast.success("Documento identificado!");
         router.push(`/validar/${encodeURIComponent(code || "")}`);
         return;
@@ -347,7 +347,7 @@ export function QrScannerModal({
         fps: 25,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.85);
+          const qrboxSize = Math.floor(minEdge * 0.88);
           return { width: qrboxSize, height: qrboxSize };
         },
         aspectRatio: 1.0,
@@ -581,7 +581,7 @@ export function QrScannerModal({
                   type="button"
                   onClick={handleToggleCamera}
                   disabled={isSwitchingCamera}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/75 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/80 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
                   title="Trocar Câmera"
                 >
                   <SwitchCamera className={cn("w-3.5 h-3.5 text-primary", isSwitchingCamera && "animate-spin text-amber-400")} />
@@ -599,11 +599,11 @@ export function QrScannerModal({
             {/* Mira Minimalista Central */}
             {isScanning && !cameraError && !detectedBox && !isRedirecting && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
-                <div className="relative w-44 h-44">
-                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
-                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/40 rounded-tr-lg" />
-                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/40 rounded-bl-lg" />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/40 rounded-br-lg" />
+                <div className="relative w-48 h-48">
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/35 rounded-tl-lg" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/35 rounded-tr-lg" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/35 rounded-bl-lg" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/35 rounded-br-lg" />
                 </div>
               </div>
             )}
@@ -624,9 +624,10 @@ export function QrScannerModal({
                 <div className="qr-target-corner-bl" />
                 <div className="qr-target-corner-br" />
 
-                <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-500/90 text-black text-[10px] font-bold shadow-lg backdrop-blur-sm whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+                {/* Floating Lens Pill estilo Google Lens */}
+                <div className="qr-lens-pill absolute -top-8 left-1/2 flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-yellow-400 text-black text-[10px] font-black shadow-2xl backdrop-blur-md whitespace-nowrap">
                   <QrCode className="w-3 h-3" />
-                  <span>QR Detectado</span>
+                  <span>Enquadrando...</span>
                 </div>
               </div>
             )}
@@ -634,7 +635,7 @@ export function QrScannerModal({
             {/* Feedback Instantâneo de Leitura */}
             {isRedirecting && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/80 border border-emerald-500/50 text-white shadow-2xl">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/85 border border-emerald-500/50 text-white shadow-2xl">
                   <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
                     <Check className="w-3 h-3 stroke-[3]" />
                   </div>
@@ -647,7 +648,7 @@ export function QrScannerModal({
 
             {/* Zoom Bar Minimalista */}
             {isScanning && !cameraError && !isRedirecting && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/65 border border-white/15 backdrop-blur-xl shadow-2xl">
                 {[1, 2, 3].map((lvl) => (
                   <button
                     key={lvl}
@@ -675,7 +676,7 @@ export function QrScannerModal({
                   className={cn(
                     "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
                     autoZoomEnabled 
-                      ? "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30" 
+                      ? "bg-yellow-400/25 text-yellow-300 border border-yellow-400/40" 
                       : "text-white/50 hover:text-white"
                   )}
                   title="Auto-Zoom"
