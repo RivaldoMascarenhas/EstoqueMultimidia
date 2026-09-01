@@ -1,7 +1,7 @@
 import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { AssetService } from "@/services/asset.service";
-import { assetStatusUpdateSchema } from "@/schemas/asset.schema";
+import { assetStatusUpdateSchema, assetUpdateSchema, assetDeleteSchema } from "@/schemas/asset.schema";
 import { requireSession } from "@/lib/api-guard";
 import { Role } from "@prisma/client";
 
@@ -13,8 +13,6 @@ export async function GET(
   try {
     const { error } = await requireSession();
     if (error) return error;
-
-    
 
     if (!id) {
       return NextResponse.json(
@@ -44,7 +42,7 @@ export async function GET(
   }
 }
 
-export async function PATCH(
+export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -52,8 +50,6 @@ export async function PATCH(
   try {
     const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
     if (error) return error;
-
-    
 
     if (!id) {
       return NextResponse.json(
@@ -63,9 +59,9 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const validatedData = assetStatusUpdateSchema.parse(body);
+    const validatedData = assetUpdateSchema.parse(body);
 
-    const asset = await AssetService.updateAssetStatus(
+    const asset = await AssetService.updateAsset(
       id,
       validatedData,
       session.user.id,
@@ -74,12 +70,117 @@ export async function PATCH(
 
     return NextResponse.json({
       success: true,
-      message: `Status do equipamento #${asset.assetTag} atualizado para ${asset.status}.`,
+      message: `Equipamento #${asset.assetTag} atualizado com sucesso!`,
       data: asset,
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: formatZodError(error, "Erro ao atualizar status do equipamento.") },
+      { success: false, error: formatZodError(error, "Erro ao atualizar cadastro do equipamento.") },
+      { status: 400 }
+    );
+  }
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  try {
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    if (error) return error;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Identificador do equipamento obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+
+    // Se for alteração de status (possui campo status e reason)
+    if (body.status && body.reason) {
+      const validatedData = assetStatusUpdateSchema.parse(body);
+
+      const asset = await AssetService.updateAssetStatus(
+        id,
+        validatedData,
+        session.user.id,
+        session.user.name || undefined
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Status do equipamento #${asset.assetTag} atualizado para ${asset.status}.`,
+        data: asset,
+      });
+    }
+
+    // Caso contrário, trata como atualização parcial de dados
+    const validatedData = assetUpdateSchema.parse(body);
+    const asset = await AssetService.updateAsset(
+      id,
+      validatedData,
+      session.user.id,
+      session.user.name || undefined
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: `Equipamento #${asset.assetTag} atualizado com sucesso!`,
+      data: asset,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: formatZodError(error, "Erro ao atualizar dados do equipamento.") },
+      { status: 400 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  try {
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    if (error) return error;
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "Identificador do equipamento obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    let reason = "Baixa de patrimônio solicitada";
+    try {
+      const body = await req.json();
+      if (body.reason) {
+        const parsed = assetDeleteSchema.parse(body);
+        reason = parsed.reason;
+      }
+    } catch {
+      // Body opcional no DELETE
+    }
+
+    const deactivated = await AssetService.deleteAsset(
+      id,
+      reason,
+      session.user.id,
+      session.user.name || undefined
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: `Equipamento #${deactivated.assetTag} descartado/baixado do acervo com sucesso.`,
+      data: deactivated,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: formatZodError(error, "Erro ao descartar/baixar equipamento.") },
       { status: 400 }
     );
   }

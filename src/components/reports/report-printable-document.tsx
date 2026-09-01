@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { 
   Printer, 
-  FileText 
+  FileText,
+  ShieldCheck
 } from "lucide-react";
 import {
   Dialog,
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
+import QRCode from "qrcode";
 
 interface ReportPrintableDocumentProps {
   isOpen: boolean;
@@ -287,6 +289,29 @@ export function ReportPrintableDocument({
   report,
 }: ReportPrintableDocumentProps) {
   const { data: session } = useSession();
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+
+  const authCode = report
+    ? `REL-${report.reportType}-${new Date(report.generatedAt).getTime().toString(36).toUpperCase()}`
+    : "";
+
+  useEffect(() => {
+    if (isOpen && report) {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const validationUrl = `${origin}/validar/${authCode}`;
+
+      QRCode.toDataURL(validationUrl, {
+        width: 130,
+        margin: 1,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      })
+        .then((url) => setQrCodeDataUrl(url))
+        .catch(() => setQrCodeDataUrl(""));
+    }
+  }, [isOpen, report, authCode]);
 
   if (!report) return null;
 
@@ -769,7 +794,7 @@ export function ReportPrintableDocument({
             </div>
           )}
 
-          {/* ASSINATURAS FORMAIS */}
+          {/* ASSINATURAS FORMAIS E QR CODE DE AUTENTICIDADE */}
           <div className="signature-container">
             <div className="signature-box">
               <div className="signature-line">
@@ -784,6 +809,21 @@ export function ReportPrintableDocument({
                 <p className="signature-role">Validação e Homologação</p>
                 <p className="signature-inst">Centro Universitário Paraíso • UniFAP</p>
               </div>
+            </div>
+            <div className="signature-box" style={{ maxWidth: "120px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              {qrCodeDataUrl && (
+                <img
+                  src={qrCodeDataUrl}
+                  alt="QR Code de Autenticidade"
+                  style={{ width: "48px", height: "48px", border: "1px solid #cbd5e1", borderRadius: "3px", padding: "1px" }}
+                />
+              )}
+              <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: "7px", marginTop: "2px", display: "block" }}>
+                {authCode.slice(0, 16)}
+              </span>
+              <span style={{ fontSize: "6.5px", color: "#64748b", display: "block" }}>
+                Autenticidade Oficial
+              </span>
             </div>
           </div>
 

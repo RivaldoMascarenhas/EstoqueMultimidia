@@ -41,6 +41,7 @@ interface AssetFormModalProps {
   catalogItems: CatalogItemOption[];
   boxes: BoxOption[];
   categories?: CategoryOption[];
+  assetToEdit?: any | null;
   onSuccess?: () => void;
   onRefreshCatalog?: () => void;
 }
@@ -56,6 +57,7 @@ export function AssetFormModal({
   catalogItems,
   boxes,
   categories = [],
+  assetToEdit = null,
   onSuccess,
   onRefreshCatalog,
 }: AssetFormModalProps) {
@@ -84,23 +86,42 @@ export function AssetFormModal({
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [internalCategories, setInternalCategories] = useState<CategoryOption[]>(categories);
 
+  const isEditing = !!assetToEdit;
+
   useEffect(() => {
     if (isOpen) {
-      setMode("SINGLE");
-      setAssetTag(generateRandomTag("PAT-"));
-      setSerialNumber("");
-      setModel("");
-      setPurchaseDate("");
-      setPurchaseValue(undefined);
-      setWarrantyExpiry("");
-      setNotes("");
-      setBatchQuantity(10);
-      setTagPrefix("PAT-");
-      setGenerationType("SEQUENTIAL");
-      setStartNumber(1001);
+      if (assetToEdit) {
+        setMode("SINGLE");
+        setAssetTag(assetToEdit.assetTag || "");
+        setItemId(assetToEdit.itemId || assetToEdit.item?.id || (catalogItems[0]?.id || ""));
+        setSerialNumber(assetToEdit.serialNumber || "");
+        setModel(assetToEdit.model || "");
+        setCurrentBoxId(assetToEdit.currentBoxId || "");
+        setPurchaseDate(assetToEdit.acquisitionDate ? assetToEdit.acquisitionDate.split("T")[0] : "");
+        setPurchaseValue(
+          assetToEdit.acquisitionValue !== null && assetToEdit.acquisitionValue !== undefined
+            ? Number(assetToEdit.acquisitionValue)
+            : undefined
+        );
+        setWarrantyExpiry("");
+        setNotes(assetToEdit.notes || "");
+      } else {
+        setMode("SINGLE");
+        setAssetTag(generateRandomTag("PAT-"));
+        setSerialNumber("");
+        setModel("");
+        setPurchaseDate("");
+        setPurchaseValue(undefined);
+        setWarrantyExpiry("");
+        setNotes("");
+        setBatchQuantity(10);
+        setTagPrefix("PAT-");
+        setGenerationType("SEQUENTIAL");
+        setStartNumber(1001);
 
-      if (catalogItems.length > 0) setItemId(catalogItems[0].id);
-      if (boxes.length > 0) setCurrentBoxId(boxes[0].id);
+        if (catalogItems.length > 0) setItemId(catalogItems[0].id);
+        if (boxes.length > 0) setCurrentBoxId(boxes[0].id);
+      }
 
       if (internalCategories.length === 0) {
         fetch("/api/v1/categories")
@@ -111,7 +132,7 @@ export function AssetFormModal({
           .catch(() => {});
       }
     }
-  }, [isOpen, catalogItems, boxes]);
+  }, [isOpen, assetToEdit, catalogItems, boxes]);
 
   // Preview em tempo real das etiquetas geradas no modo Lote
   const previewTags = useMemo(() => {
@@ -149,7 +170,37 @@ export function AssetFormModal({
     try {
       setIsLoading(true);
 
-      if (mode === "SINGLE") {
+      if (isEditing) {
+        if (!assetTag.trim()) {
+          toast.error("Por favor, preencha o número de tombamento/patrimônio.");
+          setIsLoading(false);
+          return;
+        }
+
+        const res = await fetch(`/api/v1/assets/${assetToEdit.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assetTag: assetTag.trim().toUpperCase(),
+            itemId,
+            serialNumber: serialNumber.trim() || null,
+            model: model.trim() || null,
+            currentBoxId: currentBoxId || null,
+            acquisitionDate: purchaseDate || null,
+            acquisitionValue: purchaseValue !== undefined ? Number(purchaseValue) : null,
+            notes: notes.trim() || null,
+          }),
+        });
+
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          toast.error(json.error || "Erro ao atualizar patrimônio.");
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success(`✓ Dados do patrimônio #${assetTag.toUpperCase()} atualizados com sucesso!`);
+      } else if (mode === "SINGLE") {
         if (!assetTag.trim()) {
           toast.error("Por favor, preencha o número de tombamento/patrimônio.");
           setIsLoading(false);
@@ -235,42 +286,48 @@ export function AssetFormModal({
               </div>
               <div>
                 <DialogTitle className="text-base font-bold text-foreground">
-                  Cadastrar Equipamento no Patrimônio
+                  {isEditing
+                    ? `Editar Equipamento #${assetToEdit.assetTag}`
+                    : "Cadastrar Equipamento no Patrimônio"}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  Cadastre ativos individuais ou em lote (ex: 50 unidades) com tombamento e alocação física.
+                  {isEditing
+                    ? "Edite as informações cadastrais. Todas as alterações serão salvas no histórico de auditoria."
+                    : "Cadastre ativos individuais ou em lote (ex: 50 unidades) com tombamento e alocação física."}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Seletor de Modo: Individual vs Em Lote */}
-          <div className="grid grid-cols-2 p-1 bg-muted/60 rounded-xl border border-border/60 text-xs font-semibold mt-2">
-            <button
-              type="button"
-              onClick={() => setMode("SINGLE")}
-              className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                mode === "SINGLE"
-                  ? "bg-card text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Monitor className="w-3.5 h-3.5" />
-              <span>1 Unidade (Individual)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("BATCH")}
-              className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                mode === "BATCH"
-                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Em Lote (Múltiplos Itens)</span>
-            </button>
-          </div>
+          {/* Seletor de Modo: Individual vs Em Lote (apenas na criação) */}
+          {!isEditing && (
+            <div className="grid grid-cols-2 p-1 bg-muted/60 rounded-xl border border-border/60 text-xs font-semibold mt-2">
+              <button
+                type="button"
+                onClick={() => setMode("SINGLE")}
+                className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  mode === "SINGLE"
+                    ? "bg-card text-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span>1 Unidade (Individual)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("BATCH")}
+                className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  mode === "BATCH"
+                    ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Em Lote (Múltiplos Itens)</span>
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             
@@ -585,7 +642,9 @@ export function AssetFormModal({
               >
                 <Monitor className="w-4 h-4" />
                 <span>
-                  {mode === "BATCH"
+                  {isEditing
+                    ? "Salvar Alterações"
+                    : mode === "BATCH"
                     ? `Cadastrar Lote (${batchQuantity} Itens)`
                     : "Cadastrar Equipamento"}
                 </span>

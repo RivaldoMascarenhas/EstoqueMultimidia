@@ -234,6 +234,7 @@ export function Sidebar({
               roles: ["ADMIN", "GESTOR", "CONSULTA"],
               subItems: [
                 { title: "Relatórios & KPIs", href: "/relatorios" },
+                { title: "Validador de Documentos", href: "/validar" },
                 { title: "Gestão de Usuários", href: "/usuarios", roles: ["ADMIN"] },
                 { title: "Configurações", href: "/configuracoes", roles: ["ADMIN"] },
                 { title: "Privacidade & LGPD", href: "/privacidade" },

@@ -30,15 +30,10 @@ export function LoanReceiptModal({
 
   useEffect(() => {
     if (isOpen && loan) {
-      const payload = JSON.stringify({
-        unifap: "TI-MULTIMIDIA",
-        protocol: `LOAN-${loan.id.slice(-8).toUpperCase()}`,
-        assetTag: loan.asset?.assetTag,
-        borrower: loan.borrowerName,
-        date: loan.loanDate,
-      });
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const validationUrl = `${origin}/validar/${loan.id}`;
 
-      QRCode.toDataURL(payload, {
+      QRCode.toDataURL(validationUrl, {
         width: 140,
         margin: 1,
         color: {
@@ -463,12 +458,15 @@ export function LoanReceiptModal({
               {qrCodeDataUrl && (
                 <img
                   src={qrCodeDataUrl}
-                  alt="QR Code do Empréstimo"
+                  alt="QR Code de Autenticidade"
                   className="w-16 h-16 border border-neutral-300 rounded p-0.5"
                 />
               )}
-              <span className="text-[8px] font-mono text-neutral-500 mt-0.5">
-                Autenticação: {loan.id.slice(0, 10)}
+              <span className="text-[8.5px] font-mono font-bold text-neutral-800 mt-0.5 block">
+                Autenticação: {loan.id.slice(0, 10).toUpperCase()}
+              </span>
+              <span className="text-[7.5px] text-neutral-500 block leading-none">
+                Escaneie para validar
               </span>
             </div>
           </div>

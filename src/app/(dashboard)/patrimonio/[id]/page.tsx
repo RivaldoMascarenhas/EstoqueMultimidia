@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -19,26 +19,35 @@ import {
   User, 
   Calendar, 
   Phone, 
-  Info
+  Info,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { QrCodeDisplay } from "@/components/scanner/qr-code-display";
 import { AssetStatusModal } from "@/components/assets/asset-status-modal";
+import { AssetFormModal } from "@/components/assets/asset-form-modal";
+import { AssetDeleteModal } from "@/components/assets/asset-delete-modal";
 import { AssetLabelPrinter } from "@/components/assets/asset-label-printer";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 export default function AssetDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const assetId = params?.id as string;
 
   const [asset, setAsset] = useState<any | null>(null);
   const [allBoxes, setAllBoxes] = useState<any[]>([]);
+  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Modais
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isPrinterOpen, setIsPrinterOpen] = useState(false);
 
@@ -47,13 +56,17 @@ export default function AssetDetailsPage() {
       setIsLoading(true);
       setError(null);
 
-      const [assetRes, boxesRes] = await Promise.all([
+      const [assetRes, boxesRes, itemsRes, catRes] = await Promise.all([
         fetch(`/api/v1/assets/${assetId}`),
         fetch(`/api/v1/boxes`),
+        fetch(`/api/v1/items`),
+        fetch(`/api/v1/categories`),
       ]);
 
       const assetJson = await assetRes.json();
       const boxesJson = await boxesRes.json();
+      const itemsJson = await itemsRes.json();
+      const catJson = await catRes.json();
 
       if (!assetRes.ok || !assetJson.success) {
         setError(assetJson.error || "Equipamento não encontrado.");
@@ -63,6 +76,8 @@ export default function AssetDetailsPage() {
 
       setAsset(assetJson.data);
       if (boxesJson.success) setAllBoxes(boxesJson.data);
+      if (itemsJson.success) setCatalogItems(itemsJson.data);
+      if (catJson.success) setCategories(catJson.data);
       setIsLoading(false);
     } catch (err: any) {
       setError("Erro ao carregar dados do equipamento.");
@@ -216,6 +231,18 @@ export default function AssetDetailsPage() {
             </Link>
           )}
 
+          {/* Botão Editar Cadastro */}
+          <Button
+            onClick={() => setIsEditModalOpen(true)}
+            size="sm"
+            variant="outline"
+            className="gap-1.5 rounded-xl cursor-pointer hover:text-primary"
+          >
+            <Pencil className="w-4 h-4 text-primary" />
+            <span>Editar</span>
+          </Button>
+
+          {/* Botão Alterar Status */}
           <Button
             onClick={() => setIsStatusModalOpen(true)}
             size="sm"
@@ -223,8 +250,21 @@ export default function AssetDetailsPage() {
             className="gap-1.5 rounded-xl cursor-pointer"
           >
             <Wrench className="w-4 h-4 text-amber-500" />
-            <span>Alterar Status</span>
+            <span>Status</span>
           </Button>
+
+          {/* Botão Descartar / Baixa */}
+          {asset.active && asset.status !== "LOANED" && !isCurrentlyInClass && (
+            <Button
+              onClick={() => setIsDeleteModalOpen(true)}
+              size="sm"
+              variant="outline"
+              className="gap-1.5 rounded-xl cursor-pointer text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border-rose-500/30"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Baixa</span>
+            </Button>
+          )}
 
           <Button
             onClick={() => setIsPrinterOpen(true)}
@@ -564,7 +604,7 @@ export default function AssetDetailsPage() {
                 <span>Linha do Tempo & Histórico Auditável</span>
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Registro inalterável de todos os eventos, empréstimos, manutenções e alterações do equipamento.
+                Registro inalterável de todos os eventos, edições, empréstimos e manutenções do equipamento.
               </CardDescription>
             </div>
             <Badge variant="outline" className="font-mono text-xs">
@@ -580,43 +620,121 @@ export default function AssetDetailsPage() {
             </div>
           ) : (
             <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
-              {historyList.map((hist: any) => (
-                <div key={hist.id} className="relative group">
-                  {/* Ponto da Linha do Tempo */}
-                  <div className="absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background bg-primary ring-4 ring-primary/10 group-hover:scale-125 transition-transform" />
+              {historyList.map((hist: any) => {
+                const isEdit = hist.action === "EDITADO";
+                const isCreated = hist.action === "CADASTRADO";
+                const isDeleted = hist.action === "BAIXADO_DESCARTADO";
+                const isStatus = hist.action?.includes("STATUS");
 
-                  <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/70 space-y-1.5 hover:bg-muted/50 transition-colors">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <span className="font-bold text-xs text-foreground uppercase tracking-wide">
-                        {hist.action || "EVENTO"}
-                      </span>
-                      <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDateTime(hist.createdAt)}
-                      </span>
-                    </div>
+                return (
+                  <div key={hist.id} className="relative group">
+                    {/* Ponto da Linha do Tempo */}
+                    <div
+                      className={`absolute -left-[27px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-background ring-4 transition-transform ${
+                        isDeleted
+                          ? "bg-rose-500 ring-rose-500/10"
+                          : isEdit
+                          ? "bg-indigo-500 ring-indigo-500/10"
+                          : isCreated
+                          ? "bg-emerald-500 ring-emerald-500/10"
+                          : isStatus
+                          ? "bg-amber-500 ring-amber-500/10"
+                          : "bg-primary ring-primary/10"
+                      } group-hover:scale-125`}
+                    />
 
-                    {hist.details && typeof hist.details === "object" ? (
-                      <div className="text-xs text-muted-foreground space-y-1 pt-1">
-                        {Object.entries(hist.details).map(([key, val]) => (
-                          <div key={key} className="flex items-center gap-2">
-                            <span className="text-[11px] font-mono text-foreground/70">{key}:</span>
-                            <span className="font-semibold text-foreground text-[11px]">
-                              {typeof val === "object" ? JSON.stringify(val) : String(val)}
-                            </span>
-                          </div>
-                        ))}
+                    <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/70 space-y-2 hover:bg-muted/50 transition-colors">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs text-foreground uppercase tracking-wide">
+                            {hist.action || "EVENTO"}
+                          </span>
+                          {hist.userName && (
+                            <Badge variant="outline" className="text-[10px] font-normal py-0">
+                              Por: {hist.userName}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-mono text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDateTime(hist.createdAt)}
+                        </span>
                       </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">{String(hist.details || "Sem detalhes adicionais")}</p>
-                    )}
+
+                      {hist.fromLocation && hist.toLocation && hist.fromLocation !== hist.toLocation && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span>
+                            Local: <strong className="text-foreground">{hist.fromLocation}</strong> ➔{" "}
+                            <strong className="text-foreground">{hist.toLocation}</strong>
+                          </span>
+                        </div>
+                      )}
+
+                      {hist.observation && (
+                        <div className="text-xs text-muted-foreground pt-0.5 space-y-1">
+                          {hist.observation.includes("; ") ? (
+                            <div className="space-y-1 pl-2.5 border-l-2 border-primary/30">
+                              <span className="text-[11px] font-semibold text-foreground block">
+                                Alterações Realizadas:
+                              </span>
+                              {hist.observation
+                                .replace(/^Edição de cadastro:\s*/i, "")
+                                .split("; ")
+                                .map((change: string, idx: number) => (
+                                  <p key={idx} className="text-[11px] text-foreground font-mono">
+                                    • {change}
+                                  </p>
+                                ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-foreground/90">{hist.observation}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Edição Completa */}
+      {isEditModalOpen && (
+        <AssetFormModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          assetToEdit={asset}
+          catalogItems={catalogItems}
+          boxes={allBoxes}
+          categories={categories}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            fetchAssetData();
+          }}
+          onRefreshCatalog={fetchAssetData}
+        />
+      )}
+
+      {/* Modal de Descarte / Baixa */}
+      {isDeleteModalOpen && (
+        <AssetDeleteModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          asset={{
+            id: asset.id,
+            assetTag: asset.assetTag,
+            itemName: asset.item?.name || "Equipamento",
+            model: asset.model,
+          }}
+          onSuccess={() => {
+            setIsDeleteModalOpen(false);
+            router.push("/patrimonio");
+          }}
+        />
+      )}
 
       {/* Modais de Status e Etiqueta */}
       {isStatusModalOpen && (

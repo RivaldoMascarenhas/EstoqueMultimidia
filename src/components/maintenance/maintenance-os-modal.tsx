@@ -32,17 +32,10 @@ export function MaintenanceOsModal({
 
   useEffect(() => {
     if (isOpen && maintenance) {
-      const payload = JSON.stringify({
-        unifap: "TI-MULTIMIDIA",
-        doc: "ORDEM-DE-SERVICO",
-        osNumber: orderNum,
-        assetTag: maintenance.asset?.assetTag,
-        item: maintenance.asset?.item?.name,
-        date: maintenance.entryDate,
-        status: maintenance.status,
-      });
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const validationUrl = `${origin}/validar/${maintenance.id}`;
 
-      QRCode.toDataURL(payload, {
+      QRCode.toDataURL(validationUrl, {
         width: 140,
         margin: 1,
         color: {
@@ -53,7 +46,7 @@ export function MaintenanceOsModal({
         .then((url) => setQrCodeDataUrl(url))
         .catch(() => setQrCodeDataUrl(""));
     }
-  }, [isOpen, maintenance, orderNum]);
+  }, [isOpen, maintenance]);
 
   if (!loanOrMaintenanceCheck(maintenance)) return null;
 
@@ -362,13 +355,18 @@ export function MaintenanceOsModal({
               </p>
             </div>
 
-            <div className="flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center justify-center text-center">
               {qrCodeDataUrl ? (
-                <img src={qrCodeDataUrl} alt="QR Code OS" className="h-16 w-16 border border-neutral-300 p-0.5 bg-white rounded" />
+                <img src={qrCodeDataUrl} alt="QR Code de Autenticidade" className="h-16 w-16 border border-neutral-300 p-0.5 bg-white rounded" />
               ) : (
                 <div className="h-16 w-16 bg-neutral-200 rounded flex items-center justify-center text-[9px] text-neutral-500">QR Code</div>
               )}
-              <span className="text-[8px] font-mono text-neutral-500 mt-0.5">Autenticidade OS</span>
+              <span className="text-[8.5px] font-mono font-bold text-neutral-800 mt-0.5 block">
+                Autenticação: {maintenance.id.slice(0, 10).toUpperCase()}
+              </span>
+              <span className="text-[7.5px] text-neutral-500 block leading-none">
+                Escaneie para validar
+              </span>
             </div>
           </div>
 

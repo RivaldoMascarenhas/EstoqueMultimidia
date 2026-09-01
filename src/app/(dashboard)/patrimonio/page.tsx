@@ -12,7 +12,9 @@ import {
   Loader2, 
   Handshake, 
   ChevronRight, 
-  MapPin
+  MapPin,
+  Pencil,
+  Trash2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { AssetFormModal } from "@/components/assets/asset-form-modal";
 import { AssetStatusModal } from "@/components/assets/asset-status-modal";
+import { AssetDeleteModal } from "@/components/assets/asset-delete-modal";
 import { AssetLabelPrinter } from "@/components/assets/asset-label-printer";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate } from "@/lib/utils";
@@ -53,6 +56,8 @@ export default function PatrimonioPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPrinterOpen, setIsPrinterOpen] = useState(false);
   const [selectedAssetForStatus, setSelectedAssetForStatus] = useState<any | null>(null);
+  const [selectedAssetForEdit, setSelectedAssetForEdit] = useState<any | null>(null);
+  const [selectedAssetForDelete, setSelectedAssetForDelete] = useState<any | null>(null);
   const [selectedAssetForLabel, setSelectedAssetForLabel] = useState<string | undefined>(undefined);
 
   const fetchData = async (isInitial: boolean | unknown = false) => {
@@ -292,7 +297,7 @@ export default function PatrimonioPage() {
                   <TableHead>Número de Série</TableHead>
                   <TableHead>Localização / Onde Está</TableHead>
                   <TableHead>Status Atual</TableHead>
-                  <TableHead className="text-center w-[180px]">Ações</TableHead>
+                  <TableHead className="text-center w-[240px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -446,19 +451,19 @@ export default function PatrimonioPage() {
                       </TableCell>
 
                       {/* Ações */}
-                      <TableCell className="text-center w-[180px]">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <TableCell className="text-center w-[240px]">
+                        <div className="flex items-center justify-center gap-1">
                           {/* Botão Emprestar Rápido quando Disponível e não em aula agora */}
                           {!isReadOnly && asset.status === "AVAILABLE" && !isCurrentlyInClass && (
                             <Link href={`/emprestimos?assetId=${asset.id}`}>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 px-2 text-xs rounded-xl gap-1"
+                                className="h-8 px-2 text-xs rounded-xl gap-1 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10"
                                 title="Emprestar este equipamento"
                               >
-                                <Handshake className="w-3.5 h-3.5 text-blue-500" />
-                                <span>Emprestar</span>
+                                <Handshake className="w-3.5 h-3.5" />
+                                <span className="hidden xl:inline">Emprestar</span>
                               </Button>
                             </Link>
                           )}
@@ -473,7 +478,7 @@ export default function PatrimonioPage() {
                                 title="Ver solicitação na Agenda"
                               >
                                 <MapPin className="w-3.5 h-3.5" />
-                                <span>Ver Aula</span>
+                                <span className="hidden xl:inline">Aula</span>
                               </Button>
                             </Link>
                           )}
@@ -488,9 +493,23 @@ export default function PatrimonioPage() {
                                 title="Ver histórico ou detalhes do empréstimo"
                               >
                                 <Handshake className="w-3.5 h-3.5" />
-                                <span>Ver Empréstimo</span>
+                                <span className="hidden xl:inline">Ver</span>
                               </Button>
                             </Link>
+                          )}
+
+                          {/* Botão Editar Cadastro */}
+                          {!isReadOnly && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedAssetForEdit(asset)}
+                              className="h-8 px-2 text-xs rounded-xl gap-1 hover:text-primary"
+                              title="Editar dados cadastrais do patrimônio"
+                            >
+                              <Pencil className="w-3.5 h-3.5 text-primary" />
+                              <span className="hidden xl:inline">Editar</span>
+                            </Button>
                           )}
 
                           {/* Botão Alterar Status */}
@@ -511,7 +530,28 @@ export default function PatrimonioPage() {
                               title="Alterar status ou localização"
                             >
                               <Wrench className="w-3.5 h-3.5 text-amber-500" />
-                              <span>Status</span>
+                              <span className="hidden xl:inline">Status</span>
+                            </Button>
+                          )}
+
+                          {/* Botão Descartar / Baixar */}
+                          {!isReadOnly && asset.status !== "LOANED" && !isCurrentlyInClass && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                setSelectedAssetForDelete({
+                                  id: asset.id,
+                                  assetTag: asset.assetTag,
+                                  itemName: asset.item.name,
+                                  model: asset.model,
+                                })
+                              }
+                              className="h-8 px-2 text-xs rounded-xl gap-1 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border-rose-500/30"
+                              title="Descartar ou dar baixa neste equipamento"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden xl:inline">Baixa</span>
                             </Button>
                           )}
 
@@ -539,10 +579,14 @@ export default function PatrimonioPage() {
       </Card>
 
       {/* Modais */}
-      {isFormOpen && (
+      {(isFormOpen || selectedAssetForEdit) && (
         <AssetFormModal
-          isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
+          isOpen={isFormOpen || !!selectedAssetForEdit}
+          onClose={() => {
+            setIsFormOpen(false);
+            setSelectedAssetForEdit(null);
+          }}
+          assetToEdit={selectedAssetForEdit}
           catalogItems={catalogItems}
           boxes={allBoxes}
           categories={categories}
@@ -557,6 +601,15 @@ export default function PatrimonioPage() {
           onClose={() => setSelectedAssetForStatus(null)}
           asset={selectedAssetForStatus}
           boxes={allBoxes}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {selectedAssetForDelete && (
+        <AssetDeleteModal
+          isOpen={!!selectedAssetForDelete}
+          onClose={() => setSelectedAssetForDelete(null)}
+          asset={selectedAssetForDelete}
           onSuccess={fetchData}
         />
       )}

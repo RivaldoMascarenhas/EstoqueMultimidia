@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, MaintenanceStatus } from "@prisma/client";
-import { AssetCreateInput, AssetBatchCreateInput, AssetStatusUpdateInput } from "@/schemas/asset.schema";
+import {
+  AssetCreateInput,
+  AssetBatchCreateInput,
+  AssetStatusUpdateInput,
+  AssetUpdateInput,
+  AssetDeleteInput,
+} from "@/schemas/asset.schema";
 
 export class AssetService {
   /**
@@ -467,6 +473,288 @@ export class AssetService {
       });
 
       return updatedAsset;
+    });
+  }
+
+  /**
+   * Atualiza dados de um patrimônio com auditoria detalhada de alterações
+   */
+  static async updateAsset(
+    id: string,
+    data: AssetUpdateInput,
+    userId: string,
+    userName?: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({
+        where: { id },
+        include: {
+          item: true,
+          currentBox: { include: { door: true } },
+        },
+      });
+
+      if (!asset) {
+        throw new Error("Equipamento patrimonial não encontrado.");
+      }
+
+      // 1. Validar unicidade da tag se for alterada
+      if (data.assetTag && data.assetTag.toUpperCase().trim() !== asset.assetTag) {
+        const cleanTag = data.assetTag.toUpperCase().trim();
+        const conflict = await tx.asset.findUnique({
+          where: { assetTag: cleanTag },
+        });
+        if (conflict && conflict.id !== id) {
+          throw new Error(`Já existe outro equipamento cadastrado com o patrimônio '${cleanTag}'.`);
+        }
+      }
+
+      // 2. Validar unicidade do serial se for alterado
+      if (data.serialNumber && data.serialNumber.trim() !== (asset.serialNumber || "")) {
+        const cleanSerial = data.serialNumber.trim();
+        const conflict = await tx.asset.findFirst({
+          where: { serialNumber: cleanSerial },
+        });
+        if (conflict && conflict.id !== id) {
+          throw new Error(`Já existe outro equipamento com o número de série '${cleanSerial}' (Patrimônio #${conflict.assetTag}).`);
+        }
+      }
+
+      // 3. Obter novo item se alterado
+      let newItem: any = asset.item;
+      if (data.itemId && data.itemId !== asset.itemId) {
+        newItem = await tx.item.findUnique({ where: { id: data.itemId } });
+        if (!newItem) {
+          throw new Error("Item de catálogo selecionado não foi encontrado.");
+        }
+      }
+
+      // 4. Obter nova caixa se alterada
+      let newBox: any = asset.currentBox;
+      if (data.currentBoxId !== undefined) {
+        if (data.currentBoxId) {
+          newBox = await tx.box.findUnique({
+            where: { id: data.currentBoxId },
+            include: { door: true },
+          });
+        } else {
+          newBox = null;
+        }
+      }
+
+      // 5. Mapear alterações para histórico e auditoria (Diff)
+      const changes: string[] = [];
+      const oldValues: Record<string, any> = {};
+      const newValues: Record<string, any> = {};
+
+      if (data.assetTag && data.assetTag.toUpperCase().trim() !== asset.assetTag) {
+        changes.push(`Patrimônio: "${asset.assetTag}" ➔ "${data.assetTag.toUpperCase().trim()}"`);
+        oldValues.assetTag = asset.assetTag;
+        newValues.assetTag = data.assetTag.toUpperCase().trim();
+      }
+
+      if (data.itemId && data.itemId !== asset.itemId) {
+        changes.push(`Item do Catálogo: "${asset.item.name}" ➔ "${newItem.name}"`);
+        oldValues.item = asset.item.name;
+        newValues.item = newItem.name;
+      }
+
+      if (data.model !== undefined && (data.model?.trim() || "") !== (asset.model || "")) {
+        changes.push(`Modelo: "${asset.model || "(vazio)"}" ➔ "${data.model?.trim() || "(vazio)"}"`);
+        oldValues.model = asset.model;
+        newValues.model = data.model?.trim() || null;
+      }
+
+      if (data.serialNumber !== undefined && (data.serialNumber?.trim() || "") !== (asset.serialNumber || "")) {
+        changes.push(`Nº de Série: "${asset.serialNumber || "(vazio)"}" ➔ "${data.serialNumber?.trim() || "(vazio)"}"`);
+        oldValues.serialNumber = asset.serialNumber;
+        newValues.serialNumber = data.serialNumber?.trim() || null;
+      }
+
+      if (data.currentBoxId !== undefined && data.currentBoxId !== asset.currentBoxId) {
+        const oldBoxName = asset.currentBox ? `${asset.currentBox.name} (${asset.currentBox.door?.name})` : "Sem caixa";
+        const newBoxName = newBox ? `${newBox.name} (${newBox.door?.name})` : "Sem caixa";
+        changes.push(`Localização: "${oldBoxName}" ➔ "${newBoxName}"`);
+        oldValues.currentBox = oldBoxName;
+        newValues.currentBox = newBoxName;
+      }
+
+      const rawDate = data.acquisitionDate || data.purchaseDate;
+      if (rawDate !== undefined) {
+        const parsedDate = rawDate ? new Date(rawDate) : null;
+        const oldDateStr = asset.acquisitionDate ? asset.acquisitionDate.toISOString().split("T")[0] : null;
+        const newDateStr = parsedDate ? parsedDate.toISOString().split("T")[0] : null;
+        if (oldDateStr !== newDateStr) {
+          changes.push(`Data de Aquisição: "${oldDateStr || "(vazio)"}" ➔ "${newDateStr || "(vazio)"}"`);
+          oldValues.acquisitionDate = oldDateStr;
+          newValues.acquisitionDate = newDateStr;
+        }
+      }
+
+      const rawValue = data.acquisitionValue !== undefined ? data.acquisitionValue : data.purchaseValue;
+      if (rawValue !== undefined) {
+        const numVal = rawValue !== null && rawValue !== undefined ? Number(rawValue) : null;
+        const oldVal = asset.acquisitionValue !== null ? Number(asset.acquisitionValue) : null;
+        if (numVal !== oldVal) {
+          changes.push(`Valor: R$ ${oldVal?.toFixed(2) || "0,00"} ➔ R$ ${numVal?.toFixed(2) || "0,00"}`);
+          oldValues.acquisitionValue = oldVal;
+          newValues.acquisitionValue = numVal;
+        }
+      }
+
+      if (data.notes !== undefined && (data.notes?.trim() || "") !== (asset.notes || "")) {
+        changes.push(`Observações atualizadas`);
+        oldValues.notes = asset.notes;
+        newValues.notes = data.notes?.trim() || null;
+      }
+
+      const rawAcqDate = data.acquisitionDate || data.purchaseDate;
+      const rawAcqValue = data.acquisitionValue !== undefined ? data.acquisitionValue : data.purchaseValue;
+
+      // 6. Atualizar o patrimônio
+      const updated = await tx.asset.update({
+        where: { id },
+        data: {
+          assetTag: data.assetTag ? data.assetTag.toUpperCase().trim() : undefined,
+          itemId: data.itemId || undefined,
+          model: data.model !== undefined ? (data.model?.trim() || null) : undefined,
+          serialNumber: data.serialNumber !== undefined ? (data.serialNumber?.trim() || null) : undefined,
+          currentBoxId: data.currentBoxId !== undefined ? (data.currentBoxId || null) : undefined,
+          acquisitionDate: rawAcqDate !== undefined ? (rawAcqDate ? new Date(rawAcqDate) : null) : undefined,
+          acquisitionValue: rawAcqValue !== undefined ? (rawAcqValue !== null ? rawAcqValue : null) : undefined,
+          notes: data.notes !== undefined ? (data.notes?.trim() || null) : undefined,
+        },
+        include: {
+          item: { include: { category: true } },
+          currentBox: { include: { door: true } },
+        },
+      });
+
+      const boxLocation = updated.currentBox
+        ? `${updated.currentBox.name} (${updated.currentBox.door?.name || "Porta"})`
+        : "Sem caixa atribuída";
+
+      const observationSummary = changes.length > 0
+        ? `Edição de cadastro: ${changes.join("; ")}`
+        : "Dados do equipamento atualizados.";
+
+      // 7. Gravar na Linha do Tempo (AssetHistory)
+      await tx.assetHistory.create({
+        data: {
+          assetId: id,
+          action: "EDITADO",
+          fromStatus: asset.status,
+          toStatus: updated.status,
+          fromLocation: asset.currentBox ? `${asset.currentBox.name} (${asset.currentBox.door?.name})` : null,
+          toLocation: boxLocation,
+          userId,
+          userName: userName || "Operador",
+          observation: observationSummary,
+        },
+      });
+
+      // 8. Gravar no AuditLog
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "UPDATE_ASSET",
+          entity: "Asset",
+          entityId: id,
+          details: {
+            assetTag: updated.assetTag,
+            changes,
+            old: oldValues,
+            new: newValues,
+          },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Descarte / Baixa definitiva / Exclusão de patrimônio
+   */
+  static async deleteAsset(
+    id: string,
+    reason: string,
+    userId: string,
+    userName?: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({
+        where: { id },
+        include: {
+          item: true,
+          loans: { where: { status: { in: ["ACTIVE", "OVERDUE"] } } },
+          reservations: {
+            where: {
+              status: "ACTIVE",
+              endTime: { gte: new Date() },
+            },
+          },
+        },
+      });
+
+      if (!asset) {
+        throw new Error("Equipamento patrimonial não encontrado.");
+      }
+
+      if (asset.loans.length > 0) {
+        throw new Error("Não é possível descartar ou excluir um patrimônio com empréstimo ativo em andamento.");
+      }
+
+      if (asset.reservations.length > 0) {
+        throw new Error("Não é possível descartar um patrimônio com reserva ativa agendada.");
+      }
+
+      // Baixa lógica (WRITTEN_OFF + active: false)
+      const deactivated = await tx.asset.update({
+        where: { id },
+        data: {
+          active: false,
+          status: AssetStatus.WRITTEN_OFF,
+          notes: asset.notes
+            ? `${asset.notes} [BAIXADO: ${reason}]`
+            : `[BAIXADO: ${reason}]`,
+        },
+        include: {
+          item: true,
+        },
+      });
+
+      // Histórico
+      await tx.assetHistory.create({
+        data: {
+          assetId: id,
+          action: "BAIXADO_DESCARTADO",
+          fromStatus: asset.status,
+          toStatus: AssetStatus.WRITTEN_OFF,
+          fromLocation: asset.currentBoxId || null,
+          toLocation: null,
+          userId,
+          userName: userName || "Operador",
+          observation: `Patrimônio descartado/baixado do acervo. Motivo: ${reason}`,
+        },
+      });
+
+      // AuditLog
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "DELETE_ASSET",
+          entity: "Asset",
+          entityId: id,
+          details: {
+            assetTag: asset.assetTag,
+            item: asset.item.name,
+            reason,
+          },
+        },
+      });
+
+      return deactivated;
     });
   }
 

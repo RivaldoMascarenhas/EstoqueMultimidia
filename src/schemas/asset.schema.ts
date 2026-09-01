@@ -60,7 +60,34 @@ export const assetStatusUpdateSchema = z.object({
   currentBoxId: z.string().optional(),
 });
 
+export const assetUpdateSchema = z.object({
+  assetTag: z.string().min(2, "Número de patrimônio deve ter pelo menos 2 caracteres").toUpperCase().optional(),
+  itemId: z.string().min(1, "Selecione o tipo/modelo do item no catálogo").optional(),
+  serialNumber: z.string().optional().nullable(),
+  model: z.string().optional().nullable(),
+  currentBoxId: z.string().optional().nullable(),
+  acquisitionDate: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de aquisição não pode ser no futuro e deve ser válida"),
+  purchaseDate: z.string().optional().nullable().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime()) && date <= new Date();
+  }, "A data de compra não pode ser no futuro e deve ser válida"),
+  acquisitionValue: z.number().nonnegative("O valor não pode ser negativo").optional().nullable(),
+  purchaseValue: z.number().nonnegative("O valor não pode ser negativo").optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const assetDeleteSchema = z.object({
+  reason: z.string().min(2, "Informe a justificativa do descarte ou exclusão do patrimônio"),
+});
+
 export type AssetCreateInput = z.infer<typeof assetCreateSchema>;
 export type AssetBatchCreateInput = z.infer<typeof assetBatchCreateSchema>;
 export type AssetStatusUpdateInput = z.infer<typeof assetStatusUpdateSchema>;
+export type AssetUpdateInput = z.infer<typeof assetUpdateSchema>;
+export type AssetDeleteInput = z.infer<typeof assetDeleteSchema>;
 
