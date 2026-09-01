@@ -48,8 +48,8 @@ interface DetectedBox {
 export function QrScannerModal({ 
   isOpen, 
   onClose,
-  title = "Leitor Inteligente com Auto-Zoom",
-  description = "Aponte a câmera para o QR Code da caixa, equipamento ou documento oficial."
+  title = "Leitor de QR Code",
+  description = "Aponte a câmera para a etiqueta da caixa, patrimônio ou documento."
 }: QrScannerModalProps) {
   const router = useRouter();
   const [manualCode, setManualCode] = useState("");
@@ -76,7 +76,7 @@ export function QrScannerModal({
   const initialTouchDistRef = useRef<number | null>(null);
   const initialZoomOnPinchRef = useRef<number>(1);
 
-  // Aplicação do Nível de Zoom (Hardware WebRTC + Fallback Digital CSS)
+  // Aplicação do Nível de Zoom
   const applyZoom = useCallback(async (level: number) => {
     setZoomLevel(level);
 
@@ -99,13 +99,12 @@ export function QrScannerModal({
 
     const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
     if (video) {
-      video.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+      video.style.transition = "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)";
       video.style.transform = `scale(${level})`;
       video.style.transformOrigin = "center center";
     }
   }, []);
 
-  // Terminação imediata de faixas de vídeo e liberação do LED da webcam/celular
   const killAllVideoHardware = useCallback(() => {
     if (detectLoopRef.current) {
       cancelAnimationFrame(detectLoopRef.current);
@@ -186,7 +185,6 @@ export function QrScannerModal({
     }
   };
 
-  // Loop contínuo de detecção de QR Code e Auto-Enquadramento / Auto-Zoom
   const startDetectionLoop = useCallback(() => {
     if (typeof window === "undefined") return;
 
@@ -223,13 +221,11 @@ export function QrScannerModal({
                 height: Math.min(100, relH),
               });
 
-              // Auto-Zoom Inteligente se o código estiver distante
               const now = Date.now();
-              if (autoZoomEnabled && relW < 24 && now - lastAutoZoomTimeRef.current > 1800) {
+              if (autoZoomEnabled && relW < 22 && now - lastAutoZoomTimeRef.current > 2000) {
                 lastAutoZoomTimeRef.current = now;
                 applyZoom(2.2);
                 triggerHaptic(40);
-                toast.info("Auto-Zoom: Enquadrando código...", { duration: 1500 });
               }
             } else {
               setDetectedBox(null);
@@ -246,7 +242,6 @@ export function QrScannerModal({
     detectLoopRef.current = requestAnimationFrame(checkFrame);
   }, [autoZoomEnabled, applyZoom]);
 
-  // Processamento inteligente do código escaneado
   const handleScanSuccess = (rawText: string) => {
     playBeep();
     triggerHaptic([40, 60, 40]);
@@ -256,16 +251,14 @@ export function QrScannerModal({
 
     const clean = rawText.trim();
 
-    // 1. URL de Validação de Documentos
     if (clean.includes("/validar/")) {
       const parts = clean.split("/validar/");
       const code = parts[1]?.split("?")[0]?.trim();
-      toast.success("Documento identificado! Abrindo validação...");
+      toast.success("Documento identificado! Abrindo...");
       router.push(`/validar/${encodeURIComponent(code || "")}`);
       return;
     }
 
-    // 2. URL de Caixas
     if (clean.includes("/caixas/")) {
       const parts = clean.split("/caixas/");
       const boxCode = parts[parts.length - 1].replace(/[^a-zA-Z0-9_-]/g, "");
@@ -274,7 +267,6 @@ export function QrScannerModal({
       return;
     }
 
-    // 3. URL de Patrimônio
     if (clean.includes("/patrimonio/")) {
       const parts = clean.split("/patrimonio/");
       const assetId = parts[parts.length - 1].split("?")[0]?.trim();
@@ -283,14 +275,12 @@ export function QrScannerModal({
       return;
     }
 
-    // 4. Códigos de Documento (LOAN-*, OS-*, REL-*)
     if (clean.startsWith("LOAN-") || clean.startsWith("loan-") || clean.startsWith("OS-") || clean.startsWith("os-") || clean.startsWith("REL-")) {
-      toast.success("Documento identificado! Redirecionando para validação...");
+      toast.success("Documento identificado!");
       router.push(`/validar/${encodeURIComponent(clean)}`);
       return;
     }
 
-    // 5. Código de Patrimônio (#123456 ou PAT-*)
     if (clean.startsWith("#") || clean.startsWith("PAT-") || clean.startsWith("pat-")) {
       const tag = clean.replace(/^#/, "").replace(/^[Pp][Aa][Tt]-/, "");
       toast.success(`Patrimônio #${tag} identificado!`);
@@ -298,7 +288,6 @@ export function QrScannerModal({
       return;
     }
 
-    // 6. Código de Caixa Padrão (C01, CX-01, etc.)
     const isLikelyBox = /^[cC][0-9]{1,4}$/.test(clean) || /^[cC][xX]-[0-9]{1,4}$/.test(clean) || clean.toLowerCase().startsWith("cx");
     if (isLikelyBox) {
       const boxCode = clean.toUpperCase();
@@ -307,8 +296,6 @@ export function QrScannerModal({
       return;
     }
 
-    // Fallback: Redireciona para o Scanner Geral para resolver qualquer entidade
-    toast.info(`Código ${clean} lido. Consultando...`);
     router.push(`/scanner?search=${encodeURIComponent(clean)}`);
   };
 
@@ -325,10 +312,10 @@ export function QrScannerModal({
       scannerRef.current = html5QrCode;
 
       const scanConfig = {
-        fps: 24,
+        fps: 25,
         qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
           const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.76);
+          const qrboxSize = Math.floor(minEdge * 0.85);
           return { width: qrboxSize, height: qrboxSize };
         },
         aspectRatio: 1.0,
@@ -404,7 +391,7 @@ export function QrScannerModal({
       console.warn("Erro ao iniciar câmera no modal:", err);
       if (isMountedRef.current) {
         setCameraError(
-          "Não foi possível acessar a câmera do dispositivo. Verifique as permissões do navegador ou digite o código abaixo."
+          "Não foi possível acessar a câmera. Digite o código abaixo."
         );
         setIsScanning(false);
       }
@@ -434,7 +421,7 @@ export function QrScannerModal({
         setActiveCameraLabel(nextCam.label || `Câmera ${nextIndex + 1}`);
 
         await startScanner(nextCam.id, nextIndex);
-        toast.info(`Câmera: ${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`);
+        toast.info(`${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`);
       } else {
         await startScanner({ facingMode: "environment" } as any);
       }
@@ -445,7 +432,6 @@ export function QrScannerModal({
     }
   };
 
-  // Suporte a Gesto Pinch-to-Zoom
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dist = Math.hypot(
@@ -473,7 +459,6 @@ export function QrScannerModal({
     initialTouchDistRef.current = null;
   };
 
-  // Ciclo de vida
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -516,16 +501,16 @@ export function QrScannerModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseModal()}>
       <DialogContent 
         hideClose={true}
-        className="sm:max-w-md p-5 sm:p-6 rounded-3xl border-border bg-card shadow-2xl overflow-hidden"
+        className="sm:max-w-md p-5 rounded-3xl border-border bg-card shadow-2xl overflow-hidden"
       >
-        {/* Header Personalizado */}
-        <div className="flex items-center justify-between border-b border-border/70 pb-3">
+        {/* Header Limpo */}
+        <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <QrCode className="w-4 h-4" />
             </div>
             <div>
-              <DialogTitle className="text-sm sm:text-base font-bold text-foreground">
+              <DialogTitle className="text-sm font-bold text-foreground">
                 {title}
               </DialogTitle>
               <DialogDescription className="text-[11px] text-muted-foreground line-clamp-1">
@@ -537,88 +522,61 @@ export function QrScannerModal({
           <button
             type="button"
             onClick={handleCloseModal}
-            className="w-8 h-8 rounded-xl bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            title="Fechar Scanner"
+            className="w-8 h-8 rounded-xl bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            title="Fechar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="space-y-4 pt-1">
-          {/* Visor da Câmera com Suporte a Pinch-to-Zoom e HUD */}
+        <div className="space-y-3 pt-1">
+          {/* Visor Minimalista */}
           <div 
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative overflow-hidden rounded-2xl border border-border bg-slate-950 aspect-square flex flex-col items-center justify-center shadow-inner touch-none"
+            className="relative overflow-hidden rounded-2xl bg-black aspect-square flex flex-col items-center justify-center touch-none select-none"
           >
             <div id="qr-modal-viewfinder" className="w-full h-full" />
 
-            {/* Toolbar Superior sobre o Visor (Botão de Alternar Câmera) */}
+            {/* Vinheta sutil */}
+            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.55)] z-10" />
+
+            {/* Troca de Câmera */}
             {isScanning && !cameraError && (
-              <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+              <div className="absolute top-3 right-3 z-30">
                 <button
                   type="button"
                   onClick={handleToggleCamera}
                   disabled={isSwitchingCamera}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/80 hover:bg-black text-white border border-white/20 backdrop-blur-md shadow-lg active:scale-95 transition-all cursor-pointer group"
-                  title="Alternar câmera"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/50 hover:bg-black/75 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
+                  title="Trocar Câmera"
                 >
-                  <SwitchCamera className={cn("w-3.5 h-3.5 text-primary transition-transform duration-300 group-hover:rotate-180", isSwitchingCamera && "animate-spin text-amber-400")} />
-                  <span className="text-[11px] font-semibold">
+                  <SwitchCamera className={cn("w-3.5 h-3.5 text-primary", isSwitchingCamera && "animate-spin text-amber-400")} />
+                  <span className="text-[11px] font-medium">
                     {isSwitchingCamera 
                       ? "..." 
                       : cameras.length > 1 
                         ? `${selectedCameraIndex + 1}/${cameras.length}` 
-                        : "Trocar Câmera"}
+                        : "Trocar"}
                   </span>
                 </button>
               </div>
             )}
 
-            {/* BARRA FLUTUANTE DE ZOOM (1x, 2x, 3x + Auto-Zoom IA) */}
-            {isScanning && !cameraError && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/80 border border-white/20 backdrop-blur-xl shadow-2xl">
-                {[1, 2, 3].map((lvl) => (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => applyZoom(lvl)}
-                    className={cn(
-                      "w-7 h-7 rounded-full text-[11px] font-mono font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
-                      zoomLevel === lvl 
-                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/40 scale-105" 
-                        : "text-white/80 hover:bg-white/10 hover:text-white"
-                    )}
-                  >
-                    {lvl}x
-                  </button>
-                ))}
-
-                <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !autoZoomEnabled;
-                    setAutoZoomEnabled(next);
-                    toast.info(next ? "Auto-Zoom IA ativado" : "Auto-Zoom desativado");
-                  }}
-                  className={cn(
-                    "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
-                    autoZoomEnabled 
-                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" 
-                      : "text-white/50 hover:text-white"
-                  )}
-                  title="Auto-Zoom Inteligente"
-                >
-                  <Zap className={cn("w-2.5 h-2.5", autoZoomEnabled ? "text-emerald-400" : "text-white/40")} />
-                  <span>Auto IA</span>
-                </button>
+            {/* Mira Minimalista Central */}
+            {isScanning && !cameraError && !detectedBox && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
+                <div className="relative w-44 h-44">
+                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/40 rounded-tl-lg" />
+                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/40 rounded-tr-lg" />
+                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/40 rounded-bl-lg" />
+                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/40 rounded-br-lg" />
+                </div>
               </div>
             )}
 
-            {/* ENQUADRAMENTO INTELIGENTE DINÂMICO (SNAP BOUNDING BOX) */}
+            {/* RETÍCULO DINÂMICO SOBRE O QR CODE DETECTADO */}
             {isScanning && !cameraError && detectedBox && (
               <div
                 className="qr-target-bounding-box"
@@ -633,30 +591,60 @@ export function QrScannerModal({
                 <div className="qr-target-corner-tr" />
                 <div className="qr-target-corner-bl" />
                 <div className="qr-target-corner-br" />
-                
-                <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase text-emerald-400 bg-black/80 px-2 py-0.5 rounded-full border border-emerald-500/40 whitespace-nowrap shadow-lg flex items-center gap-1">
-                  <Target className="w-2 h-2 animate-spin" />
-                  Alvo
-                </span>
-              </div>
-            )}
 
-            {/* Laser e cantoneiras visuais */}
-            {isScanning && !cameraError && (
-              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 z-20">
-                <div className="relative w-full h-full max-w-[230px] max-h-[230px] rounded-2xl border border-primary/40 flex items-center justify-center">
-                  <div className="absolute top-0 left-0 w-5 h-5 border-t-3 border-l-3 border-primary rounded-tl-xl" />
-                  <div className="absolute top-0 right-0 w-5 h-5 border-t-3 border-r-3 border-primary rounded-tr-xl" />
-                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-3 border-l-3 border-primary rounded-bl-xl" />
-                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-3 border-r-3 border-primary rounded-br-xl" />
+                <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-500/90 text-black text-[10px] font-bold shadow-lg backdrop-blur-sm whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
+                  <QrCode className="w-3 h-3" />
+                  <span>QR Detectado</span>
                 </div>
               </div>
             )}
 
-            {/* Aviso se a câmera não puder ser aberta */}
+            {/* Zoom Bar Minimalista */}
+            {isScanning && !cameraError && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 border border-white/15 backdrop-blur-xl shadow-2xl">
+                {[1, 2, 3].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => applyZoom(lvl)}
+                    className={cn(
+                      "w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
+                      zoomLevel === lvl 
+                        ? "bg-white text-black font-extrabold shadow-sm scale-105" 
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    {lvl}x
+                  </button>
+                ))}
+
+                <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !autoZoomEnabled;
+                    setAutoZoomEnabled(next);
+                    toast.info(next ? "Auto-Zoom ativado" : "Auto-Zoom desativado");
+                  }}
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
+                    autoZoomEnabled 
+                      ? "bg-yellow-400/20 text-yellow-300 border border-yellow-400/30" 
+                      : "text-white/50 hover:text-white"
+                  )}
+                  title="Auto-Zoom"
+                >
+                  <Zap className={cn("w-2.5 h-2.5", autoZoomEnabled ? "text-yellow-400" : "text-white/40")} />
+                  <span>Auto</span>
+                </button>
+              </div>
+            )}
+
+            {/* Aviso se a câmera falhar */}
             {cameraError && (
               <div className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center bg-card/95 text-foreground space-y-3 z-20">
-                <AlertCircle className="w-10 h-10 text-amber-500" />
+                <AlertCircle className="w-8 h-8 text-amber-500" />
                 <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
                   {cameraError}
                 </p>
@@ -673,31 +661,21 @@ export function QrScannerModal({
             )}
           </div>
 
-          {/* Opção Manual / Digitação de Código ou Chave */}
-          <div className="space-y-2 pt-2 border-t border-border/70">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <Keyboard className="w-3.5 h-3.5 text-primary" />
-                Entrada manual de código:
-              </span>
-              <span className="text-[10px] text-muted-foreground font-mono">
-                Ex: C017, #1002, cmthzzf6n0
-              </span>
-            </div>
-
+          {/* Opção Manual */}
+          <div className="pt-2 border-t border-border/70">
             <form onSubmit={handleManualSubmit} className="flex gap-2">
               <Input
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                placeholder="Digitar código da caixa, patrimônio ou documento..."
-                className="font-mono text-xs sm:text-sm uppercase rounded-xl"
+                placeholder="Digitar código (#PAT-1002, C017, LOAN-...)"
+                className="text-xs rounded-xl h-9 bg-background"
               />
               <Button 
                 type="submit" 
                 size="sm" 
-                className="gap-1.5 rounded-xl px-4 font-bold text-xs shrink-0 cursor-pointer bg-primary text-primary-foreground"
+                className="gap-1.5 rounded-xl px-4 text-xs shrink-0 cursor-pointer h-9"
               >
-                <span>Consultar</span>
+                <span>Buscar</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </form>

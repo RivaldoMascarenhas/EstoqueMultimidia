@@ -117,141 +117,50 @@
 }
 
 /* ==========================================================================
-   ESTILOS & ANIMAÇÕES DO SCANNER MOBILE & QR CODE
+   CAMERA & SMART SCANNER MINIMALIST STYLES (APPLE / GOOGLE LENS INSP)
    ========================================================================== */
-#scanner-viewfinder {
+#scanner-viewfinder, #qr-modal-viewfinder {
   position: relative !important;
   width: 100% !important;
   height: 100% !important;
   overflow: hidden !important;
 }
 
-#scanner-viewfinder video {
+#scanner-viewfinder video, #qr-modal-viewfinder video {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
 }
 
-/* Ocultar elementos brutos e cantoneiras padrão do html5-qrcode para visual limpo */
+/* Ocultar elementos brutos do html5-qrcode */
 #qr-shaded-region {
   border-color: transparent !important;
   box-shadow: none !important;
+  display: none !important;
 }
 
 #qr-shaded-region > div {
   display: none !important;
 }
 
-/* Animações fluidas do Laser do Scanner */
-@keyframes laserSweep {
-  0% {
-    top: 4%;
-    opacity: 0.85;
-  }
-  50% {
-    top: 96%;
-    opacity: 1;
-  }
-  100% {
-    top: 4%;
-    opacity: 0.85;
-  }
-}
-
-@keyframes laserGlowSweep {
-  0% {
-    top: 2%;
-    opacity: 0.15;
-  }
-  50% {
-    top: 80%;
-    opacity: 0.45;
-  }
-  100% {
-    top: 2%;
-    opacity: 0.15;
-  }
-}
-
-@keyframes hudPulse {
+/* Retículo Dinâmico Inteligente (Estilo Apple Camera / Google Lens) */
+@keyframes qrLensPulse {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(59, 130, 246, 0.3), inset 0 0 15px rgba(59, 130, 246, 0.15);
-    border-color: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.6), 0 0 20px rgba(234, 179, 8, 0.25);
+    border-color: #eab308;
   }
   50% {
-    box-shadow: 0 0 25px rgba(99, 102, 241, 0.6), inset 0 0 22px rgba(99, 102, 241, 0.3);
-    border-color: rgba(99, 102, 241, 0.85);
-  }
-}
-
-.scanner-laser-line {
-  position: absolute;
-  left: 2%;
-  right: 2%;
-  height: 3px;
-  background: linear-gradient(90deg, transparent 0%, #f43f5e 15%, #ff2d55 50%, #f43f5e 85%, transparent 100%);
-  box-shadow: 0 0 10px #f43f5e, 0 0 20px #ff2d55, 0 0 35px #ff2d55;
-  border-radius: 9999px;
-  animation: laserSweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.scanner-laser-glow {
-  position: absolute;
-  left: 2%;
-  right: 2%;
-  height: 40px;
-  background: linear-gradient(180deg, rgba(244, 63, 94, 0.3) 0%, rgba(244, 63, 94, 0) 100%);
-  border-radius: 12px;
-  animation: laserGlowSweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  z-index: 9;
-  pointer-events: none;
-}
-
-.scanner-frame-hud {
-  animation: hudPulse 3s ease-in-out infinite;
-}
-
-@keyframes laserSweepVertical {
-  0%, 100% {
-    transform: translateY(-90px);
-    opacity: 0.3;
-  }
-  50% {
-    transform: translateY(90px);
-    opacity: 1;
-  }
-}
-
-.animate-laser-sweep {
-  animation: laserSweepVertical 2.2s ease-in-out infinite;
-}
-
-/* ==========================================================================
-   AI SMART AUTO-ZOOM & TARGET LOCK RETICLE STYLES
-   ========================================================================== */
-@keyframes targetLockPulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7), 0 0 15px rgba(16, 185, 129, 0.4);
-    border-color: rgba(16, 185, 129, 0.9);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0), 0 0 25px rgba(56, 189, 248, 0.6);
-    border-color: rgba(56, 189, 248, 1);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0), 0 0 15px rgba(16, 185, 129, 0.4);
-    border-color: rgba(16, 185, 129, 0.9);
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.9), 0 0 30px rgba(234, 179, 8, 0.45);
+    border-color: #facc15;
   }
 }
 
 .qr-target-bounding-box {
   position: absolute;
   pointer-events: none;
-  transition: all 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
-  animation: targetLockPulse 1.4s infinite;
-  border-radius: 14px;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: qrLensPulse 1.8s ease-in-out infinite;
+  border-radius: 16px;
   z-index: 25;
 }
 
@@ -259,44 +168,42 @@
   position: absolute;
   top: -2px;
   left: -2px;
-  width: 14px;
-  height: 14px;
-  border-top: 3px solid #10b981;
-  border-left: 3px solid #10b981;
-  border-top-left-radius: 8px;
+  width: 16px;
+  height: 16px;
+  border-top: 3.5px solid #eab308;
+  border-left: 3.5px solid #eab308;
+  border-top-left-radius: 10px;
 }
 
 .qr-target-corner-tr {
   position: absolute;
   top: -2px;
   right: -2px;
-  width: 14px;
-  height: 14px;
-  border-top: 3px solid #10b981;
-  border-right: 3px solid #10b981;
-  border-top-right-radius: 8px;
+  width: 16px;
+  height: 16px;
+  border-top: 3.5px solid #eab308;
+  border-right: 3.5px solid #eab308;
+  border-top-right-radius: 10px;
 }
 
 .qr-target-corner-bl {
   position: absolute;
   bottom: -2px;
   left: -2px;
-  width: 14px;
-  height: 14px;
-  border-bottom: 3px solid #10b981;
-  border-left: 3px solid #10b981;
-  border-bottom-left-radius: 8px;
+  width: 16px;
+  height: 16px;
+  border-bottom: 3.5px solid #eab308;
+  border-left: 3.5px solid #eab308;
+  border-bottom-left-radius: 10px;
 }
 
 .qr-target-corner-br {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 14px;
-  height: 14px;
-  border-bottom: 3px solid #10b981;
-  border-right: 3px solid #10b981;
-  border-bottom-right-radius: 8px;
+  width: 16px;
+  height: 16px;
+  border-bottom: 3.5px solid #eab308;
+  border-right: 3.5px solid #eab308;
+  border-bottom-right-radius: 10px;
 }
-
-
