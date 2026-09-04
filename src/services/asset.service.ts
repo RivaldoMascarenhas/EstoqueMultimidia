@@ -25,7 +25,18 @@ export class AssetService {
     };
 
     if (status && status !== "ALL") {
-      whereClause.status = status;
+      const rawStatus = String(status);
+      let normalizedStatus: AssetStatus | undefined = undefined;
+      if (rawStatus === "MAINTENANCE" || rawStatus === "IN_MAINTENANCE") {
+        normalizedStatus = AssetStatus.IN_MAINTENANCE;
+      } else if (rawStatus === "RETIRED" || rawStatus === "WRITTEN_OFF") {
+        normalizedStatus = AssetStatus.WRITTEN_OFF;
+      } else if (Object.values(AssetStatus).includes(rawStatus as AssetStatus)) {
+        normalizedStatus = rawStatus as AssetStatus;
+      }
+      if (normalizedStatus) {
+        whereClause.status = normalizedStatus;
+      }
     }
 
     if (boxId && boxId !== "ALL") {

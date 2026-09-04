@@ -113,12 +113,19 @@ export default function PatrimonioPage() {
     switch (status) {
       case "AVAILABLE":
         return <Badge variant="available" dot className="text-[10px]">Disponível</Badge>;
+      case "IN_USE":
+        return <Badge variant="in_use" dot className="text-[10px]">Em Uso (Sala)</Badge>;
       case "LOANED":
         return <Badge variant="loaned" dot className="text-[10px]">Emprestado</Badge>;
+      case "IN_MAINTENANCE":
       case "MAINTENANCE":
         return <Badge variant="maintenance" dot className="text-[10px]">Em Manutenção</Badge>;
       case "DAMAGED":
         return <Badge variant="damaged" dot className="text-[10px]">Danificado</Badge>;
+      case "LOST":
+        return <Badge variant="destructive" dot className="text-[10px]">Perdido</Badge>;
+      case "WRITTEN_OFF":
+      case "RETIRED":
       default:
         return <Badge variant="outline" className="text-[10px]">Baixado</Badge>;
     }
@@ -248,10 +255,11 @@ export default function PatrimonioPage() {
             >
               <option value="ALL">Todos os Status</option>
               <option value="AVAILABLE">🟢 Disponíveis</option>
+              <option value="IN_USE">🟣 Em Uso (Fixo na Sala)</option>
               <option value="LOANED">🔵 Emprestados</option>
-              <option value="MAINTENANCE">🟡 Em Manutenção</option>
+              <option value="IN_MAINTENANCE">🟡 Em Manutenção</option>
               <option value="DAMAGED">🔴 Danificados</option>
-              <option value="RETIRED">⚪ Baixados</option>
+              <option value="WRITTEN_OFF">⚪ Baixados</option>
             </select>
 
             {/* Filtro por Caixa */}

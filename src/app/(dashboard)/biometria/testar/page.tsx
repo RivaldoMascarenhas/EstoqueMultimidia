@@ -12,28 +12,27 @@ export default function BiometriaTestarPage() {
   const fetchHealth = async () => {
     setLoadingHealth(true);
     try {
-      // Direct call via BFF or health proxy
       const res = await fetch("/api/v1/biometrics/health").catch(() => null);
       if (res && res.ok) {
         const data = await res.json();
         setHealth(data);
       } else {
         setHealth({
-          status: "online",
-          version: "1.0.0",
-          databaseConnected: true,
-          pgvectorAvailable: true,
-          faceRecognitionEngine: "dlib_face_recognition (128D)",
+          status: "unreachable",
+          version: "desconectado",
+          databaseConnected: false,
+          pgvectorAvailable: false,
+          faceRecognitionEngine: "indisponível",
           activeEmbeddingsCount: 0,
         });
       }
     } catch {
       setHealth({
-        status: "online",
-        version: "1.0.0",
-        databaseConnected: true,
-        pgvectorAvailable: true,
-        faceRecognitionEngine: "dlib_face_recognition (128D)",
+        status: "unreachable",
+        version: "desconectado",
+        databaseConnected: false,
+        pgvectorAvailable: false,
+        faceRecognitionEngine: "indisponível",
         activeEmbeddingsCount: 0,
       });
     } finally {
@@ -44,6 +43,8 @@ export default function BiometriaTestarPage() {
   useEffect(() => {
     fetchHealth();
   }, []);
+
+  const isOnline = health?.status === "healthy" || health?.status === "online";
 
   return (
     <div className="space-y-6">
@@ -68,15 +69,28 @@ export default function BiometriaTestarPage() {
         </button>
       </div>
 
+      {!isOnline && (
+        <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-3">
+          <Activity className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold">Microsserviço de Biometria Facial Offline (FastAPI / pgvector)</p>
+            <p className="text-muted-foreground text-[11px] leading-relaxed">
+              O serviço Python em <code className="font-mono bg-background/50 px-1 py-0.5 rounded">http://localhost:8000</code> não está respondendo no momento.
+              Para habilitar o cálculo de embeddings e testes com a câmera, inicie o container: <code className="font-mono bg-background/50 px-1.5 py-0.5 rounded font-bold">docker compose up -d biometric-api</code> ou execute localmente: <code className="font-mono bg-background/50 px-1.5 py-0.5 rounded font-bold">cd biometric-api && uvicorn app.main:app --port 8000</code>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Health Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
             <span>Status da Biometric API</span>
-            <Activity className="h-4 w-4 text-emerald-500" />
+            <Activity className={`h-4 w-4 ${isOnline ? "text-emerald-500" : "text-rose-500"}`} />
           </div>
-          <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-            {health?.status || "ONLINE"}
+          <p className={`text-lg font-bold uppercase tracking-wider ${isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+            {isOnline ? "ONLINE" : "OFFLINE"}
           </p>
           <p className="text-[10px] text-muted-foreground">Serviço FastAPI interno</p>
         </div>
@@ -84,10 +98,12 @@ export default function BiometriaTestarPage() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-1">
           <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
             <span>Motor pgvector L2</span>
-            <Server className="h-4 w-4 text-sky-500" />
+            <Server className={`h-4 w-4 ${health?.pgvectorAvailable ? "text-sky-500" : "text-amber-500"}`} />
           </div>
           <p className="text-lg font-bold text-foreground">PostgreSQL 16</p>
-          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Extensão 'vector' Ativa</p>
+          <p className={`text-[10px] font-semibold ${health?.pgvectorAvailable ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+            {health?.pgvectorAvailable ? "Extensão 'vector' Ativa" : "Aguardando Microsserviço"}
+          </p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm space-y-1">
