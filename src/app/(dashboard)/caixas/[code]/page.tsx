@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { 
@@ -13,7 +13,8 @@ import {
   ArrowLeft, 
   Loader2, 
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,8 +25,11 @@ import { LabelPrinterModal } from "@/components/cabinet/label-printer";
 import { StockExitModal } from "@/components/inventory/stock-exit-modal";
 import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
 import { StockTransferModal } from "@/components/inventory/stock-transfer-modal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { toast } from "sonner";
 
 export default function BoxDetailsPage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const userRole = session?.user?.role || "OPERADOR";
   const isReadOnly = userRole === "CONSULTA";
@@ -43,6 +47,7 @@ export default function BoxDetailsPage() {
   const [selectedItemForEntry, setSelectedItemForEntry] = useState<any | null>(null);
   const [selectedItemForTransfer, setSelectedItemForTransfer] = useState<any | null>(null);
   const [isPrinterOpen, setIsPrinterOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const fetchBoxData = async () => {
     try {
@@ -71,6 +76,23 @@ export default function BoxDetailsPage() {
     } catch (err: any) {
       setError("Erro ao carregar dados da caixa.");
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteBox = async () => {
+    try {
+      const res = await fetch(`/api/v1/boxes/${boxData.code}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.error || "Erro ao excluir caixa.");
+        return;
+      }
+      toast.success(`✓ Caixa '${boxData.code}' excluída com sucesso!`);
+      router.push("/armario");
+    } catch (err: any) {
+      toast.error("Erro inesperado ao excluir caixa.");
     }
   };
 
@@ -146,6 +168,19 @@ export default function BoxDetailsPage() {
             <Printer className="w-4 h-4 text-primary" />
             <span>Imprimir Etiqueta</span>
           </Button>
+
+          {!isReadOnly && (
+            <Button
+              onClick={() => setIsDeleteModalOpen(true)}
+              size="sm"
+              variant="outline"
+              className="gap-1.5 rounded-xl border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/50 cursor-pointer shadow-sm"
+              title="Excluir Caixa"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Excluir Caixa</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -460,6 +495,18 @@ export default function BoxDetailsPage() {
           },
         ]}
         selectedBoxCode={boxData.code}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteBox}
+        title="Excluir Caixa do Armário"
+        description="Tem certeza que deseja excluir esta caixa? Apenas caixas completamente vazias (sem materiais em estoque e sem patrimônios) podem ser excluídas."
+        itemName={`${boxData.code} - ${boxData.name}`}
+        confirmText="Sim, Excluir Caixa"
+        cancelText="Cancelar"
+        variant="danger"
       />
     </div>
   );

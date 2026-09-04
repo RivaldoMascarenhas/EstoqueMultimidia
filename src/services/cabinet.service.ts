@@ -119,7 +119,7 @@ export class CabinetService {
       },
     });
 
-    if (!box) return null;
+    if (!box || !box.active) return null;
 
     const totalQuantity =
       box.inventories.reduce((acc, inv) => acc + inv.quantity, 0) +
@@ -194,16 +194,43 @@ export class CabinetService {
   }
 
   /**
-   * Cria uma nova caixa no armário
+   * Cria uma nova caixa no armário (ou reativa caso tenha sido desativada anteriormente)
    */
   static async createBox(data: BoxCreateInput, userId: string) {
     const cleanCode = data.code.toUpperCase().trim();
 
     const existing = await prisma.box.findUnique({
       where: { code: cleanCode },
+      include: { door: true },
     });
 
     if (existing) {
+      if (!existing.active) {
+        // Reativação de caixa arquivada
+        const reactivated = await prisma.box.update({
+          where: { id: existing.id },
+          data: {
+            name: data.name.trim(),
+            doorId: data.doorId,
+            description: data.description?.trim() || null,
+            active: true,
+          },
+          include: { door: true },
+        });
+
+        await prisma.auditLog.create({
+          data: {
+            userId,
+            action: "RESTORE_BOX",
+            entity: "Box",
+            entityId: reactivated.id,
+            details: { code: reactivated.code, name: reactivated.name, door: reactivated.door.name },
+          },
+        });
+
+        return reactivated;
+      }
+
       throw new Error(`Já existe uma caixa cadastrada com o código '${cleanCode}'.`);
     }
 
@@ -230,5 +257,99 @@ export class CabinetService {
     });
 
     return box;
+  }
+
+  /**
+   * Exclui uma caixa do armário.
+   * Regra de negócio estrita:
+   * - A caixa NÃO pode conter itens com saldo > 0.
+   * - A caixa NÃO pode conter patrimônios/ativos ativos alocados.
+   * - Caso não haja histórico de movimentações ou empréstimos, efetua hard delete.
+   * - Caso haja registros históricos associados, efetua soft delete (active: false) para manter integridade relacional.
+   */
+  static async deleteBox(codeOrId: string, userId: string) {
+    const clean = codeOrId.toUpperCase().trim();
+
+    return await prisma.$transaction(async (tx) => {
+      const box = await tx.box.findFirst({
+        where: {
+          OR: [{ code: clean }, { id: codeOrId }],
+          active: true,
+        },
+        include: {
+          door: true,
+          inventories: {
+            where: { quantity: { gt: 0 } },
+          },
+          assets: {
+            where: { active: true },
+          },
+        },
+      });
+
+      if (!box) {
+        throw new Error(`Caixa '${codeOrId}' não encontrada ou já desativada.`);
+      }
+
+      const totalItems = box.inventories.reduce((sum, inv) => sum + inv.quantity, 0);
+      if (totalItems > 0) {
+        throw new Error(
+          `Não é possível excluir a caixa '${box.code}' pois ela ainda contém ${totalItems} item(ns) em estoque. Transfira ou retire os itens antes de excluir.`
+        );
+      }
+
+      if (box.assets.length > 0) {
+        throw new Error(
+          `Não é possível excluir a caixa '${box.code}' pois ela ainda possui ${box.assets.length} equipamento(s)/patrimônio(s) alocado(s). Remova ou realoque os equipamentos antes de excluir.`
+        );
+      }
+
+      // Checa vínculos históricos
+      const [movementsCount, loansCount] = await Promise.all([
+        tx.stockMovement.count({
+          where: { OR: [{ sourceBoxId: box.id }, { destBoxId: box.id }] },
+        }),
+        tx.loan.count({
+          where: { returnBoxId: box.id },
+        }),
+      ]);
+
+      let hardDeleted = false;
+      if (movementsCount === 0 && loansCount === 0) {
+        // Sem movimentações nem empréstimos históricos: limpeza de inventários zerados e hard delete
+        await tx.inventory.deleteMany({ where: { boxId: box.id } });
+        await tx.box.delete({ where: { id: box.id } });
+        hardDeleted = true;
+      } else {
+        // Com histórico prévio: soft delete para manter integridade referencial
+        await tx.box.update({
+          where: { id: box.id },
+          data: { active: false },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: "DELETE_BOX",
+          entity: "Box",
+          entityId: box.id,
+          details: {
+            code: box.code,
+            name: box.name,
+            doorId: box.doorId,
+            doorName: box.door?.name,
+            hardDeleted,
+          },
+        },
+      });
+
+      return {
+        id: box.id,
+        code: box.code,
+        name: box.name,
+        hardDeleted,
+      };
+    });
   }
 }

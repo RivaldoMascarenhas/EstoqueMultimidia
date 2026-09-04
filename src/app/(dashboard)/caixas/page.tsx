@@ -11,7 +11,8 @@ import {
   Plus, 
   ChevronRight, 
   Loader2, 
-  QrCode
+  QrCode,
+  Trash2
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { QrScannerModal } from "@/components/scanner/qr-scanner-modal";
 import { LabelPrinterModal } from "@/components/cabinet/label-printer";
 import { BoxFormModal } from "@/components/cabinet/box-form-modal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { toast } from "sonner";
 
@@ -38,6 +40,26 @@ export default function CaixasIndexPage() {
   const [isPrinterOpen, setIsPrinterOpen] = useState(false);
   const [isBoxModalOpen, setIsBoxModalOpen] = useState(false);
   const [selectedBoxForLabel, setSelectedBoxForLabel] = useState<string | undefined>(undefined);
+  const [selectedBoxToDelete, setSelectedBoxToDelete] = useState<any | null>(null);
+
+  const handleConfirmDeleteBox = async () => {
+    if (!selectedBoxToDelete) return;
+    try {
+      const res = await fetch(`/api/v1/boxes/${selectedBoxToDelete.code}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.error || "Erro ao excluir caixa.");
+        return;
+      }
+      toast.success(`✓ Caixa '${selectedBoxToDelete.code}' excluída com sucesso!`);
+      setSelectedBoxToDelete(null);
+      fetchData(false);
+    } catch (err: any) {
+      toast.error("Erro inesperado ao excluir caixa.");
+    }
+  };
 
   const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
@@ -75,7 +97,7 @@ export default function CaixasIndexPage() {
   // Sincronização automática em segundo plano a cada 10s
   useAutoRefresh(() => fetchData(false), {
     intervalMs: 10000,
-    enabled: !isScannerOpen && !isPrinterOpen && !isBoxModalOpen,
+    enabled: !isScannerOpen && !isPrinterOpen && !isBoxModalOpen && !selectedBoxToDelete,
   });
 
   const doorOptions = doors.map((d) => ({
@@ -250,17 +272,30 @@ export default function CaixasIndexPage() {
 
               {/* Botões de Ação */}
               <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                <button
-                  onClick={() => {
-                    setSelectedBoxForLabel(box.code);
-                    setIsPrinterOpen(true);
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-                  title="Ver QR Code e Imprimir Etiqueta"
-                >
-                  <QrCode className="w-3.5 h-3.5 text-primary" />
-                  <span>QR Code</span>
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => {
+                      setSelectedBoxForLabel(box.code);
+                      setIsPrinterOpen(true);
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Ver QR Code e Imprimir Etiqueta"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-primary" />
+                    <span>QR Code</span>
+                  </button>
+
+                  {!isReadOnly && (
+                    <button
+                      onClick={() => setSelectedBoxToDelete(box)}
+                      className="text-xs text-muted-foreground hover:text-rose-500 flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Excluir Caixa"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500/80" />
+                      <span>Excluir</span>
+                    </button>
+                  )}
+                </div>
 
                 <Link
                   href={`/caixas/${box.code}`}
@@ -299,6 +334,18 @@ export default function CaixasIndexPage() {
         onClose={() => setIsBoxModalOpen(false)}
         doors={doorOptions}
         onSuccess={fetchData}
+      />
+
+      <ConfirmModal
+        isOpen={!!selectedBoxToDelete}
+        onClose={() => setSelectedBoxToDelete(null)}
+        onConfirm={handleConfirmDeleteBox}
+        title="Excluir Caixa do Armário"
+        description="Tem certeza que deseja excluir esta caixa? Apenas caixas completamente vazias (sem materiais em estoque e sem patrimônios) podem ser excluídas."
+        itemName={selectedBoxToDelete ? `${selectedBoxToDelete.code} - ${selectedBoxToDelete.name}` : undefined}
+        confirmText="Sim, Excluir Caixa"
+        cancelText="Cancelar"
+        variant="danger"
       />
     </div>
   );

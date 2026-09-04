@@ -39,6 +39,8 @@ export default function ConfiguracoesPage() {
   const [categoryToEdit, setCategoryToEdit] = useState<any | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<any | null>(null);
   const [isDeleteCategoryModalOpen, setIsDeleteCategoryModalOpen] = useState(false);
+  const [boxToDelete, setBoxToDelete] = useState<any | null>(null);
+  const [isDeleteBoxModalOpen, setIsDeleteBoxModalOpen] = useState(false);
 
   // Playground de Teste de API
   const [testToken, setTestToken] = useState("");
@@ -104,6 +106,32 @@ export default function ConfiguracoesPage() {
       }
     } catch (err) {
       toast.error("Erro na comunicação com o servidor.");
+    }
+  };
+
+  const handleDeleteBoxClick = (box: any) => {
+    setBoxToDelete(box);
+    setIsDeleteBoxModalOpen(true);
+  };
+
+  const executeDeleteBox = async () => {
+    if (!boxToDelete) return;
+
+    try {
+      const res = await fetch(`/api/v1/boxes/${boxToDelete.code}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(`✓ Caixa '${boxToDelete.code}' excluída com sucesso!`);
+        setIsDeleteBoxModalOpen(false);
+        setBoxToDelete(null);
+        fetchData();
+      } else {
+        toast.error(json.error || "Erro ao excluir caixa.");
+      }
+    } catch (err) {
+      toast.error("Erro de comunicação ao excluir caixa.");
     }
   };
 
@@ -309,6 +337,7 @@ export default function ConfiguracoesPage() {
                     <TableHead>Nome da Caixa</TableHead>
                     <TableHead>Porta</TableHead>
                     <TableHead>Descrição / Finalidade</TableHead>
+                    <TableHead className="w-[80px] text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -325,6 +354,17 @@ export default function ConfiguracoesPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {box.description || "-"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteBoxClick(box)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 rounded-lg cursor-pointer"
+                          title="Excluir Caixa"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -695,6 +735,18 @@ export default function ConfiguracoesPage() {
         description="Tem certeza que deseja excluir esta categoria? Os itens do catálogo precisarão ser reclassificados."
         itemName={categoryToDelete?.name}
         confirmText="Sim, Excluir"
+        cancelText="Cancelar"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteBoxModalOpen}
+        onClose={() => setIsDeleteBoxModalOpen(false)}
+        onConfirm={executeDeleteBox}
+        title="Excluir Caixa do Armário"
+        description="Tem certeza que deseja excluir esta caixa? Apenas caixas completamente vazias (sem materiais em estoque e sem patrimônios) podem ser excluídas."
+        itemName={boxToDelete ? `${boxToDelete.code} - ${boxToDelete.name}` : undefined}
+        confirmText="Sim, Excluir Caixa"
         cancelText="Cancelar"
         variant="danger"
       />

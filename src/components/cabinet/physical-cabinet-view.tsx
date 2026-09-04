@@ -11,7 +11,8 @@ import {
   Search, 
   Boxes, 
   ChevronRight, 
-  Plus
+  Plus,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,8 @@ import { QrScannerModal } from "@/components/scanner/qr-scanner-modal";
 import { LabelPrinterModal } from "./label-printer";
 import { BoxFormModal } from "./box-form-modal";
 import { DoorFormModal } from "./door-form-modal";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { toast } from "sonner";
 
 interface StoredItem {
   id: string;
@@ -82,6 +85,26 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
   const [isBoxModalOpen, setIsBoxModalOpen] = useState(false);
   const [isDoorModalOpen, setIsDoorModalOpen] = useState(false);
   const [selectedBoxForLabel, setSelectedBoxForLabel] = useState<string | undefined>(undefined);
+  const [selectedBoxToDelete, setSelectedBoxToDelete] = useState<BoxData | null>(null);
+
+  const handleConfirmDeleteBox = async () => {
+    if (!selectedBoxToDelete) return;
+    try {
+      const res = await fetch(`/api/v1/boxes/${selectedBoxToDelete.code}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.error || "Erro ao excluir caixa.");
+        return;
+      }
+      toast.success(`✓ Caixa '${selectedBoxToDelete.code}' excluída com sucesso!`);
+      setSelectedBoxToDelete(null);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      toast.error("Erro inesperado ao excluir caixa.");
+    }
+  };
 
   // Flatten boxes for label printing
   const allBoxesForLabels = doors.flatMap((d) =>
@@ -353,17 +376,30 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
 
                     {/* Quick Action Link to Box Page */}
                     <div className="flex items-center justify-between pt-2 border-t border-border/40">
-                      <button
-                        onClick={() => {
-                          setSelectedBoxForLabel(box.code);
-                          setIsPrinterOpen(true);
-                        }}
-                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Ver etiqueta com QR Code"
-                      >
-                        <QrCode className="w-3 h-3 text-primary" />
-                        <span>QR Code</span>
-                      </button>
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => {
+                            setSelectedBoxForLabel(box.code);
+                            setIsPrinterOpen(true);
+                          }}
+                          className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Ver etiqueta com QR Code"
+                        >
+                          <QrCode className="w-3 h-3 text-primary" />
+                          <span>QR Code</span>
+                        </button>
+
+                        {!isReadOnly && (
+                          <button
+                            onClick={() => setSelectedBoxToDelete(box)}
+                            className="text-[10px] text-muted-foreground hover:text-rose-500 flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Excluir Caixa"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-500/80" />
+                            <span>Excluir</span>
+                          </button>
+                        )}
+                      </div>
 
                       <Link
                         href={`/caixas/${box.code}`}
@@ -405,6 +441,18 @@ export function PhysicalCabinetView({ doors, onRefresh }: PhysicalCabinetViewPro
         isOpen={isDoorModalOpen}
         onClose={() => setIsDoorModalOpen(false)}
         onSuccess={onRefresh}
+      />
+
+      <ConfirmModal
+        isOpen={!!selectedBoxToDelete}
+        onClose={() => setSelectedBoxToDelete(null)}
+        onConfirm={handleConfirmDeleteBox}
+        title="Excluir Caixa do Armário"
+        description="Tem certeza que deseja excluir esta caixa? Apenas caixas completamente vazias (sem materiais em estoque e sem patrimônios) podem ser excluídas."
+        itemName={selectedBoxToDelete ? `${selectedBoxToDelete.code} - ${selectedBoxToDelete.name}` : undefined}
+        confirmText="Sim, Excluir Caixa"
+        cancelText="Cancelar"
+        variant="danger"
       />
     </div>
   );
