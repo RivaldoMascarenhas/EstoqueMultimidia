@@ -53,18 +53,27 @@ export function StockTransferModal({
   const [observation, setObservation] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filtrar caixas para não exibir a caixa de origem
-  const availableTargetBoxes = allBoxes.filter((b) => b.id !== sourceBox.id);
+  // Filtrar caixas para não exibir a caixa de origem com memoização estável
+  const availableTargetBoxes = React.useMemo(
+    () => allBoxes.filter((b) => b.id !== sourceBox.id),
+    [allBoxes, sourceBox.id]
+  );
 
   useEffect(() => {
     if (isOpen) {
       setQuantity(1);
       setObservation("");
-      if (availableTargetBoxes.length > 0 && !destinationBoxId) {
-        setDestinationBoxId(availableTargetBoxes[0].id);
+      if (availableTargetBoxes.length > 0) {
+        setDestinationBoxId((prev) =>
+          availableTargetBoxes.some((b) => b.id === prev)
+            ? prev
+            : availableTargetBoxes[0].id
+        );
+      } else {
+        setDestinationBoxId("");
       }
     }
-  }, [isOpen, availableTargetBoxes, destinationBoxId]);
+  }, [isOpen, availableTargetBoxes]);
 
   const available = sourceBox.currentQuantity;
   const isExceeded = quantity > available;
@@ -74,6 +83,11 @@ export function StockTransferModal({
 
     if (!destinationBoxId) {
       toast.error("Selecione a caixa de destino.");
+      return;
+    }
+
+    if (quantity <= 0) {
+      toast.error("A quantidade deve ser maior que zero.");
       return;
     }
 
@@ -150,23 +164,34 @@ export function StockTransferModal({
             </div>
 
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60 text-xs">
-              <div className="flex-1 p-2 rounded-xl bg-background border border-border text-center">
+              <div className="flex-1 p-2.5 rounded-xl bg-background border border-border text-center flex flex-col justify-center">
                 <span className="text-[10px] text-muted-foreground block">Origem</span>
-                <strong className="text-foreground font-mono">{sourceBox.code}</strong>
+                <strong className="text-foreground font-mono text-sm">{sourceBox.code}</strong>
+                <span className="text-[10px] text-muted-foreground truncate">{sourceBox.name}</span>
               </div>
               <ArrowRight className="w-4 h-4 text-primary shrink-0" />
-              <div className="flex-1 p-2 rounded-xl bg-background border border-primary/40 text-center">
-                <span className="text-[10px] text-primary block">Destino</span>
+              <div className="flex-1 p-2.5 rounded-xl bg-background border border-primary/40 text-center flex flex-col justify-center">
+                <span className="text-[10px] font-semibold text-primary block">Destino</span>
                 <select
                   value={destinationBoxId}
                   onChange={(e) => setDestinationBoxId(e.target.value)}
-                  className="w-full text-xs font-bold font-mono bg-transparent border-0 text-center text-foreground outline-none cursor-pointer"
+                  className="w-full text-xs font-bold font-mono bg-background border-0 text-center text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary rounded-lg py-1 transition-colors [&>option]:bg-white [&>option]:text-slate-900 dark:[&>option]:bg-slate-900 dark:[&>option]:text-slate-100"
                 >
-                  {availableTargetBoxes.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.code} - {b.name}
+                  {availableTargetBoxes.length === 0 ? (
+                    <option value="" disabled className="bg-white text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                      Nenhuma outra caixa disponível
                     </option>
-                  ))}
+                  ) : (
+                    availableTargetBoxes.map((b) => (
+                      <option
+                        key={b.id}
+                        value={b.id}
+                        className="bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 py-1"
+                      >
+                        {b.code} - {b.name}{b.door?.name ? ` (${b.door.name})` : ""}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>

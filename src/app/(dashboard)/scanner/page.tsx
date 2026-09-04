@@ -646,10 +646,12 @@ function ScannerContent() {
                 ref={videoRef}
                 className={cn(
                   "w-full h-full object-cover transition-transform duration-300 ease-out",
+                  !isNativeEngine && "hidden",
                   isLockingOn && "scale-105"
                 )}
                 style={{
-                  transform: isLockingOn ? `scale(${zoomLevel * 1.16})` : `scale(${zoomLevel})`
+                  transform: isLockingOn ? `scale(${zoomLevel * 1.16})` : `scale(${zoomLevel})`,
+                  display: isNativeEngine ? "block" : "none"
                 }}
                 playsInline
                 muted

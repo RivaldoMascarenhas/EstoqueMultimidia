@@ -494,24 +494,35 @@ export function QrScannerModal({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative overflow-hidden rounded-2xl bg-black aspect-square flex flex-col items-center justify-center touch-pan-y select-none border border-border/40 shadow-inner"
+            className="relative overflow-hidden rounded-2xl bg-black aspect-square w-full touch-pan-y select-none border border-border/40 shadow-inner"
           >
             {/* Elemento de Vídeo Nativo de Alta Performance com Zoom Lock-on */}
             <video 
               ref={videoRef} 
               className={cn(
-                "w-full h-full object-cover transition-transform duration-300 ease-out",
+                "absolute inset-0 w-full h-full object-cover transition-transform duration-300 ease-out",
+                !isNativeEngine && "hidden",
                 isLockingOn && "scale-105"
               )}
               style={{
-                transform: isLockingOn ? `scale(${zoomLevel * 1.16})` : `scale(${zoomLevel})`
+                transform: isLockingOn ? `scale(${zoomLevel * 1.16})` : `scale(${zoomLevel})`,
+                display: isNativeEngine ? "block" : "none"
               }}
               playsInline
               muted
             />
 
             {/* Container para Fallback com Html5Qrcode */}
-            <div id="qr-modal-viewfinder" className="absolute inset-0 w-full h-full pointer-events-none" />
+            <div 
+              id="qr-modal-viewfinder" 
+              className={cn(
+                "absolute inset-0 w-full h-full overflow-hidden pointer-events-none",
+                isNativeEngine && "hidden"
+              )}
+              style={{
+                display: isNativeEngine ? "none" : "block"
+              }}
+            />
 
             {/* Vinheta de contraste */}
             <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_80px_rgba(0,0,0,0.65)] z-10" />
