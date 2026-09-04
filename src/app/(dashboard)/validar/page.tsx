@@ -49,7 +49,7 @@ export default function ValidarDocumentosPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in-50 duration-300 pb-12">
+    <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in-50 duration-300 pb-32 sm:pb-16">
       {/* Header do Módulo */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

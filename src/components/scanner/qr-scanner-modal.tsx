@@ -76,6 +76,8 @@ export function QrScannerModal({
 
   // Controles de Hardware: Zoom e Lanterna
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [isLockingOn, setIsLockingOn] = useState<boolean>(false);
+  const isLockingOnRef = useRef<boolean>(false);
   const [hasTorch, setHasTorch] = useState<boolean>(false);
   const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
   const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
@@ -174,19 +176,27 @@ export function QrScannerModal({
         const recentSame = prev.find((i) => i.code === raw && Date.now() - i.timestamp < 2500);
         if (recentSame) return prev;
 
+        setIsLockingOn(true);
+        isLockingOnRef.current = true;
         scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
         toast.success(`Item adicionado: ${raw}`, { duration: 1500 });
         return [{ code: raw, timestamp: Date.now() }, ...prev];
       });
 
       setTimeout(() => {
-        if (isMountedRef.current) setDetectedBox(null);
-      }, 1000);
+        if (isMountedRef.current) {
+          setIsLockingOn(false);
+          isLockingOnRef.current = false;
+          setDetectedBox(null);
+        }
+      }, 650);
       return;
     }
 
     // MODO RÁPIDO / SINGLE (Abre na hora)
     isProcessingRef.current = true;
+    setIsLockingOn(true);
+    isLockingOnRef.current = true;
     scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
     setIsRedirecting(true);
 
@@ -206,6 +216,8 @@ export function QrScannerModal({
       engineRef.current = null;
     }
     setDetectedBox(null);
+    setIsLockingOn(false);
+    isLockingOnRef.current = false;
     setIsScanning(false);
     setIsTorchOn(false);
   }, []);
@@ -216,6 +228,8 @@ export function QrScannerModal({
       setCameraError(null);
       setIsRedirecting(false);
       isProcessingRef.current = false;
+      setIsLockingOn(false);
+      isLockingOnRef.current = false;
 
       await stopScanner();
       await new Promise((r) => setTimeout(r, 100));
@@ -239,6 +253,20 @@ export function QrScannerModal({
       const engine = new BarcodeScannerEngine({
         videoElement: videoRef.current,
         containerId: "qr-modal-viewfinder",
+        onFrame: (b) => {
+          if (b?.boundingBox && videoRef.current && videoRef.current.videoWidth > 0) {
+            const vW = videoRef.current.videoWidth;
+            const vH = videoRef.current.videoHeight;
+            setDetectedBox({
+              x: Math.max(0, (b.boundingBox.x / vW) * 100),
+              y: Math.max(0, (b.boundingBox.y / vH) * 100),
+              width: Math.min(100, (b.boundingBox.width / vW) * 100),
+              height: Math.min(100, (b.boundingBox.height / vH) * 100),
+            });
+          } else if (!isLockingOnRef.current) {
+            setDetectedBox(null);
+          }
+        },
         onDetected: (b) => handleCodeDetected(b),
         onError: (e) => {
           if (isMountedRef.current) {
@@ -344,6 +372,7 @@ export function QrScannerModal({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && initialTouchDistRef.current !== null) {
+      if (e.cancelable) e.preventDefault();
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -465,12 +494,18 @@ export function QrScannerModal({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative overflow-hidden rounded-2xl bg-black aspect-square flex flex-col items-center justify-center touch-none select-none border border-border/40 shadow-inner"
+            className="relative overflow-hidden rounded-2xl bg-black aspect-square flex flex-col items-center justify-center touch-pan-y select-none border border-border/40 shadow-inner"
           >
-            {/* Elemento de Vídeo Nativo de Alta Performance */}
+            {/* Elemento de Vídeo Nativo de Alta Performance com Zoom Lock-on */}
             <video 
               ref={videoRef} 
-              className="w-full h-full object-cover"
+              className={cn(
+                "w-full h-full object-cover transition-transform duration-300 ease-out",
+                isLockingOn && "scale-105"
+              )}
+              style={{
+                transform: isLockingOn ? `scale(${zoomLevel * 1.16})` : `scale(${zoomLevel})`
+              }}
               playsInline
               muted
             />
@@ -517,15 +552,20 @@ export function QrScannerModal({
               </div>
             )}
 
-            {/* Mira com Feixe Laser Fluido */}
-            {isScanning && !cameraError && !detectedBox && !isRedirecting && (
+            {/* Mira / Retículo Central Sempre Visível */}
+            {isScanning && !cameraError && !isRedirecting && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
-                <div className="relative w-52 h-52">
-                  <div className="absolute top-0 left-0 w-5 h-5 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                  <div className="absolute top-0 right-0 w-5 h-5 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-3 border-l-3 border-emerald-400 rounded-bl-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-3 border-r-3 border-emerald-400 rounded-br-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
-                  <div className="qr-laser-line" />
+                <div className={cn(
+                  "relative w-48 h-48 sm:w-52 sm:h-52 rounded-2xl transition-all duration-300",
+                  isLockingOn 
+                    ? "border-2 border-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.85)] scale-105" 
+                    : "border border-white/20"
+                )}>
+                  <div className={cn("absolute -top-1 -left-1 w-5 h-5 border-t-3 border-l-3 rounded-tl-xl transition-colors", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  <div className={cn("absolute -top-1 -right-1 w-5 h-5 border-t-3 border-r-3 rounded-tr-xl transition-colors", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  <div className={cn("absolute -bottom-1 -left-1 w-5 h-5 border-b-3 border-l-3 rounded-bl-xl transition-colors", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  <div className={cn("absolute -bottom-1 -right-1 w-5 h-5 border-b-3 border-r-3 rounded-br-xl transition-colors", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  {!isLockingOn && <div className="qr-laser-line" />}
                 </div>
               </div>
             )}
@@ -533,7 +573,7 @@ export function QrScannerModal({
             {/* Retículo Dinâmico sobre o Código Detectado (Tracking) */}
             {isScanning && !cameraError && detectedBox && !isRedirecting && (
               <div
-                className="qr-target-bounding-box pointer-events-none"
+                className={cn("qr-target-bounding-box pointer-events-none", isLockingOn && "qr-target-captured")}
                 style={{
                   left: `${detectedBox.x}%`,
                   top: `${detectedBox.y}%`,
@@ -546,9 +586,12 @@ export function QrScannerModal({
                 <div className="qr-target-corner-bl" />
                 <div className="qr-target-corner-br" />
 
-                <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black shadow-lg whitespace-nowrap">
+                <div className={cn(
+                  "absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black shadow-lg whitespace-nowrap transition-colors",
+                  isLockingOn ? "bg-emerald-400 text-black" : "bg-black/75 text-emerald-300 border border-emerald-500/40"
+                )}>
                   <Sparkles className="w-2.5 h-2.5" />
-                  <span>Código Detectado</span>
+                  <span>{isLockingOn ? "✓ Código Identificado!" : "Código Detectado"}</span>
                 </div>
               </div>
             )}

@@ -18,7 +18,6 @@ import {
   ArrowRight, 
   SwitchCamera,
   Flashlight,
-  Zap,
   QrCode,
   Check,
   Loader2,
@@ -79,8 +78,10 @@ function ScannerContent() {
   const [isLoadingLookup, setIsLoadingLookup] = useState(false);
   const [justScannedCode, setJustScannedCode] = useState<string | null>(null);
 
-  // Zoom e Retículo
+  // Zoom, Lock-on Snap e Retículo
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [isLockingOn, setIsLockingOn] = useState<boolean>(false);
+  const isLockingOnRef = useRef<boolean>(false);
   const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
 
   // Itens em Lote (Batch / Inventário Contínuo)
@@ -118,6 +119,8 @@ function ScannerContent() {
       engineRef.current = null;
     }
     setDetectedBox(null);
+    setIsLockingOn(false);
+    isLockingOnRef.current = false;
     setIsTorchOn(false);
     setHasTorchSupport(false);
     if (isMountedRef.current) {
@@ -131,6 +134,8 @@ function ScannerContent() {
       if (!isMountedRef.current || !videoRef.current) return;
       setCameraError(null);
       isProcessingRef.current = false;
+      setIsLockingOn(false);
+      isLockingOnRef.current = false;
 
       await stopCamera();
       await new Promise((resolve) => setTimeout(resolve, 80));
@@ -168,6 +173,22 @@ function ScannerContent() {
       const engine = new BarcodeScannerEngine({
         videoElement: videoRef.current,
         containerId: "scanner-viewfinder",
+        onFrame: (barcode) => {
+          // Rastreamento em tempo real do bounding box em volta do QR Code
+          if (barcode?.boundingBox && videoRef.current && videoRef.current.videoWidth > 0) {
+            const vW = videoRef.current.videoWidth;
+            const vH = videoRef.current.videoHeight;
+            setDetectedBox({
+              x: Math.max(0, (barcode.boundingBox.x / vW) * 100),
+              y: Math.max(0, (barcode.boundingBox.y / vH) * 100),
+              width: Math.min(100, (barcode.boundingBox.width / vW) * 100),
+              height: Math.min(100, (barcode.boundingBox.height / vH) * 100),
+              rawValue: barcode.rawValue,
+            });
+          } else if (!isLockingOnRef.current) {
+            setDetectedBox(null);
+          }
+        },
         onDetected: (barcode) => {
           handleBarcodeDetected(barcode);
         },
@@ -213,7 +234,7 @@ function ScannerContent() {
     }
   };
 
-  // Alternar Zoom
+  // Alternar Zoom Manual
   const applyZoom = useCallback(async (level: number) => {
     setZoomLevel(level);
     if (engineRef.current) {
@@ -255,7 +276,7 @@ function ScannerContent() {
     }
   };
 
-  // Pinch-to-zoom em telas touch
+  // Pinch-to-zoom em telas touch com 2 dedos (permite scroll com 1 dedo)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dist = Math.hypot(
@@ -269,6 +290,7 @@ function ScannerContent() {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && initialTouchDistRef.current) {
+      if (e.cancelable) e.preventDefault();
       const currentDist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
@@ -283,14 +305,14 @@ function ScannerContent() {
     initialTouchDistRef.current = null;
   };
 
-  // Processamento de Leitura
+  // Processamento de Leitura com Leve Zoom Lock-on e Feedback Háptico
   const handleBarcodeDetected = useCallback(async (barcode: DetectedBarcode) => {
     const raw = barcode.rawValue?.trim();
     if (!raw) return;
 
     const now = Date.now();
 
-    // Se detectou bounding box, atualiza o retículo
+    // Se detectou coordenadas de caixa, assegura posicionamento exato
     if (barcode.boundingBox && videoRef.current && videoRef.current.videoWidth > 0) {
       const vW = videoRef.current.videoWidth;
       const vH = videoRef.current.videoHeight;
@@ -312,6 +334,9 @@ function ScannerContent() {
       lastScannedCodeRef.current = raw;
       lastScannedTimeRef.current = now;
 
+      // Dispara o leve zoom lock-on de captura
+      setIsLockingOn(true);
+      isLockingOnRef.current = true;
       scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
       setJustScannedCode(raw);
 
@@ -325,12 +350,15 @@ function ScannerContent() {
         return [{ id: Date.now(), code: raw, timestamp: Date.now() }, ...prev];
       });
 
+      // Retorna suavemente do leve zoom para o próximo item
       setTimeout(() => {
         if (isMountedRef.current) {
+          setIsLockingOn(false);
+          isLockingOnRef.current = false;
           setDetectedBox(null);
           setJustScannedCode(null);
         }
-      }, 1000);
+      }, 650);
       return;
     }
 
@@ -344,6 +372,9 @@ function ScannerContent() {
     lastScannedCodeRef.current = raw;
     lastScannedTimeRef.current = now;
 
+    // Dispara o leve zoom lock-on de captura
+    setIsLockingOn(true);
+    isLockingOnRef.current = true;
     scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
     setJustScannedCode(raw);
 
@@ -401,6 +432,8 @@ function ScannerContent() {
         toast.error(json.error || "Item ou documento não encontrado no sistema.");
         setTimeout(() => {
           isProcessingRef.current = false;
+          setIsLockingOn(false);
+          isLockingOnRef.current = false;
           setDetectedBox(null);
         }, 1500);
       }
@@ -409,6 +442,8 @@ function ScannerContent() {
       toast.error("Erro ao consultar o banco de dados.");
       setTimeout(() => {
         isProcessingRef.current = false;
+        setIsLockingOn(false);
+        isLockingOnRef.current = false;
         setDetectedBox(null);
       }, 1500);
     } finally {
@@ -428,6 +463,8 @@ function ScannerContent() {
   const handleScanNext = () => {
     setScanResult(null);
     setDetectedBox(null);
+    setIsLockingOn(false);
+    isLockingOnRef.current = false;
     setJustScannedCode(null);
     applyZoom(1);
 
@@ -481,36 +518,36 @@ function ScannerContent() {
   }, []);
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto animate-in fade-in-50 duration-300 pb-16">
+    <div className="space-y-3.5 sm:space-y-5 max-w-4xl mx-auto animate-in fade-in-50 duration-300 pb-32 sm:pb-16 px-1 sm:px-0">
       
-      {/* Header com Ações Rápidas */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Header Compacto com Ações Rápidas no Mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-1.5">
               <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-              Scanner Inteligente
+              <span>Scanner Inteligente</span>
             </h1>
-            <Badge variant={isScanning ? "default" : "secondary"} className="text-[11px] font-semibold">
+            <Badge variant={isScanning ? "default" : "secondary"} className="text-[10px] sm:text-[11px] font-semibold py-0.5 px-2">
               {isScanning ? (isNativeEngine ? "GPU 60 FPS" : "Pronto") : "Pausado"}
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Aponte a câmera para códigos de patrimônio, caixas, termos impressos ou ordens de serviço.
+          <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+            Aponte a câmera para códigos de patrimônio, caixas ou termos.
           </p>
         </div>
 
-        {/* Atalhos de Áudio e Reiniciar */}
-        <div className="flex items-center gap-2">
+        {/* Atalhos de Operação, Áudio e Reiniciar */}
+        <div className="flex items-center gap-1.5 sm:gap-2 self-start sm:self-auto">
           {/* Seletor de Modo: Individual vs Lote */}
-          <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/60">
+          <div className="flex items-center rounded-xl bg-muted/60 p-0.5 border border-border/60">
             <button
               type="button"
               onClick={() => setExecutionMode("SINGLE")}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer",
+                "px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold transition-all cursor-pointer",
                 executionMode === "SINGLE" 
-                  ? "bg-background text-foreground shadow-sm" 
+                  ? "bg-background text-foreground shadow-xs font-bold" 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -520,15 +557,15 @@ function ScannerContent() {
               type="button"
               onClick={() => setExecutionMode("BATCH")}
               className={cn(
-                "px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer",
+                "px-2 sm:px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer",
                 executionMode === "BATCH" 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
+                  ? "bg-primary text-primary-foreground shadow-xs font-bold" 
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
               <span>Lote</span>
               {batchItems.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-primary-foreground text-primary text-[10px] font-bold flex items-center justify-center">
+                <span className="w-3.5 h-3.5 rounded-full bg-primary-foreground text-primary text-[9px] font-bold flex items-center justify-center">
                   {batchItems.length}
                 </span>
               )}
@@ -539,7 +576,7 @@ function ScannerContent() {
             variant="outline"
             size="sm"
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className="rounded-xl text-xs h-8 sm:h-9 gap-1.5 cursor-pointer"
+            className="rounded-xl text-xs h-8 sm:h-9 px-2 sm:px-3 gap-1 cursor-pointer"
             title={soundEnabled ? "Silenciar áudio de bip" : "Ativar áudio de bip"}
           >
             {soundEnabled ? <Volume2 className="w-3.5 h-3.5 text-primary" /> : <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />}
@@ -553,7 +590,7 @@ function ScannerContent() {
               toast.info("Reiniciando leitor...");
               startCamera();
             }}
-            className="rounded-xl text-xs h-8 sm:h-9 gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="rounded-xl text-xs h-8 sm:h-9 px-2 sm:px-3 gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
             title="Recarregar câmera"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -562,8 +599,8 @@ function ScannerContent() {
         </div>
       </div>
 
-      {/* Seletor de Modo Operacional */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+      {/* Seletor de Modo Operacional (Chips Horizontais com Scroll Suave) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none">
         {[
           { id: "LOOKUP", label: "Consulta Geral", icon: Search },
           { id: "LOAN", label: "Empréstimo Rápido", icon: Handshake },
@@ -578,9 +615,9 @@ function ScannerContent() {
               key={mode.id}
               onClick={() => setSelectedMode(mode.id as ScanMode)}
               className={cn(
-                "px-3.5 py-1.5 sm:py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer",
+                "px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0",
                 isSelected
-                  ? "bg-primary text-primary-foreground shadow-sm font-bold"
+                  ? "bg-primary text-primary-foreground shadow-xs font-bold"
                   : "bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
@@ -592,22 +629,28 @@ function ScannerContent() {
       </div>
 
       {/* Grid Principal: Viewfinder e Resultados */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-start">
         
-        {/* Card do Viewfinder Moderno & Edge-to-Edge */}
-        <Card ref={cameraCardRef} className="rounded-3xl border-border/80 overflow-hidden shadow-2xl bg-slate-950 relative">
+        {/* Card do Viewfinder Moderno, Proporcional e com Scroll Livre (touch-pan-y) */}
+        <Card ref={cameraCardRef} className="rounded-2xl sm:rounded-3xl border-border/80 overflow-hidden shadow-2xl bg-slate-950 relative">
           
           <div 
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative h-[65vh] sm:h-auto sm:aspect-square w-full bg-black flex flex-col items-center justify-center overflow-hidden touch-none select-none"
+            className="relative h-[38vh] sm:h-auto sm:aspect-square max-h-[440px] w-full bg-black flex flex-col items-center justify-center overflow-hidden touch-pan-y select-none"
           >
-            {/* Viewfinder da Câmera (Edge-to-Edge com Hardware Acceleration) */}
+            {/* Viewfinder da Câmera (Edge-to-Edge com Hardware Acceleration e Zoom Lock-on) */}
             <div id="scanner-viewfinder" className="w-full h-full relative">
               <video
                 ref={videoRef}
-                className="w-full h-full object-cover transition-transform duration-300"
+                className={cn(
+                  "w-full h-full object-cover transition-transform duration-300 ease-out",
+                  isLockingOn && "scale-105"
+                )}
+                style={{
+                  transform: isLockingOn ? `scale(${zoomLevel * 1.16})` : `scale(${zoomLevel})`
+                }}
                 playsInline
                 muted
               />
@@ -617,7 +660,7 @@ function ScannerContent() {
             <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_80px_rgba(0,0,0,0.65)] z-10" />
 
             {/* Indicador de Hardware / GPU no Top Left */}
-            <div className="absolute top-3.5 left-3.5 z-30 flex items-center gap-2">
+            <div className="absolute top-3 left-3 z-30 flex items-center gap-1.5">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 border border-white/15 backdrop-blur-md text-[10px] text-white/90">
                 <Sparkles className="w-3 h-3 text-emerald-400" />
                 <span className="font-semibold">{isNativeEngine ? "Aceleração GPU" : "Modo Compatível"}</span>
@@ -625,20 +668,20 @@ function ScannerContent() {
             </div>
 
             {/* Top Toolbar Flutuante Minimalista (Lanterna & Troca de Câmera) */}
-            <div className="absolute top-3.5 right-3.5 z-30 flex items-center gap-2">
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5">
               {hasTorchSupport && (
                 <button
                   type="button"
                   onClick={handleToggleTorch}
                   className={cn(
-                    "flex items-center justify-center w-9 h-9 rounded-full border backdrop-blur-md transition-all cursor-pointer",
+                    "flex items-center justify-center w-8 h-8 rounded-full border backdrop-blur-md transition-all cursor-pointer",
                     isTorchOn 
                       ? "bg-amber-400 text-black border-amber-300 shadow-[0_0_20px_rgba(251,191,36,0.8)]" 
                       : "bg-black/55 hover:bg-black/80 text-white/90 border-white/15"
                   )}
                   title="Lanterna do celular"
                 >
-                  <Flashlight className="w-4 h-4" />
+                  <Flashlight className="w-3.5 h-3.5" />
                 </button>
               )}
 
@@ -646,11 +689,11 @@ function ScannerContent() {
                 type="button"
                 onClick={handleToggleFacingMode}
                 disabled={isSwitchingCamera}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/55 hover:bg-black/80 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-black/55 hover:bg-black/80 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
                 title="Trocar de Câmera"
               >
                 <SwitchCamera className={cn("w-3.5 h-3.5 text-primary", isSwitchingCamera && "animate-spin text-amber-400")} />
-                <span className="text-[11px] font-medium">
+                <span className="text-[10px] font-medium">
                   {isSwitchingCamera 
                     ? "..." 
                     : cameras.length > 1 
@@ -660,23 +703,31 @@ function ScannerContent() {
               </button>
             </div>
 
-            {/* Mira Minimalista Central com Feixe Laser Animado */}
-            {isScanning && !scanResult && !detectedBox && !isLoadingLookup && (
+            {/* QUADRADO / RETÍCULO DE ENQUADRAMENTO CENTRAL SEMPRE VISÍVEL */}
+            {isScanning && !scanResult && !isLoadingLookup && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
-                <div className="relative w-52 h-52 sm:w-56 sm:h-56">
-                  <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-emerald-400 rounded-tl-xl shadow-sm" />
-                  <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-emerald-400 rounded-tr-xl shadow-sm" />
-                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-emerald-400 rounded-bl-xl shadow-sm" />
-                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-emerald-400 rounded-br-xl shadow-sm" />
-                  <div className="qr-laser-line" />
+                <div className={cn(
+                  "relative w-44 h-44 sm:w-56 sm:h-56 rounded-2xl transition-all duration-300",
+                  isLockingOn 
+                    ? "border-2 border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.85)] scale-105" 
+                    : "border border-white/20"
+                )}>
+                  {/* Cantoneiras Verdes Iluminadas */}
+                  <div className={cn("absolute -top-1 -left-1 w-6 h-6 border-t-3 border-l-3 rounded-tl-xl transition-colors duration-200", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  <div className={cn("absolute -top-1 -right-1 w-6 h-6 border-t-3 border-r-3 rounded-tr-xl transition-colors duration-200", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  <div className={cn("absolute -bottom-1 -left-1 w-6 h-6 border-b-3 border-l-3 rounded-bl-xl transition-colors duration-200", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 border-b-3 border-r-3 rounded-br-xl transition-colors duration-200", isLockingOn ? "border-emerald-300" : "border-emerald-400")} />
+                  
+                  {/* Feixe Laser animado durante a busca */}
+                  {!isLockingOn && <div className="qr-laser-line" />}
                 </div>
               </div>
             )}
 
-            {/* RETÍCULO DINÂMICO INTELIGENTE SOBRE O QR CODE DETECTADO */}
+            {/* RETÍCULO DINÂMICO EXATO SOBRE O QR CODE DETECTADO */}
             {isScanning && !scanResult && detectedBox && !isLoadingLookup && (
               <div
-                className="qr-target-bounding-box"
+                className={cn("qr-target-bounding-box", isLockingOn && "qr-target-captured")}
                 style={{
                   left: `${detectedBox.x}%`,
                   top: `${detectedBox.y}%`,
@@ -690,9 +741,12 @@ function ScannerContent() {
                 <div className="qr-target-corner-br" />
 
                 {/* Floating Lens Pill estilo Google Lens */}
-                <div className="qr-lens-pill absolute -top-8 left-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-400 text-black text-[11px] font-black shadow-2xl backdrop-blur-md whitespace-nowrap">
+                <div className={cn(
+                  "qr-lens-pill absolute -top-8 left-1/2 flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black shadow-2xl backdrop-blur-md whitespace-nowrap transition-colors",
+                  isLockingOn ? "bg-emerald-400 text-black" : "bg-black/75 text-emerald-300 border border-emerald-500/40"
+                )}>
                   <QrCode className="w-3.5 h-3.5" />
-                  <span>Código Detectado</span>
+                  <span>{isLockingOn ? "✓ Código Identificado!" : "Enquadrando Código..."}</span>
                 </div>
               </div>
             )}
@@ -700,7 +754,7 @@ function ScannerContent() {
             {/* FEEDBACK INSTANTÂNEO DE LEITURA (SEM TELA PRETA) */}
             {isLoadingLookup && (
               <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-black/85 border border-emerald-500/50 text-white shadow-2xl animate-in zoom-in-95 duration-200">
+                <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-black/85 border border-emerald-500/50 text-white shadow-2xl animate-in zoom-in-95 duration-200">
                   <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
                     <Check className="w-3.5 h-3.5 stroke-[3]" />
                   </div>
@@ -713,14 +767,14 @@ function ScannerContent() {
 
             {/* CONTROLES DE ZOOM FLUTUANTES (Estilo Apple / Google Camera) */}
             {isScanning && !scanResult && !isLoadingLookup && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/65 border border-white/15 backdrop-blur-xl shadow-2xl">
+              <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/65 border border-white/15 backdrop-blur-xl shadow-2xl">
                 {[1, 2, 3].map((lvl) => (
                   <button
                     key={lvl}
                     type="button"
                     onClick={() => applyZoom(lvl)}
                     className={cn(
-                      "w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
+                      "w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
                       zoomLevel === lvl 
                         ? "bg-white text-black font-extrabold shadow-md scale-105" 
                         : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -734,8 +788,8 @@ function ScannerContent() {
 
             {/* Aviso de erro */}
             {cameraError && (
-              <div className="p-6 text-center space-y-3 max-w-xs z-20">
-                <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
+              <div className="p-5 text-center space-y-2.5 max-w-xs z-20">
+                <AlertTriangle className="w-7 h-7 text-amber-400 mx-auto" />
                 <p className="text-xs text-slate-300 font-medium">{cameraError}</p>
                 <Button
                   size="sm"
@@ -750,18 +804,18 @@ function ScannerContent() {
           </div>
 
           {/* Campo de Entrada Manual */}
-          <div className="p-3 bg-card border-t border-border/80">
+          <div className="p-2.5 sm:p-3 bg-card border-t border-border/80">
             <form onSubmit={handleManualSubmit} className="flex items-center gap-2">
               <div className="relative flex-1">
-                <Keyboard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Keyboard className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <Input
                   value={manualCode}
                   onChange={(e) => setManualCode(e.target.value)}
                   placeholder="Digitar código (#PAT-1002, C017, LOAN-..., OS-...)"
-                  className="pl-9 h-9 rounded-xl text-xs bg-background"
+                  className="pl-8 sm:pl-9 h-8 sm:h-9 rounded-xl text-xs bg-background"
                 />
               </div>
-              <Button type="submit" size="sm" className="h-9 px-4 rounded-xl text-xs font-semibold cursor-pointer">
+              <Button type="submit" size="sm" className="h-8 sm:h-9 px-3 sm:px-4 rounded-xl text-xs font-semibold cursor-pointer">
                 Buscar
               </Button>
             </form>
@@ -778,7 +832,7 @@ function ScannerContent() {
             />
           ) : executionMode === "BATCH" ? (
             /* Painel do Modo Lote / Inventário Contínuo */
-            <Card className="rounded-3xl border-border/80 shadow-sm p-5 space-y-4 bg-card">
+            <Card className="rounded-2xl sm:rounded-3xl border-border/80 shadow-sm p-4 sm:p-5 space-y-3.5 sm:space-y-4 bg-card">
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div className="flex items-center gap-2">
                   <ListOrdered className="w-4 h-4 text-primary" />
@@ -787,7 +841,7 @@ function ScannerContent() {
                   </h3>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Badge variant="default" className="text-[11px] font-bold">
+                  <Badge variant="default" className="text-[10px] sm:text-[11px] font-bold">
                     {batchItems.length} Itens
                   </Badge>
                   {batchItems.length > 0 && (
@@ -816,7 +870,7 @@ function ScannerContent() {
               </div>
 
               {batchItems.length === 0 ? (
-                <div className="py-12 text-center space-y-2 text-muted-foreground">
+                <div className="py-10 sm:py-12 text-center space-y-2 text-muted-foreground">
                   <Boxes className="w-8 h-8 mx-auto opacity-30 text-primary" />
                   <p className="text-xs font-medium">Modo Inventário Ativo</p>
                   <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
@@ -824,14 +878,14 @@ function ScannerContent() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
                   {batchItems.map((item, idx) => (
                     <div
                       key={item.id}
-                      className="p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between transition-colors"
+                      className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between transition-colors"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono text-xs font-bold shrink-0">
+                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg sm:rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono text-[11px] sm:text-xs font-bold shrink-0">
                           {batchItems.length - idx}
                         </div>
                         <div>
@@ -861,7 +915,7 @@ function ScannerContent() {
             </Card>
           ) : (
             /* Histórico da Sessão Normal */
-            <Card className="rounded-3xl border-border/80 shadow-sm p-5 space-y-4 bg-card">
+            <Card className="rounded-2xl sm:rounded-3xl border-border/80 shadow-sm p-4 sm:p-5 space-y-3.5 sm:space-y-4 bg-card">
               <div className="flex items-center justify-between border-b border-border/60 pb-3">
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 text-primary" />
@@ -875,7 +929,7 @@ function ScannerContent() {
               </div>
 
               {sessionHistory.length === 0 ? (
-                <div className="py-12 text-center space-y-2 text-muted-foreground">
+                <div className="py-10 sm:py-12 text-center space-y-2 text-muted-foreground">
                   <Camera className="w-8 h-8 mx-auto opacity-30 text-primary" />
                   <p className="text-xs">Nenhum código escaneado ainda.</p>
                   <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">
@@ -883,19 +937,19 @@ function ScannerContent() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-72 sm:max-h-80 overflow-y-auto pr-1">
                   {sessionHistory.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => setScanResult(item)}
-                      className="p-3 rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between transition-colors cursor-pointer group"
+                      className="p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-muted/40 hover:bg-muted/70 border border-border/60 flex items-center justify-between transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono text-xs font-bold shrink-0">
+                        <div className="w-7 h-7 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-mono text-xs font-bold shrink-0">
                           {item.entityType === "ASSET" ? "#" : item.entityType === "BOX" ? "CX" : "DOC"}
                         </div>
-                        <div>
-                          <strong className="text-xs font-bold text-foreground block">
+                        <div className="min-w-0">
+                          <strong className="text-xs font-bold text-foreground block truncate">
                             {item.entityType === "ASSET" 
                               ? `#${item.data.asset?.assetTag} - ${item.data.asset?.item?.name}`
                               : item.entityType === "BOX"
@@ -908,7 +962,7 @@ function ScannerContent() {
                         </div>
                       </div>
 
-                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
                     </div>
                   ))}
                 </div>

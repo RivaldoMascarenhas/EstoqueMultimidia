@@ -29,6 +29,7 @@ export interface ScannerEngineOptions {
   videoElement: HTMLVideoElement;
   containerId?: string;
   onDetected: (barcode: DetectedBarcode) => void;
+  onFrame?: (barcode: DetectedBarcode | null) => void;
   onError?: (error: Error) => void;
   preferNative?: boolean;
 }
@@ -66,6 +67,7 @@ export class BarcodeScannerEngine {
   private video: HTMLVideoElement;
   private containerId: string;
   private onDetectedCallback: (barcode: DetectedBarcode) => void;
+  private onFrameCallback?: (barcode: DetectedBarcode | null) => void;
   private onErrorCallback?: (error: Error) => void;
 
   private activeStream: MediaStream | null = null;
@@ -89,6 +91,7 @@ export class BarcodeScannerEngine {
     this.video = options.videoElement;
     this.containerId = options.containerId || "qr-modal-viewfinder";
     this.onDetectedCallback = options.onDetected;
+    this.onFrameCallback = options.onFrame;
     this.onErrorCallback = options.onError;
   }
 
@@ -224,28 +227,38 @@ export class BarcodeScannerEngine {
           const barcodes = await this.nativeDetector.detect(this.video);
 
           if (barcodes && barcodes.length > 0) {
-            // Prioriza o código mais centralizado ou com maior área
+            // Prioriza o código detectado
             const candidate = barcodes[0];
             const now = Date.now();
 
-            // Anti-bounce de 1.2s para o mesmo código consecutivo
+            const detectedItem: DetectedBarcode = {
+              rawValue: candidate.rawValue,
+              format: candidate.format,
+              boundingBox: candidate.boundingBox
+                ? {
+                    x: candidate.boundingBox.x,
+                    y: candidate.boundingBox.y,
+                    width: candidate.boundingBox.width,
+                    height: candidate.boundingBox.height,
+                  }
+                : undefined,
+              cornerPoints: candidate.cornerPoints,
+            };
+
+            // Transmite coordenadas em tempo real para desenho do retículo/quadrado
+            if (this.onFrameCallback) {
+              this.onFrameCallback(detectedItem);
+            }
+
+            // Anti-bounce de 1.2s para o mesmo código consecutivo (gatilho de leitura)
             if (candidate.rawValue !== this.lastDetectedValue || now - this.lastDetectedTimestamp > 1200) {
               this.lastDetectedValue = candidate.rawValue;
               this.lastDetectedTimestamp = now;
-
-              this.onDetectedCallback({
-                rawValue: candidate.rawValue,
-                format: candidate.format,
-                boundingBox: candidate.boundingBox
-                  ? {
-                      x: candidate.boundingBox.x,
-                      y: candidate.boundingBox.y,
-                      width: candidate.boundingBox.width,
-                      height: candidate.boundingBox.height,
-                    }
-                  : undefined,
-                cornerPoints: candidate.cornerPoints,
-              });
+              this.onDetectedCallback(detectedItem);
+            }
+          } else {
+            if (this.onFrameCallback) {
+              this.onFrameCallback(null);
             }
           }
         }
