@@ -2,27 +2,25 @@
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Html5Qrcode } from "html5-qrcode";
 import { 
-  Search, 
   ArrowRight, 
   AlertCircle, 
   RefreshCw, 
   QrCode, 
   SwitchCamera,
   X,
-  Camera,
-  Keyboard,
-  ShieldCheck,
-  Boxes,
-  Monitor,
   Zap,
-  Check
+  Check,
+  Boxes,
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
@@ -30,6 +28,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { 
+  BarcodeScannerEngine, 
+  DetectedBarcode, 
+  ScannerCameraDevice 
+} from "@/lib/scanner/barcode-scanner.engine";
+import { scannerFeedback } from "@/lib/scanner/scanner-feedback";
 
 interface QrScannerModalProps {
   isOpen: boolean;
@@ -45,461 +49,288 @@ interface DetectedBox {
   height: number;
 }
 
+interface ScannedBatchItem {
+  code: string;
+  timestamp: number;
+  type?: string;
+}
+
 export function QrScannerModal({ 
   isOpen, 
   onClose,
-  title = "Leitor de QR Code",
-  description = "Aponte a câmera para a etiqueta da caixa, patrimônio ou documento."
+  title = "Leitor de Código & QR Code",
+  description = "Aponte a câmera para a etiqueta patrimonial, caixa ou termo de cautela."
 }: QrScannerModalProps) {
   const router = useRouter();
+
+  // Estados de Interface e Câmera
   const [manualCode, setManualCode] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
+  const [cameras, setCameras] = useState<ScannerCameraDevice[]>([]);
   const [selectedCameraIndex, setSelectedCameraIndex] = useState<number>(0);
-  const [activeCameraLabel, setActiveCameraLabel] = useState<string>("");
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
+  const [isNativeEngine, setIsNativeEngine] = useState<boolean>(false);
 
-  // Estados de Zoom & Detecção Inteligente
+  // Controles de Hardware: Zoom e Lanterna
   const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [autoZoomEnabled, setAutoZoomEnabled] = useState<boolean>(true);
-  const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
   const [hasTorch, setHasTorch] = useState<boolean>(false);
   const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
+  const [detectedBox, setDetectedBox] = useState<DetectedBox | null>(null);
 
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const activeStreamRef = useRef<MediaStream | null>(null);
+  // Modos de Operação: Rápido vs Lote (Inventário contínuo)
+  const [scanMode, setScanMode] = useState<"SINGLE" | "BATCH">("SINGLE");
+  const [batchItems, setBatchItems] = useState<ScannedBatchItem[]>([]);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Refs de controle
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const engineRef = useRef<BarcodeScannerEngine | null>(null);
   const isMountedRef = useRef(true);
-  const isScanningRef = useRef(false);
-  const camerasRef = useRef<Array<{ id: string; label: string }>>([]);
-  const cameraIndexRef = useRef<number>(0);
-  const detectLoopRef = useRef<number | null>(null);
-  const lastAutoZoomTimeRef = useRef<number>(0);
-  const candidateStreakRef = useRef<number>(0);
+  const isProcessingRef = useRef<boolean>(false);
   const initialTouchDistRef = useRef<number | null>(null);
   const initialZoomOnPinchRef = useRef<number>(1);
 
-  // Trava síncrona anti-spam
-  const isProcessingRef = useRef<boolean>(false);
-
-  // Zoom Inteligente: Nativo de Câmera + Fallback em Crop Digital (CSS)
-  const applyZoom = useCallback(async (level: number, targetX?: number, targetY?: number) => {
-    setZoomLevel(level);
-
-    // 1. Digital Crop / Transform Fallback
-    const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
-    if (video) {
-      video.style.transition = "transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), transform-origin 0.4s cubic-bezier(0.2, 0.9, 0.3, 1)";
-      if (typeof targetX === "number" && typeof targetY === "number") {
-        video.style.transformOrigin = `${Math.min(Math.max(targetX, 15), 85)}% ${Math.min(Math.max(targetY, 15), 85)}%`;
-      } else {
-        video.style.transformOrigin = "center center";
-      }
-      video.style.transform = `scale(${level})`;
-    }
-
-    // 2. Hardware Native Camera Zoom (se suportado pelo driver/navegador)
-    if (activeStreamRef.current) {
-      const track = activeStreamRef.current.getVideoTracks()[0];
-      if (track) {
-        try {
-          const cap = (track.getCapabilities && track.getCapabilities()) as any;
-          if (cap && cap.zoom) {
-            const clamped = Math.min(Math.max(level, cap.zoom.min || 1), cap.zoom.max || 5);
-            await track.applyConstraints({
-              advanced: [{ zoom: clamped }] as any,
-            });
-          }
-        } catch {}
-      }
-    }
-  }, []);
-
-  const toggleTorch = async () => {
-    if (!activeStreamRef.current) return;
-    const track = activeStreamRef.current.getVideoTracks()[0];
-    if (!track) return;
-    try {
-      const nextState = !isTorchOn;
-      await track.applyConstraints({
-        advanced: [{ torch: nextState }] as any,
-      });
-      setIsTorchOn(nextState);
-    } catch {
-      toast.error("Não foi possível acionar a lanterna.");
-    }
-  };
-
-  const killAllVideoHardware = useCallback(() => {
-    if (detectLoopRef.current) {
-      cancelAnimationFrame(detectLoopRef.current);
-      detectLoopRef.current = null;
-    }
-
-    if (activeStreamRef.current) {
-      try {
-        activeStreamRef.current.getTracks().forEach((t) => {
-          t.stop();
-          t.enabled = false;
-        });
-      } catch {}
-      activeStreamRef.current = null;
-    }
-
-    if (typeof document !== "undefined") {
-      document.querySelectorAll("#qr-modal-viewfinder video").forEach((video) => {
-        try {
-          if ((video as HTMLVideoElement).srcObject) {
-            const stream = (video as HTMLVideoElement).srcObject as MediaStream;
-            stream.getTracks().forEach((t) => {
-              t.stop();
-              t.enabled = false;
-            });
-            (video as HTMLVideoElement).srcObject = null;
-          }
-        } catch {}
-      });
-    }
-
-    setDetectedBox(null);
-  }, []);
-
-  const stopScanner = useCallback(async () => {
-    isScanningRef.current = false;
-    killAllVideoHardware();
-
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
-        }
-        await scannerRef.current.clear();
-      } catch (e) {
-        console.warn("Erro ao parar scanner no modal:", e);
-      }
-      scannerRef.current = null;
-    }
-
-    killAllVideoHardware();
-    if (isMountedRef.current) {
-      setIsScanning(false);
-    }
-  }, [killAllVideoHardware]);
-
-  const playBeep = () => {
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      const ctx = new AudioContextClass();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch {}
-  };
-
-  const triggerHaptic = (pattern: number | number[] = 80) => {
-    if (typeof window !== "undefined" && "navigator" in window && navigator.vibrate) {
-      navigator.vibrate(pattern);
-    }
-  };
-
-  const startDetectionLoop = useCallback(() => {
-    if (typeof window === "undefined") return;
-
-    let detector: any = null;
-    if ("BarcodeDetector" in window) {
-      try {
-        detector = new (window as any).BarcodeDetector({
-          formats: ["qr_code", "ean_13", "code_128", "data_matrix"],
-        });
-      } catch {}
-    }
-
-    const checkFrame = async () => {
-      if (!isMountedRef.current || !isScanningRef.current || isProcessingRef.current) return;
-
-      const video = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
-      if (video && video.readyState >= 2 && video.videoWidth > 0) {
-        if (detector) {
-          try {
-            const barcodes = await detector.detect(video);
-            if (barcodes && barcodes.length > 0) {
-              candidateStreakRef.current += 1;
-              const b = barcodes[0];
-              const bbox = b.boundingBox;
-
-              const relX = (bbox.x / video.videoWidth) * 100;
-              const relY = (bbox.y / video.videoHeight) * 100;
-              const relW = (bbox.width / video.videoWidth) * 100;
-              const relH = (bbox.height / video.videoHeight) * 100;
-
-              setDetectedBox({
-                x: Math.max(0, relX),
-                y: Math.max(0, relY),
-                width: Math.min(100, relW),
-                height: Math.min(100, relH),
-              });
-
-              const now = Date.now();
-              // SOMENTE aproxima se o candidato for confirmado por 2 frames e NÃO estiver buscando/caçando
-              if (
-                autoZoomEnabled &&
-                candidateStreakRef.current >= 2 &&
-                relW < 35 &&
-                now - lastAutoZoomTimeRef.current > 2000
-              ) {
-                lastAutoZoomTimeRef.current = now;
-                const centerX = relX + relW / 2;
-                const centerY = relY + relH / 2;
-                const calculatedZoom = Math.min(Math.max(1.5, Number((35 / relW).toFixed(1))), 2.5);
-                applyZoom(calculatedZoom, centerX, centerY);
-              }
-            } else {
-              candidateStreakRef.current = 0;
-              setDetectedBox(null);
-            }
-          } catch {}
-        }
-      }
-
-      if (isMountedRef.current && isScanningRef.current && !isProcessingRef.current) {
-        detectLoopRef.current = requestAnimationFrame(checkFrame);
-      }
-    };
-
-    detectLoopRef.current = requestAnimationFrame(checkFrame);
-  }, [autoZoomEnabled, applyZoom]);
-
-  const handleScanSuccess = (rawText: string) => {
-    const clean = rawText?.trim();
+  // Encaminhamento inteligente de rota de acordo com o padrão do código
+  const navigateToCode = useCallback((cleanCode: string) => {
+    const clean = cleanCode.trim();
     if (!clean) return;
 
-    if (isProcessingRef.current) return;
-    isProcessingRef.current = true;
+    if (clean.includes("/validar/")) {
+      const parts = clean.split("/validar/");
+      const code = parts[parts.length - 1]?.split("?")[0]?.trim();
+      toast.success("Documento identificado!");
+      router.push(`/validar/${encodeURIComponent(code || "")}`);
+      return;
+    }
 
-    playBeep();
-    triggerHaptic([40, 60, 40]);
+    if (clean.includes("/caixas/")) {
+      const parts = clean.split("/caixas/");
+      const boxCode = parts[parts.length - 1].replace(/[^a-zA-Z0-9_-]/g, "");
+      toast.success(`Caixa ${boxCode.toUpperCase()} identificada!`);
+      router.push(`/caixas/${boxCode.toUpperCase()}`);
+      return;
+    }
+
+    if (clean.includes("/patrimonio/")) {
+      const parts = clean.split("/patrimonio/");
+      const assetId = parts[parts.length - 1].split("?")[0]?.trim();
+      toast.success(`Patrimônio identificado!`);
+      router.push(`/patrimonio/${assetId}`);
+      return;
+    }
+
+    if (clean.startsWith("LOAN-") || clean.startsWith("loan-") || clean.startsWith("OS-") || clean.startsWith("os-") || clean.startsWith("REL-")) {
+      toast.success("Documento institucional identificado!");
+      router.push(`/validar/${encodeURIComponent(clean)}`);
+      return;
+    }
+
+    if (clean.startsWith("#") || clean.startsWith("PAT-") || clean.startsWith("pat-")) {
+      const tag = clean.replace(/^#/, "").replace(/^[Pp][Aa][Tt]-/, "");
+      toast.success(`Patrimônio #${tag} identificado!`);
+      router.push(`/patrimonio?search=${tag}`);
+      return;
+    }
+
+    const isLikelyBox = /^[cC][0-9]{1,4}$/.test(clean) || /^[cC][xX]-[0-9]{1,4}$/.test(clean) || clean.toLowerCase().startsWith("cx");
+    if (isLikelyBox) {
+      const boxCode = clean.toUpperCase();
+      toast.success(`Caixa ${boxCode} identificada!`);
+      router.push(`/caixas/${boxCode}`);
+      return;
+    }
+
+    router.push(`/scanner?search=${encodeURIComponent(clean)}`);
+  }, [router]);
+
+  // Interceptador central de código detectado
+  const handleCodeDetected = useCallback((barcode: DetectedBarcode) => {
+    const raw = barcode.rawValue?.trim();
+    if (!raw) return;
+
+    if (isProcessingRef.current && scanMode === "SINGLE") return;
+
+    // Se detectou coordenadas de caixa de enquadramento
+    if (barcode.boundingBox && videoRef.current && videoRef.current.videoWidth > 0) {
+      const vW = videoRef.current.videoWidth;
+      const vH = videoRef.current.videoHeight;
+      setDetectedBox({
+        x: Math.max(0, (barcode.boundingBox.x / vW) * 100),
+        y: Math.max(0, (barcode.boundingBox.y / vH) * 100),
+        width: Math.min(100, (barcode.boundingBox.width / vW) * 100),
+        height: Math.min(100, (barcode.boundingBox.height / vH) * 100),
+      });
+    }
+
+    setLastScannedCode(raw);
+
+    // MODO LOTE (BATCH INVENTORY)
+    if (scanMode === "BATCH") {
+      setBatchItems((prev) => {
+        // Evita duplicatas consecutivas imediatas (nos últimos 2 segundos)
+        const recentSame = prev.find((i) => i.code === raw && Date.now() - i.timestamp < 2500);
+        if (recentSame) return prev;
+
+        scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
+        toast.success(`Item adicionado: ${raw}`, { duration: 1500 });
+        return [{ code: raw, timestamp: Date.now() }, ...prev];
+      });
+
+      setTimeout(() => {
+        if (isMountedRef.current) setDetectedBox(null);
+      }, 1000);
+      return;
+    }
+
+    // MODO RÁPIDO / SINGLE (Abre na hora)
+    isProcessingRef.current = true;
+    scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
     setIsRedirecting(true);
 
-    isScanningRef.current = false;
-    if (detectLoopRef.current) {
-      cancelAnimationFrame(detectLoopRef.current);
-      detectLoopRef.current = null;
-    }
-
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.pause(true);
-      } catch {}
-    }
-
     setTimeout(() => {
-      killAllVideoHardware();
-      stopScanner();
+      if (engineRef.current) {
+        engineRef.current.stop().catch(() => {});
+      }
       onClose();
+      navigateToCode(raw);
+    }, 280);
+  }, [scanMode, soundEnabled, onClose, navigateToCode]);
 
-      toast.dismiss();
+  // Inicialização e parada do motor
+  const stopScanner = useCallback(async () => {
+    if (engineRef.current) {
+      await engineRef.current.stop();
+      engineRef.current = null;
+    }
+    setDetectedBox(null);
+    setIsScanning(false);
+    setIsTorchOn(false);
+  }, []);
 
-      if (clean.includes("/validar/")) {
-        const parts = clean.split("/validar/");
-        const code = parts[parts.length - 1]?.split("?")[0]?.trim();
-        toast.success("Documento identificado!");
-        router.push(`/validar/${encodeURIComponent(code || "")}`);
-        return;
-      }
-
-      if (clean.includes("/caixas/")) {
-        const parts = clean.split("/caixas/");
-        const boxCode = parts[parts.length - 1].replace(/[^a-zA-Z0-9_-]/g, "");
-        toast.success(`Caixa ${boxCode.toUpperCase()} identificada!`);
-        router.push(`/caixas/${boxCode.toUpperCase()}`);
-        return;
-      }
-
-      if (clean.includes("/patrimonio/")) {
-        const parts = clean.split("/patrimonio/");
-        const assetId = parts[parts.length - 1].split("?")[0]?.trim();
-        toast.success(`Patrimônio identificado!`);
-        router.push(`/patrimonio/${assetId}`);
-        return;
-      }
-
-      if (clean.startsWith("LOAN-") || clean.startsWith("loan-") || clean.startsWith("OS-") || clean.startsWith("os-") || clean.startsWith("REL-")) {
-        toast.success("Documento identificado!");
-        router.push(`/validar/${encodeURIComponent(clean)}`);
-        return;
-      }
-
-      if (clean.startsWith("#") || clean.startsWith("PAT-") || clean.startsWith("pat-")) {
-        const tag = clean.replace(/^#/, "").replace(/^[Pp][Aa][Tt]-/, "");
-        toast.success(`Patrimônio #${tag} identificado!`);
-        router.push(`/patrimonio?search=${tag}`);
-        return;
-      }
-
-      const isLikelyBox = /^[cC][0-9]{1,4}$/.test(clean) || /^[cC][xX]-[0-9]{1,4}$/.test(clean) || clean.toLowerCase().startsWith("cx");
-      if (isLikelyBox) {
-        const boxCode = clean.toUpperCase();
-        toast.success(`Caixa ${boxCode} identificada!`);
-        router.push(`/caixas/${boxCode}`);
-        return;
-      }
-
-      router.push(`/scanner?search=${encodeURIComponent(clean)}`);
-    }, 200);
-  };
-
-  const startScanner = async (targetCameraId?: string, targetIndex?: number) => {
+  const startScanner = useCallback(async (targetDeviceId?: string) => {
     try {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || !videoRef.current) return;
       setCameraError(null);
       setIsRedirecting(false);
       isProcessingRef.current = false;
 
       await stopScanner();
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      if (!isMountedRef.current) return;
+      await new Promise((r) => setTimeout(r, 100));
+      if (!isMountedRef.current || !videoRef.current) return;
 
-      const html5QrCode = new Html5Qrcode("qr-modal-viewfinder");
-      scannerRef.current = html5QrCode;
+      const available = await BarcodeScannerEngine.getAvailableCameras();
+      setCameras(available);
 
-      const scanConfig = {
-        fps: 25,
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const qrboxSize = Math.floor(minEdge * 0.88);
-          return { width: qrboxSize, height: qrboxSize };
-        },
-        aspectRatio: 1.0,
-      };
-
-      const handleSuccess = (decodedText: string) => {
-        handleScanSuccess(decodedText);
-      };
-
-      let availableCams = camerasRef.current;
-      if (availableCams.length === 0) {
-        const devices = await Html5Qrcode.getCameras().catch(() => []);
-        if (devices && devices.length > 0) {
-          availableCams = devices;
-          camerasRef.current = devices;
-          if (isMountedRef.current) setCameras(devices);
-        }
-      }
-
-      let configToUse: any = targetCameraId;
-
-      if (!configToUse) {
-        if (availableCams.length > 0) {
-          let idx = typeof targetIndex === "number" ? targetIndex : cameraIndexRef.current;
-          if (idx >= availableCams.length) idx = 0;
-
-          if (typeof targetIndex !== "number") {
-            const backIdx = availableCams.findIndex((c) => /back|rear|environment|traseira/i.test(c.label));
-            if (backIdx !== -1) idx = backIdx;
-          }
-
-          cameraIndexRef.current = idx;
-          if (isMountedRef.current) {
-            setSelectedCameraIndex(idx);
-            setActiveCameraLabel(availableCams[idx]?.label || `Câmera ${idx + 1}`);
-          }
-          configToUse = availableCams[idx].id;
+      let chosenId = targetDeviceId;
+      if (!chosenId && available.length > 0) {
+        const savedId = typeof window !== "undefined" ? localStorage.getItem("unifap_scanner_cam_id") : null;
+        if (savedId && available.some((c) => c.id === savedId)) {
+          chosenId = savedId;
         } else {
-          configToUse = { facingMode: "environment" };
+          // Prioriza câmera traseira por padrão
+          const backCam = available.find((c) => c.isBackCamera);
+          chosenId = backCam ? backCam.id : available[0].id;
         }
       }
 
-      try {
-        await html5QrCode.start(configToUse, scanConfig, handleSuccess, () => {});
-      } catch (err1) {
-        try {
-          if (availableCams.length > 0) {
-            await html5QrCode.start(availableCams[0].id, scanConfig, handleSuccess, () => {});
-          } else {
-            await html5QrCode.start({ facingMode: "user" }, scanConfig, handleSuccess, () => {});
+      const engine = new BarcodeScannerEngine({
+        videoElement: videoRef.current,
+        containerId: "qr-modal-viewfinder",
+        onDetected: (b) => handleCodeDetected(b),
+        onError: (e) => {
+          if (isMountedRef.current) {
+            setCameraError(e.message || "Erro ao acessar a câmera.");
           }
-        } catch (err2) {
-          throw err2;
-        }
-      }
+        },
+      });
 
-      if (!isMountedRef.current) {
-        killAllVideoHardware();
-        return;
-      }
+      engineRef.current = engine;
+      const { isNative } = await engine.start(chosenId);
 
-      const videoEl = document.querySelector("#qr-modal-viewfinder video") as HTMLVideoElement;
-      if (videoEl && videoEl.srcObject) {
-        const stream = videoEl.srcObject as MediaStream;
-        activeStreamRef.current = stream;
-        const track = stream.getVideoTracks()[0];
-        if (track && track.getCapabilities) {
+      if (isMountedRef.current) {
+        setIsNativeEngine(isNative);
+        setIsScanning(true);
+        const caps = engine.getCapabilitiesInfo();
+        setHasTorch(caps.hasTorch);
+        setZoomLevel(1);
+
+        if (chosenId) {
+          const idx = available.findIndex((c) => c.id === chosenId);
+          if (idx !== -1) setSelectedCameraIndex(idx);
           try {
-            const caps = track.getCapabilities() as any;
-            setHasTorch(Boolean(caps?.torch));
+            localStorage.setItem("unifap_scanner_cam_id", chosenId);
           } catch {}
         }
       }
-
-      isScanningRef.current = true;
-      if (isMountedRef.current) {
-        setIsScanning(true);
-        startDetectionLoop();
-      }
     } catch (err: any) {
-      console.warn("Erro ao iniciar câmera no modal:", err);
-      if (isMountedRef.current) {
-        setCameraError(
-          "Não foi possível acessar a câmera. Digite o código abaixo."
-        );
-        setIsScanning(false);
-      }
+      if (!isMountedRef.current) return;
+      setIsScanning(false);
+      setCameraError(
+        err.name === "NotAllowedError" || err.message?.includes("Permission")
+          ? "Permissão de acesso à câmera negada. Habilite a permissão nas configurações do navegador."
+          : "Não foi possível iniciar a câmera. Verifique se outro aplicativo está utilizando-a."
+      );
+    }
+  }, [stopScanner, handleCodeDetected]);
+
+  // Ciclo de vida do Modal (Abre/Fecha)
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    if (isOpen) {
+      // Delay curto para que o DOM do Dialog monte a tag <video>
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 150);
+      return () => clearTimeout(timer);
+    } else {
+      stopScanner();
+    }
+
+    return () => {
+      isMountedRef.current = false;
+      stopScanner();
+    };
+  }, [isOpen, startScanner, stopScanner]);
+
+  // Controles de Hardware
+  const handleToggleTorch = async () => {
+    if (!engineRef.current || !hasTorch) return;
+    const nextState = !isTorchOn;
+    const ok = await engineRef.current.setTorch(nextState);
+    if (ok) {
+      setIsTorchOn(nextState);
+    } else {
+      toast.error("Não foi possível acionar a lanterna neste dispositivo.");
     }
   };
 
+  const handleSetZoom = async (level: number) => {
+    if (!engineRef.current) return;
+    setZoomLevel(level);
+    await engineRef.current.setZoom(level);
+  };
+
   const handleToggleCamera = async () => {
-    if (isSwitchingCamera) return;
-    setIsSwitchingCamera(true);
+    if (cameras.length <= 1 || isSwitchingCamera) return;
 
     try {
-      let availableCams = camerasRef.current;
-      if (availableCams.length === 0) {
-        const devices = await Html5Qrcode.getCameras().catch(() => []);
-        if (devices && devices.length > 0) {
-          availableCams = devices;
-          camerasRef.current = devices;
-          setCameras(devices);
-        }
-      }
-
-      if (availableCams.length > 1) {
-        const nextIndex = (cameraIndexRef.current + 1) % availableCams.length;
-        const nextCam = availableCams[nextIndex];
-        cameraIndexRef.current = nextIndex;
-        setSelectedCameraIndex(nextIndex);
-        setActiveCameraLabel(nextCam.label || `Câmera ${nextIndex + 1}`);
-
-        await startScanner(nextCam.id, nextIndex);
-        toast.info(`${nextCam.label || `Câmera ${nextIndex + 1}`} (${nextIndex + 1}/${availableCams.length})`);
-      } else {
-        await startScanner({ facingMode: "environment" } as any);
-      }
+      setIsSwitchingCamera(true);
+      const nextIndex = (selectedCameraIndex + 1) % cameras.length;
+      setSelectedCameraIndex(nextIndex);
+      const nextDevice = cameras[nextIndex];
+      await startScanner(nextDevice.id);
     } catch {
-      toast.error("Não foi possível alternar a câmera.");
+      toast.error("Erro ao alternar câmera.");
     } finally {
       setIsSwitchingCamera(false);
     }
   };
 
+  // Suporte a Pinch-to-Zoom tátil com 2 dedos na tela
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const dist = Math.hypot(
@@ -512,14 +343,14 @@ export function QrScannerModal({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2 && initialTouchDistRef.current) {
-      const currentDist = Math.hypot(
+    if (e.touches.length === 2 && initialTouchDistRef.current !== null) {
+      const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
         e.touches[0].clientY - e.touches[1].clientY
       );
-      const factor = currentDist / initialTouchDistRef.current;
-      const target = Math.min(Math.max(initialZoomOnPinchRef.current * factor, 1.0), 3.5);
-      applyZoom(Number(target.toFixed(1)));
+      const factor = dist / initialTouchDistRef.current;
+      const targetZoom = Math.min(Math.max(Number((initialZoomOnPinchRef.current * factor).toFixed(1)), 1), 3);
+      handleSetZoom(targetZoom);
     }
   };
 
@@ -527,40 +358,17 @@ export function QrScannerModal({
     initialTouchDistRef.current = null;
   };
 
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    if (isOpen) {
-      const timer = setTimeout(() => {
-        startScanner();
-      }, 150);
-
-      return () => {
-        clearTimeout(timer);
-        killAllVideoHardware();
-        stopScanner();
-      };
-    } else {
-      killAllVideoHardware();
-      stopScanner();
-    }
-
-    return () => {
-      isMountedRef.current = false;
-      killAllVideoHardware();
-      stopScanner();
-    };
-  }, [isOpen]);
-
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualCode.trim()) return;
-    handleScanSuccess(manualCode.trim());
-    setManualCode("");
+
+    scannerFeedback.triggerSuccess({ sound: soundEnabled, vibration: true });
+    stopScanner();
+    onClose();
+    navigateToCode(manualCode.trim());
   };
 
   const handleCloseModal = () => {
-    killAllVideoHardware();
     stopScanner();
     onClose();
   };
@@ -569,59 +377,122 @@ export function QrScannerModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseModal()}>
       <DialogContent 
         hideClose={true}
-        className="sm:max-w-md p-5 rounded-3xl border-border bg-card shadow-2xl overflow-hidden"
+        className="sm:max-w-md p-4 sm:p-5 rounded-3xl border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl overflow-hidden"
       >
-        {/* Header Limpo */}
+        {/* Header Elegante com Seletor de Modo */}
         <div className="flex items-center justify-between border-b border-border/60 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 shadow-inner">
               <QrCode className="w-4 h-4" />
             </div>
             <div>
-              <DialogTitle className="text-sm font-bold text-foreground">
-                {title}
-              </DialogTitle>
+              <div className="flex items-center gap-1.5">
+                <DialogTitle className="text-sm font-bold text-foreground">
+                  {title}
+                </DialogTitle>
+                {isNativeEngine && (
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                    GPU 60 FPS
+                  </span>
+                )}
+              </div>
               <DialogDescription className="text-[11px] text-muted-foreground line-clamp-1">
                 {description}
               </DialogDescription>
             </div>
           </div>
 
+          <div className="flex items-center gap-1.5">
+            {/* Toggle de Som */}
+            <button
+              type="button"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className={cn(
+                "w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer",
+                soundEnabled ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-muted"
+              )}
+              title={soundEnabled ? "Silenciar Bip" : "Ativar Bip"}
+            >
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Fechar */}
+            <button
+              type="button"
+              onClick={handleCloseModal}
+              className="w-7 h-7 rounded-lg bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shrink-0"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Alternador de Modo: Rápido vs Lote (Inventário) */}
+        <div className="grid grid-cols-2 gap-1 p-1 bg-muted/60 rounded-xl text-xs font-semibold">
           <button
             type="button"
-            onClick={handleCloseModal}
-            className="w-8 h-8 rounded-xl bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer shrink-0"
-            title="Fechar"
+            onClick={() => setScanMode("SINGLE")}
+            className={cn(
+              "flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition-all cursor-pointer text-[11px]",
+              scanMode === "SINGLE" 
+                ? "bg-background text-foreground shadow-sm font-bold" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
-            <X className="w-4 h-4" />
+            <Zap className="w-3 h-3 text-amber-500" />
+            <span>Modo Rápido</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setScanMode("BATCH")}
+            className={cn(
+              "flex items-center justify-center gap-1.5 py-1.5 rounded-lg transition-all cursor-pointer text-[11px]",
+              scanMode === "BATCH" 
+                ? "bg-background text-foreground shadow-sm font-bold" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Boxes className="w-3 h-3 text-primary" />
+            <span>Modo Lote {batchItems.length > 0 && `(${batchItems.length})`}</span>
           </button>
         </div>
 
-        <div className="space-y-3 pt-1">
-          {/* Visor Minimalista */}
+        {/* Viewfinder Imersivo Mobile-First */}
+        <div className="space-y-3">
           <div 
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative overflow-hidden rounded-2xl bg-black aspect-square flex flex-col items-center justify-center touch-none select-none"
+            className="relative overflow-hidden rounded-2xl bg-black aspect-square flex flex-col items-center justify-center touch-none select-none border border-border/40 shadow-inner"
           >
-            <div id="qr-modal-viewfinder" className="w-full h-full" />
+            {/* Elemento de Vídeo Nativo de Alta Performance */}
+            <video 
+              ref={videoRef} 
+              className="w-full h-full object-cover"
+              playsInline
+              muted
+            />
 
-            {/* Vinheta sutil */}
-            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_60px_rgba(0,0,0,0.55)] z-10" />
+            {/* Container para Fallback com Html5Qrcode */}
+            <div id="qr-modal-viewfinder" className="absolute inset-0 w-full h-full pointer-events-none" />
 
-            {/* Controles de Câmera e Lanterna */}
+            {/* Vinheta de contraste */}
+            <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_80px_rgba(0,0,0,0.65)] z-10" />
+
+            {/* Controles Flutuantes Superiores (Lanterna e Alternar Câmera) */}
             {isScanning && !cameraError && (
               <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
                 {hasTorch && (
                   <button
                     type="button"
-                    onClick={toggleTorch}
+                    onClick={handleToggleTorch}
                     className={cn(
                       "flex items-center justify-center w-8 h-8 rounded-full border backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer",
                       isTorchOn
-                        ? "bg-amber-400 text-black border-amber-300 shadow-amber-400/30"
-                        : "bg-black/55 hover:bg-black/80 text-white/90 border-white/15"
+                        ? "bg-amber-400 text-black border-amber-300 shadow-amber-400/40 ring-2 ring-amber-400/50"
+                        : "bg-black/60 hover:bg-black/80 text-white/90 border-white/20"
                     )}
                     title={isTorchOn ? "Desligar Lanterna" : "Ligar Lanterna"}
                   >
@@ -629,42 +500,40 @@ export function QrScannerModal({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleToggleCamera}
-                  disabled={isSwitchingCamera}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/55 hover:bg-black/80 text-white/90 border border-white/15 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
-                  title="Trocar Câmera"
-                >
-                  <SwitchCamera className={cn("w-3.5 h-3.5 text-primary", isSwitchingCamera && "animate-spin text-amber-400")} />
-                  <span className="text-[11px] font-medium">
-                    {isSwitchingCamera 
-                      ? "..." 
-                      : cameras.length > 1 
-                        ? `${selectedCameraIndex + 1}/${cameras.length}` 
-                        : "Trocar"}
-                  </span>
-                </button>
+                {cameras.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleToggleCamera}
+                    disabled={isSwitchingCamera}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white/90 border border-white/20 backdrop-blur-md shadow-md active:scale-95 transition-all cursor-pointer"
+                    title="Alternar Câmera"
+                  >
+                    <SwitchCamera className={cn("w-3.5 h-3.5 text-primary", isSwitchingCamera && "animate-spin text-amber-400")} />
+                    <span className="text-[10px] font-medium">
+                      {selectedCameraIndex + 1}/{cameras.length}
+                    </span>
+                  </button>
+                )}
               </div>
             )}
 
-            {/* Mira Minimalista Central com Feixe Laser Animado */}
+            {/* Mira com Feixe Laser Fluido */}
             {isScanning && !cameraError && !detectedBox && !isRedirecting && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-15">
-                <div className="relative w-48 h-48">
-                  <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-white/45 rounded-tl-lg shadow-sm" />
-                  <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-white/45 rounded-tr-lg shadow-sm" />
-                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-white/45 rounded-bl-lg shadow-sm" />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-white/45 rounded-br-lg shadow-sm" />
+                <div className="relative w-52 h-52">
+                  <div className="absolute top-0 left-0 w-5 h-5 border-t-3 border-l-3 border-emerald-400 rounded-tl-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                  <div className="absolute top-0 right-0 w-5 h-5 border-t-3 border-r-3 border-emerald-400 rounded-tr-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                  <div className="absolute bottom-0 left-0 w-5 h-5 border-b-3 border-l-3 border-emerald-400 rounded-bl-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+                  <div className="absolute bottom-0 right-0 w-5 h-5 border-b-3 border-r-3 border-emerald-400 rounded-br-xl shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
                   <div className="qr-laser-line" />
                 </div>
               </div>
             )}
 
-            {/* RETÍCULO DINÂMICO SOBRE O QR CODE DETECTADO */}
+            {/* Retículo Dinâmico sobre o Código Detectado (Tracking) */}
             {isScanning && !cameraError && detectedBox && !isRedirecting && (
               <div
-                className="qr-target-bounding-box"
+                className="qr-target-bounding-box pointer-events-none"
                 style={{
                   left: `${detectedBox.x}%`,
                   top: `${detectedBox.y}%`,
@@ -677,70 +546,45 @@ export function QrScannerModal({
                 <div className="qr-target-corner-bl" />
                 <div className="qr-target-corner-br" />
 
-                {/* Floating Lens Pill estilo Google Lens */}
-                <div className="qr-lens-pill absolute -top-8 left-1/2 flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-yellow-400 text-black text-[10px] font-black shadow-2xl backdrop-blur-md whitespace-nowrap">
-                  <QrCode className="w-3 h-3" />
-                  <span>Enquadrando...</span>
+                <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black shadow-lg whitespace-nowrap">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>Código Detectado</span>
                 </div>
               </div>
             )}
 
-            {/* Feedback Instantâneo de Leitura */}
+            {/* Feedback Instantâneo de Leitura (Flash de Sucesso) */}
             {isRedirecting && (
-              <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/85 border border-emerald-500/50 text-white shadow-2xl">
-                  <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold">
-                    <Check className="w-3 h-3 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-semibold text-emerald-300">
-                    Código lido! Abrindo...
-                  </span>
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex flex-col items-center justify-center space-y-2 z-40 animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500 text-black font-bold shadow-2xl scale-105 transition-transform">
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span className="text-xs">Identificado! Abrindo...</span>
                 </div>
               </div>
             )}
 
-            {/* Zoom Bar Minimalista */}
+            {/* Barra Inferior de Zoom Tátil (1x, 2x, 3x) */}
             {isScanning && !cameraError && !isRedirecting && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/65 border border-white/15 backdrop-blur-xl shadow-2xl">
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/65 border border-white/20 backdrop-blur-xl shadow-2xl">
                 {[1, 2, 3].map((lvl) => (
                   <button
                     key={lvl}
                     type="button"
-                    onClick={() => applyZoom(lvl)}
+                    onClick={() => handleSetZoom(lvl)}
                     className={cn(
                       "w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center transition-all cursor-pointer active:scale-90",
                       zoomLevel === lvl 
                         ? "bg-white text-black font-extrabold shadow-sm scale-105" 
-                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                        : "text-white/80 hover:bg-white/15 hover:text-white"
                     )}
                   >
                     {lvl}x
                   </button>
                 ))}
-
-                <div className="w-[1px] h-3.5 bg-white/20 mx-0.5" />
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !autoZoomEnabled;
-                    setAutoZoomEnabled(next);
-                  }}
-                  className={cn(
-                    "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer",
-                    autoZoomEnabled 
-                      ? "bg-yellow-400/25 text-yellow-300 border border-yellow-400/40" 
-                      : "text-white/50 hover:text-white"
-                  )}
-                  title="Auto-Zoom"
-                >
-                  <Zap className={cn("w-2.5 h-2.5", autoZoomEnabled ? "text-yellow-400" : "text-white/40")} />
-                  <span>Auto</span>
-                </button>
               </div>
             )}
 
-            {/* Aviso se a câmera falhar */}
+            {/* Estado de Erro da Câmera */}
             {cameraError && (
               <div className="absolute inset-0 p-6 flex flex-col items-center justify-center text-center bg-card/95 text-foreground space-y-3 z-20">
                 <AlertCircle className="w-8 h-8 text-amber-500" />
@@ -760,7 +604,68 @@ export function QrScannerModal({
             )}
           </div>
 
-          {/* Opção Manual */}
+          {/* Painel do Modo Lote (Quando houver itens lidos) */}
+          {scanMode === "BATCH" && batchItems.length > 0 && (
+            <div className="p-2.5 rounded-2xl bg-muted/50 border border-border/60 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold text-foreground flex items-center gap-1">
+                  <Boxes className="w-3.5 h-3.5 text-primary" />
+                  <span>Itens Bipados ({batchItems.length})</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBatchItems([])}
+                  className="text-muted-foreground hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Limpar</span>
+                </button>
+              </div>
+
+              {/* Pílulas horizontais dos itens lidos */}
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {batchItems.map((item, idx) => (
+                  <div
+                    key={`${item.code}-${idx}`}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-background border border-border text-[11px] font-mono text-foreground shadow-xs animate-in zoom-in-95 duration-100"
+                  >
+                    <span className="font-bold text-primary">#{idx + 1}</span>
+                    <span>{item.code}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        stopScanner();
+                        onClose();
+                        navigateToCode(item.code);
+                      }}
+                      className="ml-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                      title="Abrir item"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  stopScanner();
+                  onClose();
+                  // Navega para a página do scanner com todos os códigos bipados
+                  const codes = batchItems.map((b) => b.code).join(",");
+                  router.push(`/scanner?batch=${encodeURIComponent(codes)}`);
+                }}
+                className="w-full rounded-xl text-xs h-8 font-bold gap-1.5 cursor-pointer"
+              >
+                <span>Concluir Conferência ({batchItems.length})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {/* Opção Manual / Digitação de Código */}
           <div className="pt-2 border-t border-border/70">
             <form onSubmit={handleManualSubmit} className="flex gap-2">
               <Input
@@ -772,7 +677,7 @@ export function QrScannerModal({
               <Button 
                 type="submit" 
                 size="sm" 
-                className="gap-1.5 rounded-xl px-4 text-xs shrink-0 cursor-pointer h-9"
+                className="gap-1.5 rounded-xl px-4 text-xs shrink-0 cursor-pointer h-9 font-semibold"
               >
                 <span>Buscar</span>
                 <ArrowRight className="w-3.5 h-3.5" />
