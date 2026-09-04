@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { 
   Wrench, 
   Plus, 
@@ -14,7 +15,8 @@ import {
   MessageSquare, 
   Edit3, 
   RefreshCw, 
-  Ban
+  Ban,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,10 +41,15 @@ import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 
-export default function ManutencaoPage() {
+function ManutencaoContent() {
   const { data: session } = useSession();
   const userRole = session?.user?.role || "OPERADOR";
   const isReadOnly = userRole === "CONSULTA";
+
+  const searchParams = useSearchParams();
+  const initialAssetId = searchParams.get("assetId") || undefined;
+  const initialAssetTag = searchParams.get("assetTag") || "";
+  const initialSearch = searchParams.get("search") || initialAssetTag || "";
 
   const [maintenances, setMaintenances] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({
@@ -58,13 +65,14 @@ export default function ManutencaoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filtros
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [priorityFilter, setPriorityFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
 
   // Modais
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(!!initialAssetId);
+  const [preSelectedAssetId, setPreSelectedAssetId] = useState<string | undefined>(initialAssetId);
   const [isCompleteOpen, setIsCompleteOpen] = useState(false);
   const [isUpdateOpen, setIsUpdateOpen] = useState(false);
   const [isOsOpen, setIsOsOpen] = useState(false);
@@ -75,6 +83,14 @@ export default function ManutencaoPage() {
   const [cancelOrderTarget, setCancelOrderTarget] = useState<any | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Auto-abrir modal de abertura de OS quando acionado com assetId
+  useEffect(() => {
+    if (initialAssetId) {
+      setPreSelectedAssetId(initialAssetId);
+      setIsFormOpen(true);
+    }
+  }, [initialAssetId]);
 
   const isAnyModalOpen = isFormOpen || isCompleteOpen || isUpdateOpen || isOsOpen || isWhatsAppOpen || isCancelModalOpen;
 
@@ -196,7 +212,7 @@ export default function ManutencaoPage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
+    <div className="space-y-6 pb-28 sm:pb-16 animate-in fade-in-50 duration-300">
       
       {/* Header com Ações Rápidas */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -721,7 +737,11 @@ export default function ManutencaoPage() {
       {/* Modais Integrados */}
       <MaintenanceFormModal
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setIsFormOpen(false);
+          setPreSelectedAssetId(undefined);
+        }}
+        preSelectedAssetId={preSelectedAssetId}
         onSuccess={fetchData}
       />
 
@@ -819,5 +839,22 @@ export default function ManutencaoPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ManutencaoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-96 w-full items-center justify-center">
+          <div className="flex flex-col items-center gap-2 text-muted-foreground text-xs">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span>Carregando módulo de manutenção...</span>
+          </div>
+        </div>
+      }
+    >
+      <ManutencaoContent />
+    </Suspense>
   );
 }

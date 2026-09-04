@@ -53,7 +53,9 @@ function EmprestimosContent() {
 
   const searchParams = useSearchParams();
   const initialAssetId = searchParams.get("assetId") || undefined;
-  const initialSearch = searchParams.get("search") || "";
+  const initialAssetTag = searchParams.get("assetTag") || "";
+  const initialReturnLoanId = searchParams.get("returnLoanId") || undefined;
+  const initialSearch = searchParams.get("search") || initialAssetTag || "";
 
   const [loans, setLoans] = useState<any[]>([]);
   const [metrics, setMetrics] = useState<any>({
@@ -80,6 +82,28 @@ function EmprestimosContent() {
   const [selectedLoanForWhatsApp, setSelectedLoanForWhatsApp] = useState<any | null>(null);
 
   const isAnyModalOpen = isFormOpen || !!selectedLoanForReturn || !!selectedLoanForRenew || !!selectedLoanForReceipt || !!selectedLoanForWhatsApp;
+
+  // Auto-abrir modal de devolução quando acionado via URL/scanner
+  useEffect(() => {
+    if (initialReturnLoanId) {
+      fetch(`/api/v1/loans/${initialReturnLoanId}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json?.success && json?.data) {
+            setSelectedLoanForReturn(json.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialReturnLoanId]);
+
+  // Auto-abrir modal de novo empréstimo quando acionado com assetId
+  useEffect(() => {
+    if (initialAssetId) {
+      setPreSelectedAssetId(initialAssetId);
+      setIsFormOpen(true);
+    }
+  }, [initialAssetId]);
 
   const fetchData = async (isInitial: boolean | unknown = false) => {
     try {
@@ -182,7 +206,7 @@ function EmprestimosContent() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-300">
+    <div className="space-y-6 pb-28 sm:pb-16 animate-in fade-in-50 duration-300">
       {/* Header com Ações Rápidas */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-1">

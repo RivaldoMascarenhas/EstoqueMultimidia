@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { 
   Package, 
@@ -14,10 +14,12 @@ import {
   RefreshCw,
   ShieldCheck,
   CheckCircle2,
-  FileText
+  FileText,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 interface ScannerResultSheetProps {
@@ -40,6 +42,8 @@ export function ScannerResultSheet({
   onOpenReturnModal,
   onOpenMaintenanceModal,
 }: ScannerResultSheetProps) {
+  const [whatsAppLoan, setWhatsAppLoan] = useState<any | null>(null);
+
   if (!result) return null;
 
   const { entityType, data } = result;
@@ -133,13 +137,26 @@ export function ScannerResultSheet({
 
           {/* Se estiver emprestado */}
           {data.activeLoan && (
-            <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 space-y-1.5 text-xs">
+            <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/30 space-y-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-purple-700 dark:text-purple-400">Empréstimo em Aberto</span>
                 <span className="text-[10px] font-mono text-muted-foreground">Previsto: {formatDate(data.activeLoan.expectedReturnDate)}</span>
               </div>
               <p className="text-foreground font-semibold">Solicitante: {data.activeLoan.borrowerName}</p>
               <p className="text-[11px] text-muted-foreground">Destino: {data.activeLoan.destination}</p>
+
+              <Button
+                type="button"
+                onClick={() => setWhatsAppLoan({
+                  ...data.activeLoan,
+                  asset: data.asset,
+                })}
+                size="sm"
+                className="w-full gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 active:scale-95 shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Enviar Termo / Notificar via WhatsApp</span>
+              </Button>
             </div>
           )}
 
@@ -160,9 +177,9 @@ export function ScannerResultSheet({
               <Button
                 asChild
                 size="sm"
-                className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold gap-1.5 col-span-2 shadow-md shadow-primary/20"
+                className="rounded-xl text-xs sm:text-sm h-11 sm:h-10 bg-primary text-primary-foreground font-bold gap-1.5 col-span-2 shadow-md shadow-primary/20 active:scale-95"
               >
-                <Link href={`/emprestimos?assetTag=${data.asset.assetTag}`}>
+                <Link href={`/emprestimos?assetId=${data.asset.id}&assetTag=${data.asset.assetTag}`}>
                   <Handshake className="w-4 h-4" />
                   <span>Realizar Empréstimo</span>
                 </Link>
@@ -173,9 +190,9 @@ export function ScannerResultSheet({
               <Button
                 asChild
                 size="sm"
-                className="rounded-xl text-xs h-9 bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 col-span-2 shadow-md shadow-purple-600/20"
+                className="rounded-xl text-xs sm:text-sm h-11 sm:h-10 bg-purple-600 hover:bg-purple-700 text-white font-bold gap-1.5 col-span-2 shadow-md shadow-purple-600/20 active:scale-95"
               >
-                <Link href={`/emprestimos?search=${data.asset.assetTag}`}>
+                <Link href={`/emprestimos?returnLoanId=${data.activeLoan?.id || ""}&assetTag=${data.asset.assetTag}&search=${data.asset.assetTag}`}>
                   <Handshake className="w-4 h-4" />
                   <span>Devolver Equipamento</span>
                 </Link>
@@ -187,10 +204,10 @@ export function ScannerResultSheet({
                 asChild
                 variant="outline"
                 size="sm"
-                className="rounded-xl text-xs h-9 gap-1.5 shadow-xs"
+                className="rounded-xl text-xs sm:text-sm h-11 sm:h-10 gap-1.5 shadow-xs active:scale-95 font-semibold"
               >
-                <Link href={`/manutencao?assetTag=${data.asset.assetTag}`}>
-                  <Wrench className="w-3.5 h-3.5 text-amber-500" />
+                <Link href={`/manutencao?assetId=${data.asset.id}&assetTag=${data.asset.assetTag}`}>
+                  <Wrench className="w-4 h-4 text-amber-500" />
                   <span>Abrir OS</span>
                 </Link>
               </Button>
@@ -200,10 +217,10 @@ export function ScannerResultSheet({
               asChild
               variant="outline"
               size="sm"
-              className="rounded-xl text-xs h-9 gap-1.5 shadow-xs"
+              className="rounded-xl text-xs sm:text-sm h-11 sm:h-10 gap-1.5 shadow-xs active:scale-95 font-semibold"
             >
               <Link href={`/patrimonio/${data.asset.id}`}>
-                <ExternalLink className="w-3.5 h-3.5" />
+                <ExternalLink className="w-4 h-4" />
                 <span>Ver Histórico</span>
               </Link>
             </Button>
@@ -357,15 +374,25 @@ export function ScannerResultSheet({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <Button
+              type="button"
+              onClick={() => setWhatsAppLoan(data)}
+              size="sm"
+              className="w-full rounded-xl text-xs h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Enviar no WhatsApp</span>
+            </Button>
+
             <Button
               asChild
               size="sm"
-              className="w-full rounded-xl text-xs h-9 bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 shadow-md shadow-purple-600/20"
+              className="w-full rounded-xl text-xs h-10 bg-purple-600 hover:bg-purple-700 text-white font-semibold gap-1.5 shadow-md shadow-purple-600/20 active:scale-95"
             >
               <Link href={`/validar/${data.id}`} target="_blank">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Ver Selo de Validação</span>
+                <span>Ver Selo Digital</span>
               </Link>
             </Button>
 
@@ -373,11 +400,11 @@ export function ScannerResultSheet({
               asChild
               variant="outline"
               size="sm"
-              className="w-full rounded-xl text-xs h-9 font-semibold gap-1.5"
+              className="w-full rounded-xl text-xs h-10 font-semibold gap-1.5 active:scale-95"
             >
               <Link href={`/emprestimos?search=${data.borrowerName}`}>
                 <Handshake className="w-4 h-4 text-purple-600" />
-                <span>Painel de Empréstimos</span>
+                <span>Painel Empréstimos</span>
               </Link>
             </Button>
           </div>
@@ -493,13 +520,19 @@ export function ScannerResultSheet({
           onClick={onScanNext}
           variant="outline"
           size="sm"
-          className="w-full rounded-xl text-xs h-9 font-semibold gap-1.5"
+          className="w-full rounded-xl text-xs h-10 font-semibold gap-1.5 active:scale-95"
         >
           <RefreshCw className="w-3.5 h-3.5 text-primary" />
           <span>Escanear Próximo Código</span>
         </Button>
       </div>
 
+      {/* Modal Dedicado de WhatsApp */}
+      <LoanWhatsAppModal
+        isOpen={!!whatsAppLoan}
+        onClose={() => setWhatsAppLoan(null)}
+        loan={whatsAppLoan}
+      />
     </div>
   );
 }

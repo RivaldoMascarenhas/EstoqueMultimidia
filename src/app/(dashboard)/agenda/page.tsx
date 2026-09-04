@@ -33,7 +33,12 @@ export default function AgendaPage() {
     return formatDateInput(new Date());
   });
 
-  const [viewMode, setViewMode] = useState<"SHIFT_LIST" | "CALENDAR_GRID">("CALENDAR_GRID");
+  const [viewMode, setViewMode] = useState<"SHIFT_LIST" | "CALENDAR_GRID">(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return "SHIFT_LIST";
+    }
+    return "CALENDAR_GRID";
+  });
   const [selectedShiftFilter, setSelectedShiftFilter] = useState<"ALL" | "MORNING" | "AFTERNOON" | "NIGHT">("ALL");
   const [isFullscreen, setIsFullscreen] = useState(false);
   
@@ -97,6 +102,27 @@ export default function AgendaPage() {
     setDetailModalOpen(true);
   };
 
+  const handleConfirmSetup = async (requestId: string) => {
+    try {
+      const res = await fetch(`/api/v1/requests/${requestId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PREPARADO" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("✓ Sala marcada como Montada e Pronta!");
+        fetchAgendaData(selectedDate);
+      } else {
+        toast.error(data.error || "Erro ao confirmar montagem.");
+        fetchAgendaData(selectedDate);
+      }
+    } catch {
+      toast.error("Erro de conexão ao confirmar montagem.");
+      fetchAgendaData(selectedDate);
+    }
+  };
+
   const isCurrentDay = selectedDate === formatDateInput(new Date());
   const currentShift = agendaData?.currentShift || "MORNING";
   const shifts = agendaData?.shifts || {
@@ -106,7 +132,7 @@ export default function AgendaPage() {
   };
 
   return (
-    <div className={`animate-in fade-in-50 duration-300 ${
+    <div className={`animate-in fade-in-50 duration-300 pb-28 sm:pb-16 ${
       isFullscreen 
         ? "fixed inset-0 z-50 bg-background/95 backdrop-blur-2xl p-4 sm:p-6 overflow-y-auto w-screen h-screen space-y-4" 
         : "space-y-6"
@@ -361,6 +387,7 @@ export default function AgendaPage() {
               shiftData={shifts.MORNING}
               isCurrentShift={isCurrentDay && currentShift === "MORNING"}
               onOpenDetails={handleOpenDetails}
+              onConfirmSetup={isReadOnly ? undefined : handleConfirmSetup}
             />
           )}
 
@@ -369,6 +396,7 @@ export default function AgendaPage() {
               shiftData={shifts.AFTERNOON}
               isCurrentShift={isCurrentDay && currentShift === "AFTERNOON"}
               onOpenDetails={handleOpenDetails}
+              onConfirmSetup={isReadOnly ? undefined : handleConfirmSetup}
             />
           )}
 
@@ -377,6 +405,7 @@ export default function AgendaPage() {
               shiftData={shifts.NIGHT}
               isCurrentShift={isCurrentDay && currentShift === "NIGHT"}
               onOpenDetails={handleOpenDetails}
+              onConfirmSetup={isReadOnly ? undefined : handleConfirmSetup}
             />
           )}
         </div>

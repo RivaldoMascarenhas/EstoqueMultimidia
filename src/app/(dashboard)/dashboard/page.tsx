@@ -108,7 +108,7 @@ export default function DashboardPage() {
   const timeline = summary?.timeline || [];
 
   return (
-    <div className="space-y-8 animate-in fade-in-50 duration-300">
+    <div className="space-y-8 pb-28 sm:pb-16 animate-in fade-in-50 duration-300">
       
       {/* 1. Header & Welcome Banner */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 p-5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-transparent border border-primary/20 backdrop-blur-md shadow-xs">
@@ -142,7 +142,7 @@ export default function DashboardPage() {
           <Button
             asChild
             size="sm"
-            className="rounded-xl text-xs h-9 bg-primary text-primary-foreground font-semibold shadow-md shadow-primary/20 gap-1.5 justify-center"
+            className="rounded-xl text-xs sm:text-xs h-11 sm:h-9 bg-primary text-primary-foreground font-bold shadow-md shadow-primary/20 gap-1.5 justify-center active:scale-95 transition-all"
           >
             <Link href="/scanner">
               <Camera className="w-4 h-4 shrink-0" />
@@ -154,11 +154,11 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent"
+            className="rounded-xl text-xs sm:text-xs h-11 sm:h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent font-semibold active:scale-95 transition-all"
           >
             <Link href="/agenda">
               <Calendar className="w-4 h-4 text-primary shrink-0" />
-              <span className="truncate">Agenda de Turnos</span>
+              <span className="truncate">Agenda Turnos</span>
             </Link>
           </Button>
 
@@ -166,7 +166,7 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent"
+            className="rounded-xl text-xs sm:text-xs h-11 sm:h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent font-semibold active:scale-95 transition-all"
           >
             <Link href="/emprestimos">
               <Handshake className="w-4 h-4 text-purple-500 shrink-0" />
@@ -178,7 +178,7 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             size="sm"
-            className="rounded-xl text-xs h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent"
+            className="rounded-xl text-xs sm:text-xs h-11 sm:h-9 gap-1.5 shadow-xs justify-center bg-card hover:bg-accent font-semibold active:scale-95 transition-all"
           >
             <Link href="/manutencao">
               <Wrench className="w-4 h-4 text-amber-500 shrink-0" />
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             variant="outline"
             size="sm"
             onClick={fetchDashboardData}
-            className="rounded-xl text-xs h-9 gap-1.5 sm:w-9 sm:p-0 text-muted-foreground hover:text-foreground justify-center bg-card hover:bg-accent"
+            className="rounded-xl text-xs h-11 sm:h-9 gap-1.5 sm:w-9 sm:p-0 text-muted-foreground hover:text-foreground justify-center bg-card hover:bg-accent active:scale-95 transition-all col-span-2 sm:col-span-1"
             title="Atualizar dados"
           >
             <RefreshCw className="w-4 h-4 shrink-0" />

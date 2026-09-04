@@ -1,14 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { 
   Tv, 
   Package, 
   CheckCircle2, 
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface ShiftCardProps {
   shiftData: {
@@ -33,14 +35,44 @@ interface ShiftCardProps {
   };
   isCurrentShift: boolean;
   onOpenDetails: (requestId: string) => void;
+  onConfirmSetup?: (requestId: string) => Promise<void> | void;
 }
 
 export function ShiftCard({
   shiftData,
   isCurrentShift,
   onOpenDetails,
+  onConfirmSetup,
 }: ShiftCardProps) {
   const { config, stats, requests } = shiftData;
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [optimisticPrepared, setOptimisticPrepared] = useState<Record<string, boolean>>({});
+
+  const handleConfirm = async (e: React.MouseEvent, req: any) => {
+    e.stopPropagation();
+    if (updatingId || !onConfirmSetup) return;
+
+    // Haptic feedback imediato no smartphone (vibração tátil)
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate([30, 40, 30]);
+      } catch (err) {}
+    }
+
+    setOptimisticPrepared((prev) => ({ ...prev, [req.id]: true }));
+    setUpdatingId(req.id);
+    try {
+      await onConfirmSetup(req.id);
+    } catch {
+      setOptimisticPrepared((prev) => {
+        const copy = { ...prev };
+        delete copy[req.id];
+        return copy;
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const getShiftGradient = (shift: string) => {
     switch (shift) {
@@ -148,34 +180,36 @@ export function ShiftCard({
 
               const fixedItems = req.items?.filter((i: any) => i.item?.logisticsType === "FIXED_IN_ROOM") || [];
               const mobileItems = req.items?.filter((i: any) => i.item?.logisticsType !== "FIXED_IN_ROOM") || [];
+              const isReqPrepared = optimisticPrepared[req.id] || req.status === "PREPARADO";
+              const currentStatus = optimisticPrepared[req.id] ? "PREPARADO" : req.status;
 
               return (
                 <div
                   key={req.id}
                   onClick={() => onOpenDetails(req.id)}
-                  className={`p-3 rounded-2xl border transition-all cursor-pointer group hover:scale-[1.01] ${
-                    req.status === "CANCELADO"
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer group hover:scale-[1.01] active:scale-[0.99] ${
+                    currentStatus === "CANCELADO"
                       ? "bg-muted/20 border-dashed border-border/80 opacity-70 hover:opacity-100"
-                      : req.status === "PREPARADO"
-                      ? "bg-emerald-500/5 border-emerald-500/30 hover:border-emerald-500/60"
-                      : req.status === "EM_ATENDIMENTO"
+                      : isReqPrepared
+                      ? "bg-emerald-500/10 border-emerald-500/40 hover:border-emerald-500/60"
+                      : currentStatus === "EM_ATENDIMENTO"
                       ? "bg-blue-500/5 border-blue-500/30 hover:border-blue-500/60"
-                      : req.status === "PROBLEMA"
+                      : currentStatus === "PROBLEMA"
                       ? "bg-rose-500/5 border-rose-500/30 hover:border-rose-500/60"
-                      : "bg-card border-border/70 hover:border-primary/50"
+                      : "bg-card border-border/70 hover:border-primary/50 shadow-xs"
                   }`}
                 >
                   {/* Linha Superior: Horário + Sala + Status */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      {getStatusDot(req.status)}
-                      <span className={`font-mono text-xs font-bold ${req.status === "CANCELADO" ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                      {getStatusDot(currentStatus)}
+                      <span className={`font-mono text-xs font-bold ${currentStatus === "CANCELADO" ? "line-through text-muted-foreground" : "text-foreground"}`}>
                         {startStr} - {endStr}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      {req.status === "CANCELADO" && (
+                      {currentStatus === "CANCELADO" && (
                         <span className="text-[10px] font-bold text-rose-500 bg-rose-500/10 px-1.5 py-0.5 rounded-md border border-rose-500/20">
                           Cancelado
                         </span>
@@ -219,6 +253,38 @@ export function ShiftCard({
                       <ChevronRight className="w-3 h-3" />
                     </span>
                   </div>
+
+                  {/* Ação Rápida Mobile: Confirmar Montagem em 1 Toque */}
+                  {currentStatus !== "CANCELADO" && currentStatus !== "FINALIZADO" && onConfirmSetup && (
+                    <div className="pt-2.5 mt-2.5 border-t border-border/40 flex items-center justify-between gap-2">
+                      {isReqPrepared ? (
+                        <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold py-1">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span>✓ Montada & Pronta</span>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={(e) => handleConfirm(e, req)}
+                          disabled={updatingId === req.id}
+                          className="flex-1 rounded-xl text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-sm shadow-emerald-500/20 active:scale-95 transition-all justify-center"
+                        >
+                          {updatingId === req.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          )}
+                          <span>Confirmar Montagem</span>
+                        </Button>
+                      )}
+
+                      <span className="text-[11px] text-muted-foreground group-hover:text-primary transition-colors flex items-center gap-0.5 shrink-0 px-1 py-1 font-medium">
+                        <span>Detalhes</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}

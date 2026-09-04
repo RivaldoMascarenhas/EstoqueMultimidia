@@ -5,13 +5,15 @@ import { useSession } from "next-auth/react";
 import { 
   Printer, 
   FileCheck2,
-  Loader2 
+  Loader2,
+  MessageSquare
 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { LoanWhatsAppModal } from "@/components/loans/loan-whatsapp-modal";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import QRCode from "qrcode";
 
@@ -30,11 +32,13 @@ export function LoanReceiptModal({
   const [activeLoan, setActiveLoan] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !loan) {
       setActiveLoan(null);
       setQrCodeDataUrl("");
+      setIsWhatsAppModalOpen(false);
       return;
     }
 
@@ -256,23 +260,40 @@ export function LoanReceiptModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-3xl print:p-0 print:m-0 print:border-none print:shadow-none bg-card">
         {/* Barra superior de ações (oculta na impressão) */}
-        <div className="flex items-center justify-between pb-3 border-b border-border print:hidden pr-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border print:hidden pr-8">
           <div className="flex items-center gap-2">
-            <FileCheck2 className="w-5 h-5 text-primary" />
-            <h2 className="text-base font-bold text-foreground">
-              Termo Oficial de Cautela & Responsabilidade
-            </h2>
+            <FileCheck2 className="w-5 h-5 text-primary shrink-0" />
+            <div>
+              <h2 className="text-sm sm:text-base font-bold text-foreground leading-tight">
+                Termo Oficial de Cautela & Responsabilidade
+              </h2>
+              <span className="text-[11px] font-mono text-muted-foreground">{protocolNumber}</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
+              type="button"
+              onClick={() => setIsWhatsAppModalOpen(true)}
+              disabled={isLoading || !currentLoan}
+              size="sm"
+              className="gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-500/20 active:scale-95 transition-all text-xs h-9 sm:h-8"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Enviar no WhatsApp</span>
+            </Button>
+
+            <Button
+              type="button"
               onClick={handlePrint}
               disabled={isLoading || !currentLoan}
               size="sm"
-              className="gap-1.5 rounded-xl bg-primary text-primary-foreground shadow-sm"
+              variant="outline"
+              className="gap-1.5 rounded-xl shadow-xs text-xs h-9 sm:h-8"
             >
               <Printer className="w-4 h-4" />
-              <span>Imprimir Termo (A4)</span>
+              <span className="hidden sm:inline">Imprimir Termo (A4)</span>
+              <span className="sm:hidden">Imprimir</span>
             </Button>
           </div>
         </div>
@@ -496,6 +517,28 @@ export function LoanReceiptModal({
             </div>
           </div>
         )}
+
+        {/* Barra de Ação Mobile no Rodapé (oculta na impressão) */}
+        {currentLoan && (
+          <div className="pt-3 border-t border-border flex items-center justify-between gap-2 sm:hidden print:hidden">
+            <Button
+              type="button"
+              onClick={() => setIsWhatsAppModalOpen(true)}
+              disabled={isLoading}
+              className="flex-1 gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 shadow-md shadow-emerald-500/20 active:scale-95"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Enviar no WhatsApp</span>
+            </Button>
+          </div>
+        )}
+
+        {/* Modal de Envio e Notificação no WhatsApp */}
+        <LoanWhatsAppModal
+          isOpen={isWhatsAppModalOpen}
+          onClose={() => setIsWhatsAppModalOpen(false)}
+          loan={currentLoan}
+        />
       </DialogContent>
     </Dialog>
   );

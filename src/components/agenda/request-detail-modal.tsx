@@ -10,6 +10,7 @@ import {
   Package, 
   Tv, 
   Check, 
+  CheckCircle2,
   AlertCircle, 
   RefreshCw, 
   Trash2, 
@@ -781,6 +782,19 @@ export function RequestDetailModal({
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Button
                           size="sm"
+                          variant={request.status === "PREPARADO" ? "default" : "outline"}
+                          onClick={() => handleUpdateStatus("PREPARADO")}
+                          className={`h-8 text-[11px] px-2.5 rounded-xl font-bold ${
+                            request.status === "PREPARADO"
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 border-emerald-500/30"
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                          Montado
+                        </Button>
+                        <Button
+                          size="sm"
                           variant={request.status === "EM_ATENDIMENTO" ? "default" : "outline"}
                           onClick={() => handleUpdateStatus("EM_ATENDIMENTO")}
                           className="h-8 text-[11px] px-2.5 rounded-xl"
@@ -791,7 +805,7 @@ export function RequestDetailModal({
                           size="sm"
                           variant={request.status === "FINALIZADO" ? "default" : "outline"}
                           onClick={() => handleUpdateStatus("FINALIZADO")}
-                          className="h-8 text-[11px] px-2.5 rounded-xl text-emerald-600 dark:text-emerald-400 font-bold"
+                          className="h-8 text-[11px] px-2.5 rounded-xl text-blue-600 dark:text-blue-400 font-bold"
                         >
                           Finalizar
                         </Button>
@@ -824,6 +838,35 @@ export function RequestDetailModal({
                   <p className="text-foreground/90 whitespace-pre-wrap leading-relaxed pl-5 font-mono text-[11px]">
                     {request.notes}
                   </p>
+                </div>
+              )}
+
+              {/* Barra Rápida Mobile no Rodapé do Modal */}
+              {isOperatorOrAdmin && request.status !== "CANCELADO" && (
+                <div className="sm:hidden p-3 rounded-2xl bg-muted/40 border border-border/80 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setProblemReason("");
+                      setProblemDetails("");
+                      setProblemDialogOpen(true);
+                    }}
+                    className="flex-1 rounded-xl text-xs h-10 border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/10 font-bold gap-1 active:scale-95"
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Problema</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    onClick={() => handleUpdateStatus(request.status === "PREPARADO" ? "EM_ATENDIMENTO" : "PREPARADO")}
+                    disabled={isSaving}
+                    className="flex-[2] rounded-xl text-xs h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{request.status === "PREPARADO" ? "✓ Montado (Iniciar)" : "Confirmar Montagem"}</span>
+                  </Button>
                 </div>
               )}
 

@@ -64,6 +64,12 @@ export function LoanWhatsAppModal({
     ? (cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`)
     : "";
 
+  // Base URL para validação digital autenticada do termo
+  const origin = typeof window !== "undefined" && window.location.origin
+    ? window.location.origin
+    : "https://multimidia.rivaldo.uk";
+  const validationUrl = `${origin}/validar/${protocol}`;
+
   // Gerar mensagem personalizada
   const generateMessageText = () => {
     if (isOverdue) {
@@ -72,6 +78,9 @@ export function LoanWhatsAppModal({
 Aqui é do Setor de Suporte de TI & Multimídia da UniFAP.
 
 Constatamos em nosso sistema que o empréstimo do equipamento *${assetName}* (Patrimônio *#${assetTag}*, Protocolo: *${protocol}*) estava previsto para devolução em *${returnDateStr}* e encontra-se com o prazo expirado.
+
+📄 *Termo & Comprovante Digital:*
+${validationUrl}
 
 Solicitamos a gentileza de comparecer ao setor para realizar a devolução ou, caso necessite estender o período de uso, nos informar para formalizarmos a renovação no sistema.
 
@@ -85,11 +94,14 @@ Atenciosamente,
 
 Aqui é do Setor de Suporte de TI & Multimídia da UniFAP.
 
-Passando apenas para confirmar os dados do seu empréstimo:
+Passando para confirmar os dados do seu termo de cautela & empréstimo:
 📦 *Equipamento:* ${assetName} (Patrimônio #${assetTag})
 📍 *Local de Uso:* ${loan.destination || "Não especificado"}
 ⏰ *Devolução Prevista:* ${returnDateStr}
-📄 *Protocolo:* ${protocol}
+📄 *Protocolo Oficial:* ${protocol}
+
+🔗 *Acesse o Termo Digital Autenticado com QR Code:*
+${validationUrl}
 
 Qualquer dúvida ou caso necessite prorrogar o prazo, basta entrar em contato conosco.
 
@@ -264,12 +276,12 @@ Atenciosamente,
           </div>
 
           {/* Rodapé / Ações */}
-          <DialogFooter className="flex items-center justify-end gap-2 pt-2">
+          <DialogFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
-              className="rounded-xl text-xs h-10 px-4"
+              className="rounded-xl text-xs sm:text-sm h-11 sm:h-10 px-4 active:scale-95 order-2 sm:order-1"
             >
               Fechar
             </Button>
@@ -277,10 +289,10 @@ Atenciosamente,
             <Button
               type="button"
               onClick={handleOpenWhatsApp}
-              className="gap-2 rounded-xl text-xs h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-500/25 transition-all"
+              className="gap-2 rounded-xl text-xs sm:text-sm h-11 sm:h-10 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/25 active:scale-95 transition-all order-1 sm:order-2"
             >
               <MessageSquare className="w-4 h-4" />
-              <span>Cobrar no WhatsApp</span>
+              <span>{isOverdue ? "Cobrar no WhatsApp" : "Enviar Termo no WhatsApp"}</span>
               <ExternalLink className="w-3.5 h-3.5 opacity-80" />
             </Button>
           </DialogFooter>
