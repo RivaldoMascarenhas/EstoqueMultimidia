@@ -13,6 +13,9 @@ export async function GET(req: NextRequest) {
     const itemId = searchParams.get("itemId") || undefined;
     const startDate = searchParams.get("startDate") || undefined;
     const endDate = searchParams.get("endDate") || undefined;
+    const limitParam = searchParams.get("limit");
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : 200;
+    const take = Math.min(Math.max(1, isNaN(parsedLimit) ? 200 : parsedLimit), 500);
 
     const whereClause: any = {};
 
@@ -75,6 +78,7 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [{ createdAt: "desc" }],
+      take,
     });
 
     return NextResponse.json({

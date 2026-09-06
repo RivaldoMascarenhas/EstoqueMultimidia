@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     const cleanQuery = q.replace(/^#/, ""); // Remove '#' se o usuário digitou #123458 ou #OS-2026-0001
 
     // Determinar escopo de busca por Role (RBAC)
-    const canSearchStock = userRole !== Role.EVENTOS;
-    const canSearchPatrimony = userRole !== Role.EVENTOS;
+    const canSearchStock = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR || userRole === Role.CONSULTA;
+    const canSearchPatrimony = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR || userRole === Role.CONSULTA;
     const canSearchBoxes = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR || userRole === Role.CONSULTA;
     const canSearchLoans = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR;
     const canSearchMaintenance = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR;

@@ -73,14 +73,14 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
       url: `/biometria/pessoas?search=${encodeURIComponent(person.name)}`,
       data: person,
     })),
-    ...(!isEventosRole
+    ...(!isEventosRole && !isAcademicRole
       ? (results.assets || []).map((asset) => ({
           type: "ASSET" as const,
           url: `/patrimonio?search=${encodeURIComponent(asset.assetTag)}`,
           data: asset,
         }))
       : []),
-    ...(!isEventosRole
+    ...(!isEventosRole && !isAcademicRole
       ? (results.items || []).map((item) => ({
           type: "ITEM" as const,
           url: `/estoque?search=${encodeURIComponent(item.sku || item.name)}`,

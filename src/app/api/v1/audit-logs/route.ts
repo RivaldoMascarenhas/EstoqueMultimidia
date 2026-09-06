@@ -7,8 +7,6 @@ export async function GET(req: NextRequest) {
   try {
     const { session, error } = await requireSession([
       Role.ADMIN,
-      Role.GESTOR,
-      Role.CONSULTA,
     ]);
     if (error) return error;
 
