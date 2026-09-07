@@ -33,8 +33,22 @@ describe("Moldura facial real", () => {
   it("aceita rosto inteiro dentro da moldura", () => {
     expect(isFaceInsideGuide({ originX: 125, originY: 125, width: 150, height: 150 }, 400, 400, viewport, guide)).toBe(true);
   });
-  it("rejeita rosto com centro dentro e bordas fora", () => {
+  it("rejeita rosto que ultrapassa significativamente a moldura", () => {
     expect(isFaceInsideGuide({ originX: 75, originY: 75, width: 250, height: 250 }, 400, 400, viewport, guide)).toBe(false);
+  });
+  it("aceita o enquadramento da captura, com pequena sobra nas laterais", () => {
+    expect(isFaceInsideGuide(
+      { originX: 260, originY: 164, width: 279, height: 278 }, 801, 538,
+      { left: 70, top: 110, width: 801, height: 538 },
+      { left: 340, top: 205, width: 262, height: 348 },
+    )).toBe(true);
+  });
+  it("não aceita um rosto fora do guia só por estar dentro da margem", () => {
+    expect(isFaceInsideGuide({ originX: 295, originY: 140, width: 20, height: 80 }, 400, 400, viewport, guide)).toBe(false);
+  });
+  it("não aceita rosto cortado pela borda do vídeo", () => {
+    expect(isFaceInsideGuide({ originX: -5, originY: 100, width: 110, height: 150 }, 400, 400, viewport,
+      { left: 300, top: 90, width: 100, height: 200 })).toBe(false);
   });
   it("considera object-cover e espelhamento em tela retrato", () => {
     expect(isFaceInsideGuide({ originX: 350, originY: 125, width: 150, height: 150 }, 800, 400, viewport, guide)).toBe(true);
