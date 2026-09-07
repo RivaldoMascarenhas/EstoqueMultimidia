@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useLogout } from "@/components/auth/logout-provider";
 import { useTheme } from "next-themes";
@@ -15,8 +16,10 @@ import {
   Shield, 
   CheckCircle2, 
   AlertTriangle,
-  User
+  User,
+  Kanban,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Breadcrumbs } from "./breadcrumbs";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -36,6 +39,7 @@ interface HeaderProps {
 }
 
 export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
+  const router = useRouter();
   const { data: session } = useSession();
   const { triggerLogout } = useLogout();
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -43,13 +47,38 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const seenTaskIdsRef = useRef<Set<string>>(new Set());
+  const isFirstLoadRef = useRef(true);
+
   const fetchNotifications = async () => {
     try {
       const res = await fetch("/api/v1/notifications");
       const json = await res.json();
       if (json.success) {
-        setNotifications(json.data || []);
+        const items: any[] = json.data || [];
+        setNotifications(items);
         setUnreadCount(json.unreadCount || 0);
+
+        // Notificar o operador via Toast interativo quando houver nova tarefa atribuída
+        const taskNotifications = items.filter((n) => n.type === "TASK_ASSIGNED");
+        if (!isFirstLoadRef.current) {
+          for (const taskNotif of taskNotifications) {
+            if (!seenTaskIdsRef.current.has(taskNotif.id)) {
+              toast.info(`📋 ${taskNotif.title}`, {
+                description: taskNotif.description,
+                action: {
+                  label: "Ver no Quadro",
+                  onClick: () => router.push("/tarefas"),
+                },
+                duration: 9000,
+              });
+            }
+          }
+        } else {
+          isFirstLoadRef.current = false;
+        }
+
+        taskNotifications.forEach((n) => seenTaskIdsRef.current.add(n.id));
       }
     } catch (e) {}
   };
@@ -228,16 +257,20 @@ export function Header({ onToggleMobileSidebar, onOpenSearch }: HeaderProps) {
                           : "bg-blue-500/10 hover:bg-blue-500/15 border-blue-500/30 text-blue-900 dark:text-blue-200"
                       )}
                     >
-                      <AlertTriangle
-                        className={cn(
-                          "w-4 h-4 shrink-0 mt-0.5",
-                          item.severity === "danger"
-                            ? "text-rose-600 dark:text-rose-400"
-                            : item.severity === "warning"
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-blue-600 dark:text-blue-400"
-                        )}
-                      />
+                      {item.type === "TASK_ASSIGNED" ? (
+                        <Kanban className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
+                      ) : (
+                        <AlertTriangle
+                          className={cn(
+                            "w-4 h-4 shrink-0 mt-0.5",
+                            item.severity === "danger"
+                              ? "text-rose-600 dark:text-rose-400"
+                              : item.severity === "warning"
+                              ? "text-amber-600 dark:text-amber-400"
+                              : "text-blue-600 dark:text-blue-400"
+                          )}
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <p className="font-bold text-xs truncate">

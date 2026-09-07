@@ -150,11 +150,18 @@ export function TaskFormModal({
         return;
       }
 
-      toast.success(
-        isEditing
-          ? "Tarefa atualizada e atribuída a você com sucesso!"
-          : "Nova tarefa criada no quadro!"
-      );
+      if (!isEditing && assignedToId && assignedToId !== currentUserId) {
+        const assignedUser = assignableUsers.find((u) => u.id === assignedToId);
+        toast.success(
+          `Nova tarefa criada e notificação enviada para ${assignedUser?.name || "o operador"}!`
+        );
+      } else {
+        toast.success(
+          isEditing
+            ? "Tarefa atualizada e atribuída a você com sucesso!"
+            : "Nova tarefa criada no quadro!"
+        );
+      }
 
       onSuccess(json.item, isEditing);
       onClose();

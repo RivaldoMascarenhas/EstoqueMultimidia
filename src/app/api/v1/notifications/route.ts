@@ -121,6 +121,52 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // 4. Verificar Tarefas Atribuídas ao Usuário Logado (Quadro de Demandas)
+    if (session.user?.id) {
+      try {
+        const myTasks = await prisma.boardTask.findMany({
+          where: {
+            assignedToId: session.user.id,
+            status: { in: ["TODO", "IN_PROGRESS"] },
+          },
+          include: {
+            createdBy: {
+              select: { name: true },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 6,
+        });
+
+        for (const task of myTasks) {
+          const isUrgent = task.priority === "URGENT";
+          const isHigh = task.priority === "HIGH";
+          const isOverdue = task.dueDate && new Date(task.dueDate) < now;
+
+          const createdTime = new Date(task.createdAt);
+          const isRecent = (now.getTime() - createdTime.getTime()) < 48 * 60 * 60 * 1000;
+
+          notifications.push({
+            id: `task-${task.id}`,
+            type: "TASK_ASSIGNED" as any,
+            title: isOverdue
+              ? "Tarefa Atrasada no Quadro"
+              : isUrgent
+              ? "Demanda Urgente Atribuída"
+              : isRecent
+              ? "Nova Tarefa Atribuída"
+              : "Tarefa em Andamento",
+            description: `${task.title}${task.createdBy ? ` • por ${task.createdBy.name}` : ""}`,
+            href: "/tarefas",
+            severity: isUrgent || isOverdue ? "danger" : isHigh ? "warning" : "info",
+            time: task.status === "TODO" ? "A fazer" : "Em andamento",
+          });
+        }
+      } catch {
+        // Fallback silencioso caso a tabela ainda não tenha sido inicializada
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: notifications,
