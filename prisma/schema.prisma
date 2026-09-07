@@ -187,6 +187,11 @@ model User {
   presencesOperated  Presence[]        @relation("PresenceOperator")
   drawsOperated      Draw[]            @relation("DrawOperator")
   prizesDelivered    Winner[]          @relation("PrizeDeliveryOperator")
+
+  // Quadro de Tarefas (Kanban)
+  boardTasksCreated  BoardTask[]        @relation("BoardTaskCreator")
+  boardTasksAssigned BoardTask[]        @relation("BoardTaskAssignee")
+  boardTaskHistory   BoardTaskHistory[]
 }
 
 model ApiKey {
@@ -951,3 +956,63 @@ model RequestSeries {
   requests    Request[]
   createdAt   DateTime  @default(now())
 }
+
+// ----------------------------------------------------
+// QUADRO DE TAREFAS (KANBAN)
+// ----------------------------------------------------
+
+enum BoardTaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum BoardTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model BoardTask {
+  id           String            @id @default(cuid())
+  title        String
+  description  String?
+  status       BoardTaskStatus   @default(TODO)
+  priority     BoardTaskPriority @default(MEDIUM)
+  dueDate      DateTime?
+  orderIndex   Int               @default(0)
+
+  createdById  String
+  createdBy    User              @relation("BoardTaskCreator", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?             @relation("BoardTaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  history      BoardTaskHistory[]
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status, orderIndex])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([dueDate])
+}
+
+model BoardTaskHistory {
+  id         String           @id @default(cuid())
+  taskId     String
+  task       BoardTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User             @relation(fields: [userId], references: [id])
+  action     String           // "STATUS_CHANGE", "REASSIGNED", "UPDATED", "CREATED"
+  fromStatus BoardTaskStatus?
+  toStatus   BoardTaskStatus?
+  details    String?
+  createdAt  DateTime         @default(now())
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
+}
+

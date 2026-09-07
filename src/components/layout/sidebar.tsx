@@ -32,6 +32,7 @@ import {
   QrCode,
   Layers,
   SlidersHorizontal,
+  Kanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -180,6 +181,12 @@ export function Sidebar({
               icon: CalendarDays,
               badge: "Turnos",
               roles: ["ADMIN", "GESTOR", "OPERADOR", "ACADEMIC_SUPPORT", "CONSULTA"],
+            },
+            {
+              title: "Tarefas",
+              href: "/tarefas",
+              icon: Kanban,
+              roles: ["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"],
             },
             {
               title: "Salas & Infra",
