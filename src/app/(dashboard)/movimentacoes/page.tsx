@@ -182,47 +182,47 @@ export default function MovimentacoesPage() {
     switch (type) {
       case "ENTRY":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-500/30 whitespace-nowrap">
             <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-500" />
             Entrada
           </span>
         );
       case "EXIT":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold border border-rose-500/30 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-400 font-bold border border-rose-500/30 whitespace-nowrap">
             <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />
             Saída
           </span>
         );
       case "TRANSFER":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold border border-blue-500/30 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold border border-blue-500/30 whitespace-nowrap">
             <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />
             Transferência
           </span>
         );
       case "ADJUSTMENT":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/30 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border border-amber-500/30 whitespace-nowrap">
             <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
             Ajuste
           </span>
         );
       case "LOAN":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-bold border border-purple-500/30 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 font-bold border border-purple-500/30 whitespace-nowrap">
             Empréstimo
           </span>
         );
       case "RETURN":
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 font-bold border border-teal-500/30 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-teal-500/15 text-teal-700 dark:text-teal-400 font-bold border border-teal-500/30 whitespace-nowrap">
             Devolução
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-full bg-accent text-foreground font-semibold border border-border whitespace-nowrap">
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full bg-accent text-foreground font-semibold border border-border whitespace-nowrap">
             {type}
           </span>
         );
@@ -265,7 +265,7 @@ export default function MovimentacoesPage() {
             size="sm"
             onClick={handleExportCSV}
             disabled={movements.length === 0}
-            className="gap-1.5 rounded-xl text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20"
+            className="gap-1.5 rounded-xl text-sm h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20"
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>Exportar CSV (Excel)</span>
@@ -280,13 +280,13 @@ export default function MovimentacoesPage() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-primary/10 via-card to-card">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">
+              <span className="text-xs font-semibold text-primary uppercase tracking-wider">
                 Total de Registros
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {movements.length}
               </p>
-              <p className="text-[10px] text-muted-foreground">Trilha de auditoria</p>
+              <p className="text-xs text-muted-foreground">Trilha de auditoria</p>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/20 text-primary">
               <History className="w-5 h-5" />
@@ -298,13 +298,13 @@ export default function MovimentacoesPage() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-emerald-500/10 via-card to-card">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                 Entradas de Estoque
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {countEntry}
               </p>
-              <p className="text-[10px] text-muted-foreground">Novas cargas / compras</p>
+              <p className="text-xs text-muted-foreground">Novas cargas / compras</p>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
               <ArrowDownLeft className="w-5 h-5" />
@@ -316,13 +316,13 @@ export default function MovimentacoesPage() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-rose-500/10 via-card to-card">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
                 Saídas / Baixas
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {countExit}
               </p>
-              <p className="text-[10px] text-muted-foreground">Consumo & descarte</p>
+              <p className="text-xs text-muted-foreground">Consumo & descarte</p>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400">
               <ArrowUpRight className="w-5 h-5" />
@@ -334,13 +334,13 @@ export default function MovimentacoesPage() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-blue-500/10 via-card to-card">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 Transferências
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {countTransfer}
               </p>
-              <p className="text-[10px] text-muted-foreground">Entre caixas físicas</p>
+              <p className="text-xs text-muted-foreground">Entre caixas físicas</p>
             </div>
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
               <ArrowRightLeft className="w-5 h-5" />
@@ -375,7 +375,7 @@ export default function MovimentacoesPage() {
                 >
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    <span className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
                       isSelected ? "bg-white/20 text-white" : "bg-accent text-foreground"
                     }`}>
                       {tab.badge}
@@ -401,7 +401,7 @@ export default function MovimentacoesPage() {
               <Button
                 type="submit"
                 size="sm"
-                className="h-10 px-4 rounded-xl text-xs font-semibold bg-primary text-primary-foreground shadow-xs shrink-0"
+                className="h-10 px-4 rounded-xl text-sm font-semibold bg-primary text-primary-foreground shadow-xs shrink-0"
               >
                 Buscar
               </Button>
@@ -455,7 +455,7 @@ export default function MovimentacoesPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleClearFilters}
-                  className="h-10 px-3 rounded-xl text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground bg-background hover:bg-muted shadow-xs"
+                  className="h-10 px-3 rounded-xl text-sm font-semibold gap-1.5 text-muted-foreground hover:text-foreground bg-background hover:bg-muted shadow-xs"
                   title="Limpar todos os filtros"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
@@ -472,25 +472,25 @@ export default function MovimentacoesPage() {
         <Table className="min-w-[1050px] w-full">
             <TableHeader className="bg-muted/50 border-b border-border/80">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[170px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[170px]">
                   Data & Horário
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[140px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[140px]">
                   Tipo
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground min-w-[220px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[220px]">
                   Item / Material
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[130px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[130px]">
                   Qtd & Saldo
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[220px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[220px]">
                   Origem / Destino
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[160px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[160px]">
                   Operador
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground min-w-[200px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[200px]">
                   Justificativa / Motivo
                 </TableHead>
               </TableRow>
@@ -549,7 +549,7 @@ export default function MovimentacoesPage() {
                             <Package className="w-3.5 h-3.5 text-primary shrink-0" />
                             {m.item?.name}
                           </p>
-                          <p className="font-mono text-[11px] text-muted-foreground">
+                          <p className="font-mono text-xs text-muted-foreground">
                             SKU: {m.item?.sku}
                           </p>
                         </div>
@@ -563,7 +563,7 @@ export default function MovimentacoesPage() {
                           }`}>
                             {isPositive ? `+${m.quantity}` : isNegative ? `-${m.quantity}` : `${m.quantity}`} {m.item?.unit || "UN"}
                           </span>
-                          <p className="text-[10px] text-muted-foreground font-mono">
+                          <p className="text-xs text-muted-foreground font-mono">
                             {m.balanceBefore} ➔ <strong className="text-foreground">{m.balanceAfter}</strong>
                           </p>
                         </div>
@@ -573,14 +573,14 @@ export default function MovimentacoesPage() {
                       <TableCell className="py-3.5 px-4 text-xs">
                         <div className="space-y-0.5">
                           {m.sourceBox && (
-                            <p className="text-muted-foreground text-[11px] flex items-center gap-1">
-                              <span className="text-[10px] uppercase font-bold text-rose-500">De:</span>
+                            <p className="text-muted-foreground text-xs flex items-center gap-1">
+                              <span className="text-xs uppercase font-bold text-rose-500">De:</span>
                               <span>{m.sourceBox.door?.name || "Porta"} / {m.sourceBox.name} ({m.sourceBox.code})</span>
                             </p>
                           )}
                           {m.destBox && (
-                            <p className="text-muted-foreground text-[11px] flex items-center gap-1">
-                              <span className="text-[10px] uppercase font-bold text-emerald-500">Para:</span>
+                            <p className="text-muted-foreground text-xs flex items-center gap-1">
+                              <span className="text-xs uppercase font-bold text-emerald-500">Para:</span>
                               <span>{m.destBox.door?.name || "Porta"} / {m.destBox.name} ({m.destBox.code})</span>
                             </p>
                           )}

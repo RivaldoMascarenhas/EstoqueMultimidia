@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { validatePasswordPolicy } from "@/lib/password-policy";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireSession(undefined, { req, allowPendingPasswordChange: true });
+    if (error) return error;
 
-    if (!session || !session.user?.id) {
+    if (!session.user.mustChangePassword) {
       return NextResponse.json(
-        { success: false, error: "Usuário não autenticado." },
-        { status: 401 }
+        { success: false, error: "Use a alteração de senha do perfil, informando a senha atual." },
+        { status: 403 }
       );
     }
 
     const body = await req.json();
-    const { newPassword } = body;
+    const { newPassword, currentPassword } = body || {};
+    if (typeof newPassword !== "string" || newPassword.length > 128 ||
+        (currentPassword !== undefined && (typeof currentPassword !== "string" || currentPassword.length > 128))) {
+      return NextResponse.json({ success: false, error: "Senha inválida." }, { status: 400 });
+    }
 
     const validation = validatePasswordPolicy(newPassword);
     if (!validation.isValid) {
@@ -31,11 +35,16 @@ export async function POST(req: NextRequest) {
       where: { id: session.user.id },
     });
 
-    if (!user) {
+    if (!user || !user.active) {
       return NextResponse.json(
         { success: false, error: "Usuário não encontrado." },
-        { status: 404 }
+        { status: 401 }
       );
+    }
+
+    // A dispensa da senha atual vale somente para a troca obrigatória vigente no banco.
+    if (!user.mustChangePassword && (!currentPassword || !await bcrypt.compare(currentPassword, user.passwordHash))) {
+      return NextResponse.json({ success: false, error: "Informe a senha atual correta para alterar sua senha." }, { status: 400 });
     }
 
     // Verificar se a nova senha é igual à senha anterior

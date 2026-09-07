@@ -78,7 +78,7 @@ export function Sidebar({
     estoque: false,
     patrimonio: false,
     eventos: false,
-    gestao: false,
+    administracao: false,
   });
 
   const toggleGroup = (key: string) => {
@@ -107,8 +107,8 @@ export function Sidebar({
       setOpenGroups((prev) => ({ ...prev, patrimonio: true }));
     } else if (pathname.startsWith("/eventos") || pathname.startsWith("/biometria") || pathname.startsWith("/sorteios")) {
       setOpenGroups((prev) => ({ ...prev, eventos: true }));
-    } else if (pathname.startsWith("/relatorios") || pathname.startsWith("/usuarios") || pathname.startsWith("/configuracoes") || pathname.startsWith("/privacidade")) {
-      setOpenGroups((prev) => ({ ...prev, gestao: true }));
+    } else if (["/relatorios", "/usuarios", "/configuracoes", "/privacidade", "/auditoria", "/permissoes", "/validar"].some((path) => pathname.startsWith(path))) {
+      setOpenGroups((prev) => ({ ...prev, administracao: true }));
     }
   }, [pathname]);
 
@@ -235,8 +235,8 @@ export function Sidebar({
               subItems: [
                 { title: "Relatórios & KPIs", href: "/relatorios" },
                 { title: "Validador de Documentos", href: "/validar" },
-                { title: "Trilha de Auditoria", href: "/auditoria", roles: ["ADMIN", "GESTOR", "CONSULTA"] },
-                { title: "Permissões RBAC", href: "/permissoes", roles: ["ADMIN", "GESTOR", "CONSULTA"] },
+                { title: "Trilha de Auditoria", href: "/auditoria", roles: ["ADMIN"] },
+                { title: "Permissões RBAC", href: "/permissoes", roles: ["ADMIN"] },
                 { title: "Gestão de Usuários", href: "/usuarios", roles: ["ADMIN"] },
                 { title: "Configurações", href: "/configuracoes", roles: ["ADMIN"] },
                 { title: "Privacidade & LGPD", href: "/privacidade" },

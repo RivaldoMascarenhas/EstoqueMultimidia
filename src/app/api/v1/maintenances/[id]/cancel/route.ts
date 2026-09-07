@@ -11,7 +11,7 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR], { req: req });
     if (error) return error;
 
     

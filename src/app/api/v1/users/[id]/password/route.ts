@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession(undefined, { allowPendingPasswordChange: true });
+    const { session, error } = await requireSession(undefined, { req: req, allowPendingPasswordChange: true });
     if (error) return error;
 
     

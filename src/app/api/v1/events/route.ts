@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {

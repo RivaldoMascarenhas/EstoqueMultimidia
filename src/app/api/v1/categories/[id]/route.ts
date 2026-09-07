@@ -10,7 +10,7 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR], { req: req });
     if (error) return error;
 
     
@@ -69,7 +69,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const { error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    const { error } = await requireSession([Role.ADMIN, Role.GESTOR], { req: req });
     if (error) return error;
 
     

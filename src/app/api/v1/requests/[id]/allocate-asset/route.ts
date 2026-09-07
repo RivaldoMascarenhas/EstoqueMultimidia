@@ -15,7 +15,7 @@ export async function POST(
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
-    ]);
+    ], { req: req });
     if (error) return error;
 
     const body = await req.json();

@@ -30,7 +30,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR], { req: req });
     if (error) return error;
 
     const body = await req.json();
@@ -57,7 +57,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN]);
+    const { session, error } = await requireSession([Role.ADMIN], { req: req });
     if (error) return error;
 
     const deactivated = await RoomService.deactivateRoom(id, session.user.id);

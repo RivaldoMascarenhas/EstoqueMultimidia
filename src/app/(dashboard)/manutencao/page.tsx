@@ -175,39 +175,39 @@ function ManutencaoContent() {
   const getPriorityBadge = (p?: string) => {
     switch (p) {
       case "CRITICAL":
-        return <Badge variant="critical" className="text-[10px] uppercase">Crítica</Badge>;
+        return <Badge variant="critical" className="text-xs uppercase">Crítica</Badge>;
       case "HIGH":
-        return <Badge variant="low" className="text-[10px] uppercase">Alta</Badge>;
+        return <Badge variant="low" className="text-xs uppercase">Alta</Badge>;
       case "LOW":
-        return <Badge variant="secondary" className="text-[10px] uppercase">Baixa</Badge>;
+        return <Badge variant="secondary" className="text-xs uppercase">Baixa</Badge>;
       default:
-        return <Badge variant="default" className="text-[10px] uppercase">Média</Badge>;
+        return <Badge variant="default" className="text-xs uppercase">Média</Badge>;
     }
   };
 
   const getTypeBadge = (t?: string) => {
     switch (t) {
       case "EXTERNAL":
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold">🏢 Externa / Fornecedor</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 font-bold">🏢 Externa / Fornecedor</span>;
       case "PREVENTIVE":
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-bold">🛡️ Preventiva</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-bold">🛡️ Preventiva</span>;
       case "INTERNAL":
       case "CORRECTIVE":
       default:
-        return <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold">🛠️ Manutenção Interna</span>;
+        return <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold">🛠️ Manutenção Interna</span>;
     }
   };
 
   const getStatusBadge = (s: string) => {
     switch (s) {
       case "COMPLETED":
-        return <Badge variant="available" className="text-[10px]">Concluído</Badge>;
+        return <Badge variant="available" className="text-xs">Concluído</Badge>;
       case "CANCELLED":
-        return <Badge variant="outline" className="text-[10px] text-muted-foreground">Cancelado</Badge>;
+        return <Badge variant="outline" className="text-xs text-muted-foreground">Cancelado</Badge>;
       case "PENDING":
-        return <Badge variant="low" className="text-[10px]">Pendente</Badge>;
+        return <Badge variant="low" className="text-xs">Pendente</Badge>;
       default:
-        return <Badge variant="maintenance" className="text-[10px]">Em Andamento</Badge>;
+        return <Badge variant="maintenance" className="text-xs">Em Andamento</Badge>;
     }
   };
 
@@ -222,11 +222,11 @@ function ManutencaoContent() {
               <Wrench className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 shrink-0" />
               <span>Manutenção & Ordens de Serviço</span>
             </h1>
-            <Badge variant="maintenance" className="text-[11px] font-semibold px-2 py-0.5">
+            <Badge variant="maintenance" className="text-xs font-semibold px-2 py-0.5">
               {metrics.activeCount} Em Aberto
             </Badge>
             {isReadOnly && (
-              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+              <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
                 Modo Consulta
               </Badge>
             )}
@@ -252,7 +252,7 @@ function ManutencaoContent() {
             variant="outline"
             size="sm"
             onClick={fetchData}
-            className="rounded-xl text-xs h-10 sm:h-9 px-3 cursor-pointer"
+            className="rounded-xl text-sm h-10 sm:h-9 px-3 cursor-pointer"
             title="Atualizar lista"
           >
             <RefreshCw className="w-3.5 h-3.5" />
@@ -268,13 +268,13 @@ function ManutencaoContent() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-blue-500/10 via-card to-card hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 Bancada TI & Oficina
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {metrics.activeCount} <span className="text-xs font-normal text-muted-foreground">chamados</span>
               </p>
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="text-blue-500 font-bold">{metrics.inProgressCount}</span> na bancada • <span className="text-rose-500 font-bold">{metrics.criticalCount}</span> alta prioridade
               </div>
             </div>
@@ -288,13 +288,13 @@ function ManutencaoContent() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-purple-500/10 via-card to-card hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
                 Assistência Externa
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {metrics.externalCount} <span className="text-xs font-normal text-muted-foreground">com fornecedores</span>
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Epson, Eletrônica & Parceiros
               </p>
             </div>
@@ -308,13 +308,13 @@ function ManutencaoContent() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-emerald-500/10 via-card to-card hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                 Concluídos no Mês
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {metrics.completedThisMonth} <span className="text-xs font-normal text-muted-foreground">reintegrados</span>
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Disponíveis no armário físico
               </p>
             </div>
@@ -328,13 +328,13 @@ function ManutencaoContent() {
         <Card className="rounded-2xl border-border/80 bg-gradient-to-br from-amber-500/10 via-card to-card hover:shadow-md transition-all">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
                 Custo de Reparos & Peças
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 R$ {metrics.totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Lâmpadas, peças e serviços externos
               </p>
             </div>
@@ -383,7 +383,7 @@ function ManutencaoContent() {
                 >
                   <span>{tab.label}</span>
                   {tab.badge !== undefined && tab.badge > 0 && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    <span className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
                       isSelected ? "bg-white/20 text-white" : "bg-accent text-foreground"
                     }`}>
                       {tab.badge}
@@ -441,22 +441,22 @@ function ManutencaoContent() {
         <Table className="min-w-[1100px] w-full">
             <TableHeader className="bg-muted/50 border-b border-border/80">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[260px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[260px]">
                   OS & Equipamento
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground min-w-[300px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground min-w-[300px]">
                   Defeito Relatado & Diagnóstico
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[210px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[210px]">
                   Responsável / Oficina
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[150px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[150px]">
                   Prazo & Prioridade
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[140px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground w-[140px]">
                   Situação & Custo
                 </TableHead>
-                <TableHead className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground text-center w-[230px]">
+                <TableHead className="py-3.5 px-4 text-xs font-bold uppercase tracking-wider text-muted-foreground text-center w-[230px]">
                   Ações
                 </TableHead>
               </TableRow>
@@ -545,7 +545,7 @@ function ManutencaoContent() {
                             >
                               {orderNum}
                             </button>
-                            <span className="font-mono text-[11px] font-semibold text-foreground bg-accent px-1.5 py-0.5 rounded">
+                            <span className="font-mono text-xs font-semibold text-foreground bg-accent px-1.5 py-0.5 rounded">
                               #{m.asset?.assetTag}
                             </span>
                           </div>
@@ -554,7 +554,7 @@ function ManutencaoContent() {
                             <p className="font-bold text-xs text-foreground" title={m.asset?.item?.name}>
                               {m.asset?.item?.name}
                             </p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {m.asset?.model ? `${m.asset.model} • ` : ""}Entrada: {formatDate(m.entryDate)}
                             </p>
                           </div>
@@ -572,13 +572,13 @@ function ManutencaoContent() {
                             {getTypeBadge(m.maintenanceType)}
                             
                             {m.replacedParts && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium" title={m.replacedParts}>
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium" title={m.replacedParts}>
                                 ⚡ {m.replacedParts}
                               </span>
                             )}
 
                             {m.lampHours !== null && m.lampHours !== undefined && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium whitespace-nowrap">
                                 💡 {m.lampHours}h de lâmpada
                               </span>
                             )}
@@ -594,7 +594,7 @@ function ManutencaoContent() {
                               <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
                                 <span>🛠️ Bancada TI UniFAP</span>
                               </p>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                              <p className="text-xs text-muted-foreground mt-0.5">
                                 Técnico: <strong className="text-foreground font-medium">{m.createdByUser?.name || "Equipe TI"}</strong>
                               </p>
                             </div>
@@ -604,12 +604,12 @@ function ManutencaoContent() {
                                 🏢 {m.serviceProvider || "Assistência Externa"}
                               </p>
                               {m.contactName && (
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                   Contato: <strong className="text-foreground font-medium">{m.contactName}</strong>
                                 </p>
                               )}
                               {m.contactPhone && (
-                                <p className="text-[10px] font-mono text-muted-foreground/80">
+                                <p className="text-xs font-mono text-muted-foreground/80">
                                   {m.contactPhone}
                                 </p>
                               )}
@@ -624,7 +624,7 @@ function ManutencaoContent() {
                           <div>
                             {getPriorityBadge(m.priority)}
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] whitespace-nowrap">
+                          <div className="flex items-center gap-1 text-xs whitespace-nowrap">
                             <Clock className={`w-3.5 h-3.5 ${m.daysInMaintenance > 7 ? "text-rose-500" : "text-muted-foreground"}`} />
                             <span className={m.daysInMaintenance > 7 ? "font-bold text-rose-500" : "text-muted-foreground"}>
                               {m.daysInMaintenance} {m.daysInMaintenance === 1 ? "dia" : "dias"} em reparo
@@ -640,7 +640,7 @@ function ManutencaoContent() {
                             {getStatusBadge(m.status)}
                           </div>
                           <p className="font-mono text-xs font-bold text-foreground">
-                            {m.cost ? formatCurrency(Number(m.cost)) : <span className="text-muted-foreground font-normal text-[11px]">Sem custo</span>}
+                            {m.cost ? formatCurrency(Number(m.cost)) : <span className="text-muted-foreground font-normal text-xs">Sem custo</span>}
                           </p>
                         </div>
                       </TableCell>
@@ -830,7 +830,7 @@ function ManutencaoContent() {
               size="sm"
               disabled={isCancelling}
               onClick={handleConfirmCancel}
-              className="rounded-xl text-xs font-bold h-9 bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
+              className="rounded-xl text-sm font-bold h-9 bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
             >
               <Ban className="w-3.5 h-3.5" />
               <span>{isCancelling ? "Cancelando..." : "Confirmar Cancelamento"}</span>

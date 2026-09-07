@@ -46,10 +46,10 @@ def readiness_check(db: Session = Depends(get_db)):
             active_embeddings_count = 0
 
     return HealthResponse(
-        status="healthy" if db_connected else "degraded",
+        status="healthy" if db_connected and HAS_FACE_RECOGNITION else "degraded",
         version=settings.VERSION,
         databaseConnected=db_connected,
         pgvectorAvailable=pgvector_available,
-        faceRecognitionEngine="dlib_face_recognition" if HAS_FACE_RECOGNITION else "deterministic_fallback",
+        faceRecognitionEngine="dlib_face_recognition" if HAS_FACE_RECOGNITION else "unavailable",
         activeEmbeddingsCount=active_embeddings_count,
     )

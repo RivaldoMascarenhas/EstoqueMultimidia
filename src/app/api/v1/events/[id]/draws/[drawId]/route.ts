@@ -17,7 +17,7 @@ export async function DELETE(
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
-  ]);
+  ], { req: req });
   if (error) {
     return NextResponse.json(
       { success: false, error: "Apenas administradores e gestores podem anular ou invalidar sorteios realizados." },

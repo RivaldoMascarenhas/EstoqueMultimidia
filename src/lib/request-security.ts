@@ -38,7 +38,7 @@ export function getAllowedOrigins(req?: Request | NextRequest): Set<string> {
   }
 
   // 3. Em desenvolvimento ou caso nenhuma URL tenha sido configurada, deriva do host local
-  if (process.env.NODE_ENV !== "production" || allowed.size === 0) {
+  if (process.env.NODE_ENV !== "production") {
     if (req) {
       try {
         if ("url" in req && req.url) {
@@ -58,7 +58,7 @@ export function getAllowedOrigins(req?: Request | NextRequest): Set<string> {
 
         const hostHeader = headers.get("host");
         if (hostHeader) {
-          const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http");
+          const proto = forwardedProto;
           allowed.add(`${proto}://${hostHeader.trim()}`.toLowerCase());
         }
       }
@@ -87,26 +87,8 @@ export function validateRequestOrigin(req: NextRequest | Request): NextResponse 
 
   const headers = req.headers;
 
-  // 1. Exceção segura: Requisições autenticadas por API Key
-  if (headers.get("x-api-key") || headers.get("authorization")?.startsWith("Bearer unifap_")) {
-    return null;
-  }
-
-  // 2. Exceção segura: Comunicação interna entre microsserviços (ex: FastAPI)
-  const internalToken = headers.get("x-internal-token");
-  if (internalToken && internalToken === process.env.BIOMETRIC_INTERNAL_TOKEN) {
-    return null;
-  }
-
-  // 3. Exceção segura: Ambiente de testes automatizados unitários
-  if (process.env.NODE_ENV === "test" || process.env.VITEST === "true") {
-    // Se o teste injetar explicitamente Origin ou Referer, avalia a checagem de segurança
-    const testOrigin = headers.get("origin");
-    const testReferer = headers.get("referer");
-    if (!testOrigin && !testReferer) {
-      return null;
-    }
-  }
+  // Este validador protege autenticação por cookie. Cabeçalhos arbitrários não
+  // substituem a sessão por autenticação de API; rotas externas validam suas próprias chaves.
 
   const originHeader = headers.get("origin");
   const refererHeader = headers.get("referer");

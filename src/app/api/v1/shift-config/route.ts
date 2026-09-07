@@ -33,7 +33,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN]);
+    const { session, error } = await requireSession([Role.ADMIN], { req: req });
     if (error) return error;
 
     const body = await req.json();

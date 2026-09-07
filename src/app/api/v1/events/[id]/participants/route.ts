@@ -75,7 +75,7 @@ export async function POST(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {
@@ -129,7 +129,7 @@ export async function DELETE(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {

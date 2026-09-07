@@ -16,7 +16,7 @@ export async function PATCH(
       Role.GESTOR,
       Role.OPERADOR,
       Role.ACADEMIC_SUPPORT,
-    ]);
+    ], { req: req });
     if (error) return error;
 
     const body = await req.json();

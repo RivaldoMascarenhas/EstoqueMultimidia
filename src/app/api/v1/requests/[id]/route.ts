@@ -56,7 +56,7 @@ export async function PATCH(
       Role.GESTOR,
       Role.OPERADOR,
       Role.ACADEMIC_SUPPORT,
-    ]);
+    ], { req: req });
     if (error) return error;
 
     const body = await req.json();
@@ -92,7 +92,7 @@ export async function DELETE(
       Role.GESTOR,
       Role.OPERADOR,
       Role.ACADEMIC_SUPPORT,
-    ]);
+    ], { req: req });
     if (error) return error;
 
     const { searchParams } = new URL(req.url);

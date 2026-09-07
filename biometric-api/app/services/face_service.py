@@ -145,6 +145,11 @@ class FaceService:
         Extracts 128-dimensional face embedding for full image enrollment.
         Enforces that EXACTLY ONE face is present and quality checks pass.
         """
+        if not HAS_FACE_RECOGNITION:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Motor de reconhecimento facial indisponível.",
+            )
         rgb_array = cls.bytes_to_rgb_array(image_bytes)
         cls.validate_quality_and_anti_replay(rgb_array, is_crop=False)
 
@@ -169,20 +174,17 @@ class FaceService:
                 )
 
             return [float(x) for x in encodings[0]]
-        else:
-            # Deterministic fallback for dev/test without dlib
-            h, w, _ = rgb_array.shape
-            resized = np.array(Image.fromarray(rgb_array).resize((16, 8))).flatten().astype(np.float32)
-            norm = np.linalg.norm(resized)
-            if norm > 0:
-                resized = resized / norm
-            return [float(x) for x in resized[:128]]
 
     @classmethod
     def extract_crop_face_encoding(cls, crop_bytes: bytes) -> List[float]:
         """
         Extracts 128-dimensional face embedding from a pre-cropped face sent by client-side MediaPipe.
         """
+        if not HAS_FACE_RECOGNITION:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Motor de reconhecimento facial indisponível.",
+            )
         rgb_array = cls.bytes_to_rgb_array(crop_bytes)
         cls.validate_quality_and_anti_replay(rgb_array, is_crop=True)
 
@@ -201,9 +203,3 @@ class FaceService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Não foi possível extrair a biometria facial do recorte recebido.",
             )
-        else:
-            resized = np.array(Image.fromarray(rgb_array).resize((16, 8))).flatten().astype(np.float32)
-            norm = np.linalg.norm(resized)
-            if norm > 0:
-                resized = resized / norm
-            return [float(x) for x in resized[:128]]

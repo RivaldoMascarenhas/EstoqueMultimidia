@@ -7,7 +7,7 @@ import { Role } from "@prisma/client";
 
 export async function GET() {
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
 
     const doors = await CabinetService.getDoorsWithBoxes();
@@ -25,7 +25,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR], { req: req });
     if (error) return error;
 
     const body = await req.json();

@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { session, error } = await requireSession([Role.ADMIN]);
+  const { session, error } = await requireSession([Role.ADMIN], { req: req });
   if (error) return error;
 
   try {

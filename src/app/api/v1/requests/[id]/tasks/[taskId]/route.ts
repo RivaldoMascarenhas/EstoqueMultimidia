@@ -15,7 +15,7 @@ export async function PATCH(
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
-    ]);
+    ], { req: req });
     if (error) return error;
 
     const body = await req.json();
@@ -51,7 +51,7 @@ export async function DELETE(
       Role.ADMIN,
       Role.GESTOR,
       Role.OPERADOR,
-    ]);
+    ], { req: req });
     if (error) return error;
 
     const updated = await RequestService.deleteTask(

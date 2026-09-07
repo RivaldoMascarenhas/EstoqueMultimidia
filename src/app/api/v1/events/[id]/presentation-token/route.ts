@@ -75,7 +75,7 @@ export async function POST(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {

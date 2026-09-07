@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 // POST /api/v1/users - Cadastrar novo usuário (apenas ADMIN)
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN]);
+    const { session, error } = await requireSession([Role.ADMIN], { req: req });
     if (error) return error;
 
     const body = await req.json();

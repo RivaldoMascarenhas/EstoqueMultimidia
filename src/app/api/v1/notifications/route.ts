@@ -4,8 +4,11 @@ import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { session, error } = await requireSession();
     if (error) return error;
+    if (!["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"].includes(session.user.role)) {
+      return NextResponse.json({ success: true, data: [], unreadCount: 0 });
+    }
 
     const notifications: Array<{
       id: string;

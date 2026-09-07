@@ -56,7 +56,7 @@ export async function PUT(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {
@@ -104,7 +104,7 @@ export async function DELETE(
   const { session, error } = await requireSession([
     Role.ADMIN,
     Role.GESTOR,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {

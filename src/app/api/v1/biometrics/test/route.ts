@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     Role.ADMIN,
     Role.GESTOR,
     Role.OPERADOR,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   const clientIp = getClientIp(req);

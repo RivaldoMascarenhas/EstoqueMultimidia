@@ -42,7 +42,7 @@ export class InventoryService {
     }
 
     if (boxId && boxId !== "ALL") {
-      whereClause.OR = [
+      whereClause.AND = [{ OR: [
         {
           inventories: {
             some: {
@@ -59,7 +59,7 @@ export class InventoryService {
             },
           },
         },
-      ];
+      ] }];
     }
 
     if (itemType) {
