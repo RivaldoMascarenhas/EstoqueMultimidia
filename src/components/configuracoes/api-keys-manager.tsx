@@ -258,11 +258,11 @@ export function ApiKeysManager() {
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground py-3 px-4">
                           {key.lastUsedAt
-                            ? new Date(key.lastUsedAt).toLocaleString("pt-BR")
+                            ? new Date(key.lastUsedAt).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })
                             : "Nunca utilizada"}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground py-3 px-4">
-                          {new Date(key.createdAt).toLocaleDateString("pt-BR")}
+                          {new Date(key.createdAt).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}
                         </TableCell>
                         <TableCell className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">

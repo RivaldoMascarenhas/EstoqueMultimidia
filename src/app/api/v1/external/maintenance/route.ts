@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       `🏷️ *Equipamento:* ${asset.item.name} (#${asset.assetTag})`,
       `⚠️ *Defeito Relatado:* ${issueDescription}`,
       `🏢 *Destino/Prestador:* ${serviceProvider || "Laboratório UniFAP"}`,
-      `📅 *Data de Entrada:* ${new Date().toLocaleDateString("pt-BR")}`,
+      `📅 *Data de Entrada:* ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}`,
       ``,
       `_O chamado foi registrado e nossa equipe técnica fará o diagnóstico._`,
     ].join("\n");

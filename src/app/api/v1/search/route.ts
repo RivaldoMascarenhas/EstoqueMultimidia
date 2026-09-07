@@ -176,13 +176,19 @@ export async function GET(req: NextRequest) {
       canSearchEvents
         ? prisma.event.findMany({
             where: {
+              ...(userRole === Role.EVENTOS ? { managers: { some: { userId: session!.user.id } } } : {}),
               OR: [
                 { name: { contains: q, mode: "insensitive" } },
                 { description: { contains: q, mode: "insensitive" } },
                 { location: { contains: q, mode: "insensitive" } },
               ],
             },
-            include: {
+            select: {
+              id: true,
+              name: true,
+              date: true,
+              location: true,
+              status: true,
               _count: {
                 select: {
                   participants: true,

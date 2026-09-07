@@ -42,11 +42,11 @@ export function NextAppointmentBanner({
     );
   }
 
-  const startTimeStr = new Date(request.startTime).toLocaleTimeString("pt-BR", {
+  const startTimeStr = new Date(request.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
     hour: "2-digit",
     minute: "2-digit",
   });
-  const endTimeStr = new Date(request.endTime).toLocaleTimeString("pt-BR", {
+  const endTimeStr = new Date(request.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
     hour: "2-digit",
     minute: "2-digit",
   });

@@ -563,7 +563,7 @@ export default function EventHubPage() {
                 {event.date && (
                   <span className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
                     <Calendar className="h-3.5 w-3.5" />
-                    {new Date(event.date).toLocaleDateString("pt-BR")}
+                    {new Date(event.date).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}
                   </span>
                 )}
                 {event.time && (
@@ -1053,7 +1053,7 @@ export default function EventHubPage() {
                       <p className="text-xs font-bold text-foreground">{item.name}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">
                         {item.registration ? `Matrícula: ${item.registration}` : "Participante"} •{" "}
-                        {item.timestamp.toLocaleTimeString("pt-BR")}
+                        {item.timestamp.toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza" })}
                       </p>
                     </div>
                     <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -1291,7 +1291,7 @@ export default function EventHubPage() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-muted-foreground">
-                        {new Date(w.drawDate).toLocaleString("pt-BR")}
+                        {new Date(w.drawDate).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">

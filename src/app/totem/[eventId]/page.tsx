@@ -55,7 +55,7 @@ function EventTotemContent() {
     const updateTime = () => {
       const now = new Date();
       setCurrentTime(
-        now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        now.toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit", second: "2-digit" })
       );
     };
     updateTime();
@@ -188,7 +188,7 @@ function EventTotemContent() {
               {event?.date && (
                 <span className="hidden sm:flex items-center gap-1">
                   <Calendar className="w-3 h-3 text-emerald-400 shrink-0" />
-                  {new Date(event.date).toLocaleDateString("pt-BR")}
+                  {new Date(event.date).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}
                 </span>
               )}
             </div>
@@ -340,7 +340,7 @@ function EventTotemContent() {
                           : item.category || "Participante"}{" "}
                         •{" "}
                         {item.capturedAt
-                          ? new Date(item.capturedAt).toLocaleTimeString("pt-BR", {
+                          ? new Date(item.capturedAt).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                               hour: "2-digit",
                               minute: "2-digit",
                               second: "2-digit",

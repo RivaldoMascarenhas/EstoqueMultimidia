@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
-import { prisma } from "@/lib/prisma";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { validateBiometricImage } from "@/lib/biometric-upload";
 import { EventService } from "@/services/event.service";
 import { BiometricApiService } from "@/services/biometric-api.service";
 import { Role } from "@prisma/client";
@@ -27,43 +29,33 @@ export async function POST(req: NextRequest) {
 
   try {
     const formData = await req.formData();
-    const eventId = formData.get("eventId") as string;
-    const deviceIdentifier = formData.get("deviceIdentifier") as string | null;
-    const crop = formData.get("crop") as Blob;
+    const eventId = formData.get("eventId");
+    const deviceIdentifier = formData.get("deviceIdentifier");
+    const crop = formData.get("crop");
 
-    if (!eventId || !crop) {
+    if (typeof eventId !== "string" || !eventId.trim() || eventId.length > 128 ||
+        (deviceIdentifier !== null && (typeof deviceIdentifier !== "string" || deviceIdentifier.length > 200)) || !(crop instanceof Blob)) {
       return NextResponse.json(
         { success: false, error: "Parâmetros 'eventId' e 'crop' são obrigatórios." },
         { status: 400 }
       );
     }
 
-    if (crop.size > 10 * 1024 * 1024) {
+    const imageError = await validateBiometricImage(crop);
+    if (imageError) {
       return NextResponse.json(
-        { success: false, error: "A imagem excede o limite máximo permitido de 10 MB." },
+        { success: false, error: imageError },
         { status: 400 }
       );
     }
 
     // 1. Validação antecipada do evento e janela de check-in
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        date: true,
-        time: true,
-        checkinOpenMinutesBefore: true,
-      },
+    const access = await assertEventAccess(eventId, session.user, {
+      isMutation: true,
+      requiredPermission: EVENT_PERMISSIONS.PRESENCE_REGISTER,
     });
-
-    if (!event) {
-      return NextResponse.json(
-        { success: false, status: "ERROR", message: "Evento não encontrado." },
-        { status: 404 }
-      );
-    }
+    if (!access.authorized) return access.errorResponse!;
+    const event = access.event;
 
     const checkinStatus = EventService.isCheckinAllowed(event);
     if (!checkinStatus.isAllowed) {

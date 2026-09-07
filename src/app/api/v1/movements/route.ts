@@ -16,6 +16,10 @@ export async function GET(req: NextRequest) {
     const limitParam = searchParams.get("limit");
     const parsedLimit = limitParam ? parseInt(limitParam, 10) : 200;
     const take = Math.min(Math.max(1, isNaN(parsedLimit) ? 200 : parsedLimit), 500);
+    const page = Number(searchParams.get("page") || "1");
+    if (!Number.isSafeInteger(page) || page < 1 || page > 1000000) {
+      return NextResponse.json({ success: false, error: "Página inválida." }, { status: 400 });
+    }
 
     const whereClause: any = {};
 
@@ -30,11 +34,11 @@ export async function GET(req: NextRequest) {
     if (startDate || endDate) {
       whereClause.createdAt = {};
       if (startDate) {
-        const start = new Date(`${startDate}T00:00:00`);
+        const start = new Date(`${startDate}T00:00:00-03:00`);
         whereClause.createdAt.gte = isNaN(start.getTime()) ? new Date(startDate) : start;
       }
       if (endDate) {
-        const end = new Date(`${endDate}T23:59:59.999`);
+        const end = new Date(`${endDate}T23:59:59.999-03:00`);
         whereClause.createdAt.lte = isNaN(end.getTime()) ? new Date(endDate) : end;
       }
     }
@@ -50,7 +54,7 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const movements = await prisma.stockMovement.findMany({
+    const [movements, total] = await Promise.all([prisma.stockMovement.findMany({
       where: whereClause,
       include: {
         item: {
@@ -77,13 +81,15 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: [{ createdAt: "desc" }],
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * take,
       take,
-    });
+    }), prisma.stockMovement.count({ where: whereClause })]);
 
     return NextResponse.json({
       success: true,
       data: movements,
+      pagination: { page, limit: take, total, totalPages: Math.max(1, Math.ceil(total / take)) },
     });
   } catch (error: any) {
     return NextResponse.json(

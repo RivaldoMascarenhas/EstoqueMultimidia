@@ -1,5 +1,6 @@
 "use client";
 
+import { formatTimeInTimezone } from "@/lib/utils";
 import React, { useMemo } from "react";
 import { 
   Tv, 
@@ -56,8 +57,8 @@ interface CalendarGridViewProps {
  * Converte "HH:mm" ou Date em minutos desde as 00:00
  */
 function toMinutes(val: string | Date): number {
-  if (val instanceof Date) {
-    return val.getHours() * 60 + val.getMinutes();
+  if (val instanceof Date || String(val).includes("T")) {
+    return toMinutes(formatTimeInTimezone(val));
   }
   const [h, m] = String(val).split(":").map(Number);
   return h * 60 + (m || 0);
@@ -436,11 +437,11 @@ export function CalendarGridView({
               ) : (
                 positionedEvents.map((ev) => {
                   const req = ev.raw;
-                  const startStr = new Date(req.startTime).toLocaleTimeString("pt-BR", {
+                  const startStr = new Date(req.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                     hour: "2-digit",
                     minute: "2-digit",
                   });
-                  const endStr = new Date(req.endTime).toLocaleTimeString("pt-BR", {
+                  const endStr = new Date(req.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                     hour: "2-digit",
                     minute: "2-digit",
                   });

@@ -284,7 +284,7 @@ export default function EventosPage() {
                     {getStatusBadge(event.status)}
                     {event.date && (
                       <span className="text-[11px] text-muted-foreground font-medium">
-                        {new Date(event.date).toLocaleDateString("pt-BR")}
+                        {new Date(event.date).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}
                       </span>
                     )}
                   </div>

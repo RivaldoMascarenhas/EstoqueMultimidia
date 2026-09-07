@@ -39,7 +39,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { cn, formatDateInput } from "@/lib/utils";
+import { cn, formatDateInput, getSystemNow } from "@/lib/utils";
 
 interface AvailableItem {
   itemId: string;
@@ -201,13 +201,19 @@ const QUICK_TIME_SLOTS: QuickTimeSlot[] = [
   },
 ];
 
+function getCalendarDay(offset = 0) {
+  const day = new Date(`${getSystemNow().dateStr}T12:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + offset);
+  return day;
+}
+
 function getInitialSchedule() {
-  const now = new Date();
-  const currentTotalMin = now.getHours() * 60 + now.getMinutes();
+  const now = getCalendarDay();
+  const currentTotalMin = getSystemNow().totalMinutes;
 
   // Se hoje for domingo (getDay() === 0), sugere segunda-feira
-  if (now.getDay() === 0) {
-    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  if (now.getUTCDay() === 0) {
+    const monday = getCalendarDay(1);
     return {
       date: formatDateInput(monday),
       startTime: "07:20",
@@ -230,10 +236,10 @@ function getInitialSchedule() {
   }
 
   // Se já é noite e todos os horários de hoje passaram, sugere o próximo dia útil
-  let nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  let nextDay = getCalendarDay(1);
   // Se o próximo dia for domingo, pula para segunda-feira
-  if (nextDay.getDay() === 0) {
-    nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+  if (nextDay.getUTCDay() === 0) {
+    nextDay = getCalendarDay(2);
   }
 
   return {
@@ -265,25 +271,22 @@ export default function NovaSolicitacaoPage() {
 
   const todayStr = useMemo(() => formatDateInput(new Date()), []);
   const tomorrowStr = useMemo(() => {
-    const now = new Date();
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const d = getCalendarDay(1);
     return formatDateInput(d);
   }, []);
 
   const nextWorkDayStr = useMemo(() => {
-    const now = new Date();
-    let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    if (d.getDay() === 0) {
-      d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2);
+    let d = getCalendarDay(1);
+    if (d.getUTCDay() === 0) {
+      d = getCalendarDay(2);
     }
     return formatDateInput(d);
   }, []);
 
-  const isTodaySunday = useMemo(() => new Date().getDay() === 0, []);
+  const isTodaySunday = useMemo(() => getCalendarDay().getUTCDay() === 0, []);
   const isTomorrowSunday = useMemo(() => {
-    const now = new Date();
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    return d.getDay() === 0;
+    const d = getCalendarDay(1);
+    return d.getUTCDay() === 0;
   }, []);
 
   const isSelectedDateSunday = useMemo(() => {
@@ -295,19 +298,16 @@ export default function NovaSolicitacaoPage() {
 
   const isTimeSlotPast = (slotStart: string) => {
     if (date !== todayStr) return false;
-    const now = new Date();
     const [sh, sm] = slotStart.split(":").map(Number);
     const slotMin = sh * 60 + sm;
-    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowMin = getSystemNow().totalMinutes;
     return slotMin <= nowMin;
   };
 
   const isSelectedTimeInPast = useMemo(() => {
     if (!date || !startTime) return false;
     const now = new Date();
-    const [y, m, d] = date.split("-").map(Number);
-    const [sh, sm] = startTime.split(":").map(Number);
-    const startDt = new Date(y, m - 1, d, sh, sm, 0);
+    const startDt = new Date(`${date}T${startTime}:00-03:00`);
     return startDt < new Date(now.getTime() - 5 * 60 * 1000);
   }, [date, startTime]);
 
@@ -442,7 +442,7 @@ export default function NovaSolicitacaoPage() {
   // Modo de recorrência
   const handleSetRecurrenceMode = (mode: "SEMESTER" | "MONTH" | "CUSTOM") => {
     setRecurrenceMode(mode);
-    const baseDate = new Date(date + "T12:00:00");
+    const baseDate = new Date(date + "T12:00:00-03:00");
     if (isNaN(baseDate.getTime())) return;
 
     if (mode === "SEMESTER") {
@@ -1752,7 +1752,7 @@ export default function NovaSolicitacaoPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="flex items-center gap-2.5 text-muted-foreground">
                   <Calendar className="w-4 h-4 text-primary shrink-0" />
-                  <span>Data: <strong className="text-foreground">{new Date(date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}</strong></span>
+                  <span>Data: <strong className="text-foreground">{new Date(date + "T12:00:00-03:00").toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza", weekday: "long", day: "2-digit", month: "long" })}</strong></span>
                 </div>
 
                 <div className="flex items-center gap-2.5 text-muted-foreground">

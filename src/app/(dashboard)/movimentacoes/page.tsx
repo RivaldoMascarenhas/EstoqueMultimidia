@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   History, 
   Search, 
@@ -21,12 +21,17 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDateInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export default function MovimentacoesPage() {
   const [movements, setMovements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const requestId = useRef(0);
+  const [appliedSearch, setAppliedSearch] = useState("");
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,11 +48,12 @@ export default function MovimentacoesPage() {
     overrideStart?: string,
     overrideEnd?: string
   ) => {
+    const currentRequest = ++requestId.current;
     try {
       if (isInitial) setIsLoading(true);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({ page: String(page), limit: "50" });
       
-      const sTerm = overrideSearch !== undefined ? overrideSearch : searchTerm;
+      const sTerm = overrideSearch !== undefined ? overrideSearch : appliedSearch;
       const tFilter = overrideType !== undefined ? overrideType : typeFilter;
       const sDate = overrideStart !== undefined ? overrideStart : startDate;
       const eDate = overrideEnd !== undefined ? overrideEnd : endDate;
@@ -60,21 +66,25 @@ export default function MovimentacoesPage() {
       const res = await fetch(`/api/v1/movements?${params.toString()}`);
       const json = await res.json();
 
+      if (currentRequest !== requestId.current) return;
       if (json.success) {
+        setPagination(json.pagination);
+        if (page > json.pagination.totalPages) setPage(json.pagination.totalPages);
         setMovements(json.data);
       } else {
-        if (isInitial) toast.error(json.error || "Erro ao carregar histórico.");
+        if (isInitial && currentRequest === requestId.current) toast.error(json.error || "Erro ao carregar histórico.");
       }
     } catch (err) {
-      if (isInitial) toast.error("Erro na comunicação com o servidor.");
+      if (isInitial && currentRequest === requestId.current) toast.error("Erro na comunicação com o servidor.");
     } finally {
-      if (isInitial) setIsLoading(false);
+      if (isInitial && currentRequest === requestId.current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchMovements(true);
-  }, [typeFilter, startDate, endDate]);
+    return () => { requestId.current++; };
+  }, [typeFilter, startDate, endDate, page, appliedSearch]);
 
   // Sincronização automática em segundo plano a cada 12s
   useAutoRefresh(() => fetchMovements(false), {
@@ -83,7 +93,9 @@ export default function MovimentacoesPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchMovements(true);
+    setPage(1);
+    setAppliedSearch(searchTerm.trim());
+    if (page === 1 && appliedSearch === searchTerm.trim()) fetchMovements(true);
   };
 
   const handleClearFilters = () => {
@@ -91,7 +103,8 @@ export default function MovimentacoesPage() {
     setTypeFilter("ALL");
     setStartDate("");
     setEndDate("");
-    fetchMovements(true, "", "ALL", "", "");
+    setPage(1);
+    setAppliedSearch("");
   };
 
   // Exportar para CSV formatado com UTF-8 BOM
@@ -160,12 +173,13 @@ export default function MovimentacoesPage() {
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      const today = new Date().toISOString().slice(0, 10);
+      const today = formatDateInput(new Date());
       link.setAttribute("href", url);
-      link.setAttribute("download", `movimentacoes-estoque-unifap-${today}.csv`);
+      link.setAttribute("download", `movimentacoes-estoque-unifap-${today}-pagina-${page}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast.success("Relatório CSV gerado e baixado com sucesso!");
     } catch (err) {
@@ -264,11 +278,11 @@ export default function MovimentacoesPage() {
           <Button
             size="sm"
             onClick={handleExportCSV}
-            disabled={movements.length === 0}
+            disabled={isLoading || movements.length === 0}
             className="gap-1.5 rounded-xl text-sm h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md shadow-emerald-600/20"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span>Exportar CSV (Excel)</span>
+            <span>Exportar página CSV (Excel)</span>
           </Button>
         </div>
       </div>
@@ -281,7 +295,7 @@ export default function MovimentacoesPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-primary uppercase tracking-wider">
-                Total de Registros
+                Registros nesta página
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {movements.length}
@@ -299,7 +313,7 @@ export default function MovimentacoesPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                Entradas de Estoque
+                Entradas nesta página
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {countEntry}
@@ -317,7 +331,7 @@ export default function MovimentacoesPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
-                Saídas / Baixas
+                Saídas nesta página
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {countExit}
@@ -335,7 +349,7 @@ export default function MovimentacoesPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
-                Transferências
+                Transferências nesta página
               </span>
               <p className="text-2xl font-extrabold text-foreground">
                 {countTransfer}
@@ -412,7 +426,7 @@ export default function MovimentacoesPage() {
               <div className="relative">
                 <select
                   value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
+                  onChange={(e) => { setPage(1); setTypeFilter(e.target.value); }}
                   className="h-10 pl-3 pr-9 rounded-xl border border-input bg-background text-xs font-medium text-foreground focus:ring-2 focus:ring-primary focus:outline-none shadow-xs appearance-none cursor-pointer"
                 >
                   <option value="ALL">Todos os Tipos</option>
@@ -431,7 +445,7 @@ export default function MovimentacoesPage() {
                 <Input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => { setPage(1); setStartDate(e.target.value); }}
                   className="h-10 px-3 rounded-xl text-xs bg-background w-36 shadow-xs font-medium"
                   title="Data inicial"
                 />
@@ -442,7 +456,7 @@ export default function MovimentacoesPage() {
                 <Input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => { setPage(1); setEndDate(e.target.value); }}
                   className="h-10 px-3 rounded-xl text-xs bg-background w-36 shadow-xs font-medium"
                   title="Data final"
                 />
@@ -611,6 +625,13 @@ export default function MovimentacoesPage() {
             </TableBody>
           </Table>
         </div>
+      <div className="flex items-center justify-between gap-3 pt-4">
+        <p className="text-sm text-muted-foreground" aria-live="polite">{pagination.total} registros • Página {page} de {pagination.totalPages}</p>
+        <div className="flex gap-2">
+          <Button variant="outline" disabled={isLoading || page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</Button>
+          <Button variant="outline" disabled={isLoading || page >= pagination.totalPages} onClick={() => setPage(p => p + 1)}>Próxima</Button>
+        </div>
+      </div>
     </div>
   );
 }

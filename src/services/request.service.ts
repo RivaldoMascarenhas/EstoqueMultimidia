@@ -687,7 +687,7 @@ export class RequestService {
           : new Date(startDateTime.getTime() + (data.repeatOccurrences || 18) * 7 * 24 * 60 * 60 * 1000);
 
         while (currentDate <= seriesEndDate && currentDate <= maxDate) {
-          const dateStr = currentDate.toLocaleDateString("pt-BR");
+          const dateStr = currentDate.toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" });
 
           // 7.1 Validar se a sala já tem conflito de horário nesta data futura
           const roomConflict = await tx.request.findFirst({

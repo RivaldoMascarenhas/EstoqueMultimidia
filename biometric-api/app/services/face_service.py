@@ -189,12 +189,14 @@ class FaceService:
         cls.validate_quality_and_anti_replay(rgb_array, is_crop=True)
 
         if HAS_FACE_RECOGNITION:
-            encodings = face_recognition.face_encodings(rgb_array)
-            if encodings and len(encodings) > 0:
-                return [float(x) for x in encodings[0]]
-
             h, w, _ = rgb_array.shape
-            locations = [(0, w, h, 0)]
+            detected_locations = face_recognition.face_locations(rgb_array)
+            # Background faces are expected at events. Encode only the largest
+            # face, matching the client's nearest-person selection.
+            locations = [max(
+                detected_locations,
+                key=lambda box: max(0, box[2] - box[0]) * max(0, box[1] - box[3]),
+            )] if detected_locations else [(0, w, h, 0)]
             encodings = face_recognition.face_encodings(rgb_array, known_face_locations=locations)
             if encodings and len(encodings) > 0:
                 return [float(x) for x in encodings[0]]

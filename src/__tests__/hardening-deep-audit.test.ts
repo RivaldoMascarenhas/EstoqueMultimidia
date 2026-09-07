@@ -20,7 +20,7 @@ vi.mock("@/lib/prisma", () => ({
     event: { findMany: vi.fn() },
     person: { findMany: vi.fn() },
     auditLog: { findMany: vi.fn(), count: vi.fn() },
-    stockMovement: { findMany: vi.fn() },
+    stockMovement: { findMany: vi.fn(), count: vi.fn().mockResolvedValue(0) },
   },
 }));
 

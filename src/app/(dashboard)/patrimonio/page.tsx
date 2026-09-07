@@ -364,7 +364,7 @@ export default function PatrimonioPage() {
                               Prof. {activeRes.request?.professorName || "Atendimento"}
                             </span>
                             <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-bold">
-                              Em aula até {new Date(activeRes.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              Em aula até {new Date(activeRes.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
                         ) : asset.status === "LOANED" ? (
@@ -429,7 +429,7 @@ export default function PatrimonioPage() {
                             </Link>
                             {isUpcomingToday && (
                               <span className="text-[10px] text-primary block font-medium">
-                                Agendado hoje às {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                                Agendado hoje às {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })}
                               </span>
                             )}
                           </div>
@@ -450,7 +450,7 @@ export default function PatrimonioPage() {
                           <div className="space-y-0.5">
                             {getStatusBadge(asset.status)}
                             <Badge variant="outline" className="text-[9px] font-mono block">
-                              Reserva {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                              Reserva {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })}
                             </Badge>
                           </div>
                         ) : (

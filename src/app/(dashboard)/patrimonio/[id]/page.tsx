@@ -329,7 +329,7 @@ export default function AssetDetailsPage() {
                   <Clock className="w-3.5 h-3.5 text-indigo-500" /> Horário da Aula:
                 </span>
                 <p className="font-bold text-foreground font-mono">
-                  {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} às {new Date(activeRes.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  {new Date(activeRes.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })} às {new Date(activeRes.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })}
                 </p>
                 <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
                   Status: {activeRes.request.status}

@@ -123,7 +123,7 @@ export function AttendancePrintModal({
                 Relatório Oficial de Frequência & Presença
               </h2>
               <p className="text-[11px] text-slate-600 font-medium">
-                Gerado em: {new Date().toLocaleString("pt-BR")}
+                Gerado em: {new Date().toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}
               </p>
             </div>
           </div>
@@ -137,7 +137,7 @@ export function AttendancePrintModal({
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Data / Horário</span>
               <span className="text-slate-700 font-medium">
-                {event?.date ? new Date(event.date).toLocaleDateString("pt-BR") : "—"} {event?.time ? `às ${event.time}` : ""}
+                {event?.date ? new Date(event.date).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : "—"} {event?.time ? `às ${event.time}` : ""}
               </span>
             </div>
             <div>
@@ -209,7 +209,7 @@ export function AttendancePrintModal({
                       </td>
                       <td className="py-2 px-2.5 border-r border-slate-300 text-[11px] text-slate-600 font-mono text-center">
                         {rawDate
-                          ? new Date(rawDate).toLocaleTimeString("pt-BR", {
+                          ? new Date(rawDate).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                               hour: "2-digit",
                               minute: "2-digit",
                             })

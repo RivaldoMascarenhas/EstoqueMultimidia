@@ -169,11 +169,11 @@ export function ShiftCard({
         ) : (
           <div className="space-y-2 flex-1">
             {requests.map((req) => {
-              const startStr = new Date(req.startTime).toLocaleTimeString("pt-BR", {
+              const startStr = new Date(req.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                 hour: "2-digit",
                 minute: "2-digit",
               });
-              const endStr = new Date(req.endTime).toLocaleTimeString("pt-BR", {
+              const endStr = new Date(req.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                 hour: "2-digit",
                 minute: "2-digit",
               });

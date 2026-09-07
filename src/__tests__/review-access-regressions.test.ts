@@ -14,6 +14,9 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/lib/prisma", () => ({ prisma: {
   user: { findUnique: vi.fn(), update: vi.fn() },
   item: { findMany: vi.fn(), count: vi.fn() },
+  reservation: { findMany: vi.fn() },
+  event: { findMany: vi.fn() },
+  person: { findMany: vi.fn() },
 } }));
 
 function session(role = "ADMIN", active = true, mustChangePassword = false) {
@@ -30,12 +33,32 @@ describe("Isolamento dos módulos na API (guard real, banco simulado)", () => {
   const routes = ["items", "items/[id]", "doors", "categories", "boxes/[code]", "assets", "assets/[id]", "assets/metrics", "loans/[id]", "loans/metrics", "loans/available-assets", "maintenances/[id]", "maintenances/metrics", "maintenances/eligible-assets", "inventory/availability", "reports", "dashboard/summary"];
   it.each(routes)("nega %s aos perfis Eventos e Apoio Acadêmico, mesmo com JWT antigo de admin", async (route) => {
     const routeModule = await loaders[`../app/api/v1/${route}/route.ts`]();
-    for (const role of ["EVENTOS", "ACADEMIC_SUPPORT"]) {
+    for (const role of route === "inventory/availability" ? ["EVENTOS"] : ["EVENTOS", "ACADEMIC_SUPPORT"]) {
       session(role);
       const response = await routeModule.GET(request(route), { params: Promise.resolve({ id: "test", code: "test" }) });
       expect(response.status).toBe(403);
       expect(prisma.item.findMany).not.toHaveBeenCalled();
     }
+  });
+  it("permite consultar disponibilidade no agendamento acadêmico", async () => {
+    session("ACADEMIC_SUPPORT");
+    vi.mocked(prisma.item.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/v1/inventory/availability/route");
+    const response = await GET(request("inventory/availability?date=2030-01-07&startTime=08:00&endTime=10:00"));
+    expect(response.status).toBe(200);
+    expect(prisma.reservation.findMany).toHaveBeenCalled();
+  });
+  it("restringe busca de eventos aos vínculos e não seleciona tokens de apresentação", async () => {
+    session("EVENTOS");
+    vi.mocked(prisma.event.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.person.findMany).mockResolvedValue([]);
+    const { GET } = await import("@/app/api/v1/search/route");
+    expect((await GET(request("search?q=evento"))).status).toBe(200);
+    expect(prisma.event.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ managers: { some: { userId: "test-user" } } }),
+      select: { id: true, name: true, date: true, location: true, status: true, _count: expect.any(Object) },
+    }));
   });
   it.each(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"])("mantém leitura do estoque para %s", async (role) => {
     session(role);
@@ -53,6 +76,12 @@ describe("Isolamento dos módulos na API (guard real, banco simulado)", () => {
 });
 
 describe("Revogação de sessão e alteração de senha", () => {
+  it("nega nova conexão realtime para conta revogada com JWT antigo", async () => {
+    session("ADMIN", false);
+    const { GET } = await import("@/app/api/v1/events/[id]/realtime/route");
+    const response = await GET(request("events/test/realtime?poll=true"), { params: Promise.resolve({ id: "test" }) });
+    expect(response.status).toBe(401);
+  });
   it("nega leitura e alteração de perfil para conta inativa", async () => {
     session("ADMIN", false);
     expect((await profileGet(request("auth/profile"))).status).toBe(401);

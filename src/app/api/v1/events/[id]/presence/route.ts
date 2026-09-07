@@ -200,7 +200,7 @@ export async function POST(
     });
 
     if (existingPresence) {
-      const capturedTime = new Date(existingPresence.capturedAt).toLocaleTimeString("pt-BR", {
+      const capturedTime = new Date(existingPresence.capturedAt).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
         hour: "2-digit",
         minute: "2-digit",
       });

@@ -305,7 +305,7 @@ export class LoanService {
           userName: userName || "Operador",
           observation: `Empréstimo concedido a ${data.borrowerName.trim()}${
             data.borrowerDepartment ? ` (${data.borrowerDepartment.trim()})` : ""
-          } para uso em ${data.destination.trim()}. Retorno previsto: ${expectedDate.toLocaleString("pt-BR")}.${
+          } para uso em ${data.destination.trim()}. Retorno previsto: ${expectedDate.toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}.${
             data.notes ? ` Obs: ${data.notes.trim()}` : ""
           }`,
         },
@@ -538,8 +538,8 @@ export class LoanService {
         data: {
           expectedReturnDate: newDate,
           notes: loan.notes
-            ? `${loan.notes} | [Renovação em ${new Date().toLocaleDateString("pt-BR")}: ${data.reason.trim()}]`
-            : `[Renovação em ${new Date().toLocaleDateString("pt-BR")}: ${data.reason.trim()}]`,
+            ? `${loan.notes} | [Renovação em ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}: ${data.reason.trim()}]`
+            : `[Renovação em ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}: ${data.reason.trim()}]`,
         },
       });
 
@@ -558,7 +558,7 @@ export class LoanService {
           toLocation: `${loan.destination} (${loan.borrowerName})`,
           userId,
           userName: userName || "Operador",
-          observation: `Prazo de devolução prorrogado de ${previousDate.toLocaleString("pt-BR")} para ${newDate.toLocaleString("pt-BR")}. Motivo: ${data.reason.trim()}`,
+          observation: `Prazo de devolução prorrogado de ${previousDate.toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })} para ${newDate.toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}. Motivo: ${data.reason.trim()}`,
         },
       });
 

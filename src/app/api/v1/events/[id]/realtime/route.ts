@@ -1,7 +1,5 @@
 import { formatZodError } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { requireSession } from "@/lib/api-guard";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -36,8 +34,8 @@ export async function GET(
   }
 
   if (!isAuthorized) {
-    const session = await getServerSession(authOptions);
-    if (session?.user?.id) {
+    const { session, error } = await requireSession();
+    if (!error && session?.user?.id) {
       const access = await assertEventAccess(eventId, session.user as any, {
         requiredPermission: EVENT_PERMISSIONS.EVENTS_VIEW,
       });

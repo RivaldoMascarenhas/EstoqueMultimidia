@@ -4,6 +4,7 @@ import { BiometricApiService } from "@/services/biometric-api.service";
 import { Role } from "@prisma/client";
 import { RateLimiter } from "@/lib/rate-limiter";
 import { getClientIp } from "@/lib/ip-utils";
+import { validateBiometricImage } from "@/lib/biometric-upload";
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireSession([
@@ -25,20 +26,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const formData = await req.formData();
-    const personId = formData.get("personId") as string;
+    const personId = formData.get("personId");
     const isCrop = formData.get("isCrop") === "true";
-    const image = formData.get("image") as Blob;
+    const image = formData.get("image");
 
-    if (!personId || !image) {
+    if (typeof personId !== "string" || !personId.trim() || personId.length > 128 || !(image instanceof Blob)) {
       return NextResponse.json(
         { success: false, error: "Parâmetros 'personId' e 'image' são obrigatórios." },
         { status: 400 }
       );
     }
 
-    if (image.size > 10 * 1024 * 1024) {
+    const imageError = await validateBiometricImage(image);
+    if (imageError) {
       return NextResponse.json(
-        { success: false, error: "A imagem excede o limite máximo permitido de 10 MB." },
+        { success: false, error: imageError },
         { status: 400 }
       );
     }
