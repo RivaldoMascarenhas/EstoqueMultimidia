@@ -1,5 +1,7 @@
 "use client";
 
+import { secureRandomInt } from "@/lib/random";
+
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -446,13 +448,13 @@ export default function OperatorDrawPage() {
         lastTickTime = currentTime;
 
         if (progress < 0.96) {
-          const randIndex = Math.floor(Math.random() * (eligibleList.length || 1));
+          const randIndex = secureRandomInt(eligibleList.length || 1);
           const candidate = eligibleList[randIndex];
           if (candidate) {
             setRollingNumber(String(candidate.ticketNumber).padStart(3, "0"));
             setRollingName(candidate.name);
           } else {
-            setRollingNumber(String(Math.floor(Math.random() * 900) + 100));
+            setRollingNumber(String(secureRandomInt(900) + 100).padStart(3, "0"));
             setRollingName("Sorteando...");
           }
 

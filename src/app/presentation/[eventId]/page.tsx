@@ -7,6 +7,7 @@ import { soundEngine } from "@/lib/soundEngine";
 import { fireInstitutionalConfetti } from "@/components/ui/ConfettiEffect";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import QRCode from "qrcode";
+import { secureRandomInt } from "@/lib/random";
 import {
   Trophy,
   Sparkles,
@@ -205,9 +206,9 @@ function PresentationContent({ eventId }: { eventId: string }) {
         lastTickTime = currentTime;
 
         if (progress < 0.96) {
-          const randomNum = Math.floor(Math.random() * 999) + 1;
+          const randomNum = secureRandomInt(999) + 1;
           setRollingNumber(String(randomNum).padStart(3, "0"));
-          setRollingName(winnerData?.candidatePool?.[Math.floor(Math.random() * (winnerData?.candidatePool?.length || 1))] || "Sorteando...");
+          setRollingName(winnerData?.candidatePool?.[secureRandomInt(winnerData?.candidatePool?.length || 1)] || "Sorteando...");
 
           if (easeProgress > 0.65) {
             soundEngine.play("DRAW_SLOWDOWN");

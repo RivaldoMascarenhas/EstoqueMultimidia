@@ -1,3 +1,4 @@
+import { secureRandomInt } from "@/lib/random";
 import { prisma } from "@/lib/prisma";
 import { MovementType, ItemType, AssetStatus } from "@prisma/client";
 import {
@@ -537,7 +538,7 @@ export class InventoryService {
       let finalSku = data.sku ? data.sku.trim().toUpperCase() : "";
       if (!finalSku) {
         const prefix = data.itemType === ItemType.ASSET_EQUIPMENT ? "EQP" : "MAT";
-        finalSku = `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+        finalSku = `${prefix}-${100000 + secureRandomInt(900000)}`;
       }
 
       // Verificar unicidade de SKU
@@ -585,7 +586,7 @@ export class InventoryService {
           } else {
             const set = new Set<string>();
             while (set.size < batchCount) {
-              const rand = Math.floor(100000 + Math.random() * 900000);
+              const rand = 100000 + secureRandomInt(900000);
               set.add(`${prefix}${rand}`);
             }
             tagsToCreate = Array.from(set);

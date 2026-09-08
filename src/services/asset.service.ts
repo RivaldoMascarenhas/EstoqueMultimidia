@@ -1,3 +1,4 @@
+import { secureRandomInt } from "@/lib/random";
 import { prisma } from "@/lib/prisma";
 import { AssetStatus, MaintenanceStatus } from "@prisma/client";
 import {
@@ -283,7 +284,7 @@ export class AssetService {
       // Gerar aleatórios únicos
       const set = new Set<string>();
       while (set.size < quantity) {
-        const rand = Math.floor(100000 + Math.random() * 900000);
+        const rand = 100000 + secureRandomInt(900000);
         set.add(`${prefix}${rand}`);
       }
       tagsToCreate = Array.from(set);

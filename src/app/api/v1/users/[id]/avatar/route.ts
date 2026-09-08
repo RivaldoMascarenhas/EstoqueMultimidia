@@ -64,8 +64,26 @@ export async function GET(
     }
 
     // Se já for uma rota relativa pública válida
-    if (user.avatarUrl.startsWith("/") && !user.avatarUrl.startsWith("/api/v1/users/")) {
-      return NextResponse.redirect(new URL(user.avatarUrl, req.url));
+    function getSafeLocalRedirect( value: string, origin: string ): URL | null {
+      const path = value.trim();
+      if (!path.startsWith("/")) return null; // bloqueia protocol-relative URLs
+      if (path.startsWith("//")) return null; // evita comportamento ambíguo do URL parser
+      if (path.includes("\\")) return null;
+      if (path.startsWith("/api/v1/users/")) return null;
+      try {
+        const url = new URL(path, origin);
+        if (url.origin !== origin) {
+          return null;
+        }
+        return url;
+      } catch {
+        return null;
+      }
+    }
+
+    const redirectUrl = getSafeLocalRedirect( user.avatarUrl, req.nextUrl.origin );
+    if (redirectUrl) {
+      return NextResponse.redirect(redirectUrl);
     }
 
     return new NextResponse("Avatar not found", { status: 404 });

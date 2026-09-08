@@ -1,5 +1,7 @@
 "use client";
 
+import { secureRandomInt } from "@/lib/random";
+
 import React, { useState, useEffect, useMemo } from "react";
 import { Package, Plus, Loader2, Check, X, Tag, Monitor, Layers, Box, CheckCircle2, Sliders, Sparkles, Info } from "lucide-react";
 import {
@@ -50,7 +52,7 @@ const STANDARD_UNITS = [
 ];
 
 function generateRandomTag(prefix = "PAT-"): string {
-  const rand = Math.floor(100000 + Math.random() * 900000);
+  const rand = 100000 + secureRandomInt(900000);
   return `${prefix.toUpperCase()}${rand}`;
 }
 
@@ -66,12 +68,12 @@ function generateAutoSku(type: "MATERIAL" | "ASSET_EQUIPMENT", itemName?: string
       .split(/\s+/)
       .filter(Boolean);
     if (clean.length >= 2) {
-      return `${clean[0].slice(0, 4)}-${clean[1].slice(0, 4)}-${Math.floor(100 + Math.random() * 900)}`;
+      return `${clean[0].slice(0, 4)}-${clean[1].slice(0, 4)}-${100 + secureRandomInt(900)}`;
     } else if (clean.length === 1) {
-      return `${clean[0].slice(0, 5)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      return `${clean[0].slice(0, 5)}-${1000 + secureRandomInt(9000)}`;
     }
   }
-  const rand = Math.floor(100000 + Math.random() * 900000);
+  const rand = 100000 + secureRandomInt(900000);
   return `${prefix}-${rand}`;
 }
 

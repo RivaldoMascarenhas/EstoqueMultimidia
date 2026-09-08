@@ -13,7 +13,13 @@ const REPORT_TYPE_LABELS: Record<string, string> = {
 };
 
 function getSigningSecret(): string {
-  return process.env.NEXTAUTH_SECRET || "unifap_report_signing_secret_dev_only";
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error(
+      "NEXTAUTH_SECRET is required for report signing"
+    );
+  }
+  return secret;
 }
 
 /**
