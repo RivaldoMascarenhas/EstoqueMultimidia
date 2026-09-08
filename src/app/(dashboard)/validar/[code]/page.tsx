@@ -284,7 +284,7 @@ export default function DocumentVerificationResultPage() {
               <span>Registro auditável e inalterável nos servidores institucionais.</span>
             </div>
             <span className="font-mono text-[10px]">
-              Validação: {new Date().toLocaleTimeString("pt-BR")}
+              Validação: {new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza" })}
             </span>
           </div>
         </Card>

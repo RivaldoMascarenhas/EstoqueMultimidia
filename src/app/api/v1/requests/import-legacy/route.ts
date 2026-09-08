@@ -14,7 +14,7 @@ interface LegacyEventImportItem {
 
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR], { req: req });
     if (error) return error;
 
     const body = await req.json();

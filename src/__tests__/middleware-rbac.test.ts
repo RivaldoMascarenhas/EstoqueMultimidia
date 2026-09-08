@@ -30,6 +30,7 @@ describe("Next.js Middleware — RBAC Route Protection & Redirects", () => {
       "/movimentacoes",
       "/relatorios",
       "/scanner",
+      "/tarefas",
     ];
 
     forbiddenRoutes.forEach((route) => {
@@ -78,6 +79,7 @@ describe("Next.js Middleware — RBAC Route Protection & Redirects", () => {
       "/agenda",
       "/salas",
       "/scanner",
+      "/tarefas",
       "/usuarios",
       "/configuracoes",
       "/auditoria",

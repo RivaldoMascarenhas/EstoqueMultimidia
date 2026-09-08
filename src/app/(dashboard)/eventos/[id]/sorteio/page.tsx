@@ -954,7 +954,7 @@ export default function OperatorDrawPage() {
 
                 <div className="flex items-center justify-between pt-1 text-[11px]">
                   <span className="text-muted-foreground">
-                    {new Date(w.drawDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(w.drawDate).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })}
                   </span>
 
                   <div className="flex items-center gap-1.5">

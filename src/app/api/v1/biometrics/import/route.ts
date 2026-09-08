@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-guard";
 import { ImportService } from "@/services/import.service";
 import { Role } from "@prisma/client";
+import { assertEventAccess } from "@/lib/event-access";
+import { EVENT_PERMISSIONS } from "@/lib/event-permissions";
+import { ImportLimitError } from "@/lib/zip-limits";
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireSession([
@@ -9,20 +12,29 @@ export async function POST(req: NextRequest) {
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {
     const formData = await req.formData();
-    const file = formData.get("file") as Blob | null;
-    const filename = (formData.get("filename") as string) || "import.csv";
-    const eventId = (formData.get("eventId") as string) || null;
+    const file = formData.get("file");
+    const filename = formData.get("filename") || "import.csv";
+    const eventId = formData.get("eventId") || null;
 
-    if (!file) {
+    if (!(file instanceof Blob) || !file.size || typeof filename !== "string" || filename.length > 255 ||
+        !/\.(csv|xlsx|xls|zip)$/i.test(filename) || (eventId !== null && (typeof eventId !== "string" || eventId.length > 128))) {
       return NextResponse.json(
-        { success: false, error: "Arquivo para importação é obrigatório." },
+        { success: false, error: "Envie um arquivo CSV, XLSX, XLS ou ZIP não vazio e identificadores válidos." },
         { status: 400 }
       );
+    }
+
+    if (eventId) {
+      const access = await assertEventAccess(eventId, session.user, {
+        isMutation: true,
+        requiredPermission: EVENT_PERMISSIONS.PARTICIPANTS_CREATE,
+      });
+      if (!access.authorized) return access.errorResponse!;
     }
 
     const isZip = filename.toLowerCase().endsWith(".zip");
@@ -71,6 +83,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
+    if (err instanceof ImportLimitError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 413 });
+    }
     return NextResponse.json(
       { success: false, error: "Erro interno no servidor" },
       { status: 500 }

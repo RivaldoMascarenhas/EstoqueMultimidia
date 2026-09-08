@@ -28,6 +28,7 @@ RUN pip install --no-cache-dir setuptools==84.0.0 wheel && \
 # STAGE 2: Runtime Mínimo de Produção (Sem compiladores e sem root)
 # ==============================================================================
 FROM python:3.11-slim AS runner
+ENV TZ=America/Fortaleza
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -37,6 +38,7 @@ WORKDIR /app
 # Instala estritamente as bibliotecas dinâmicas de runtime necessárias
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libopenblas0 \
+    tzdata \
     libgl1 \
     libglib2.0-0 \
     curl \

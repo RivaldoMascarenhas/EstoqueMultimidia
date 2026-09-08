@@ -629,7 +629,7 @@ function PresentationContent({ eventId }: { eventId: string }) {
                 {event?.date && (
                   <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 border border-white/15 text-xs sm:text-sm text-slate-200">
                     <Calendar className="w-4 h-4 text-[#EAA023]" />
-                    <span>{new Date(event.date).toLocaleDateString("pt-BR")}</span>
+                    <span>{new Date(event.date).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}</span>
                   </div>
                 )}
                 {event?.location && (

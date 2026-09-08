@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       Role.GESTOR,
       Role.OPERADOR,
       Role.CONSULTA,
-    ]);
+    ], { req: req });
     if (error) return error;
     const body = await req.json();
     const rawInput = body.code?.trim() || "";

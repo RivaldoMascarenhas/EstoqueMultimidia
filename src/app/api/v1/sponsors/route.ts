@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     Role.ADMIN,
     Role.GESTOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {

@@ -296,10 +296,10 @@ export function AcademicSupportDashboard({ userName, userRole }: AcademicSupport
                   {requests.slice(0, 6).map((req: any) => {
                     const isToday = req.date === today || (req.date && req.date.startsWith(today));
                     const startTimeStr = req.startTime
-                      ? new Date(req.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      ? new Date(req.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })
                       : "-";
                     const endTimeStr = req.endTime
-                      ? new Date(req.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      ? new Date(req.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })
                       : "-";
 
                     const getReqBadge = (status: string) => {

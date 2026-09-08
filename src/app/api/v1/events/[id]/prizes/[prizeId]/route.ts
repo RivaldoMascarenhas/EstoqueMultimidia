@@ -58,7 +58,7 @@ export async function PUT(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {
@@ -127,7 +127,7 @@ export async function DELETE(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: _req });
   if (error) return error;
 
   try {

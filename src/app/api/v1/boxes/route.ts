@@ -25,7 +25,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR], { req: req });
     if (error) return error;
 
     const body = await req.json();

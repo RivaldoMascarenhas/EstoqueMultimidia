@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/api-guard";
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
 
     const assets = await LoanService.getAvailableAssets();

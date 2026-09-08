@@ -9,7 +9,7 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

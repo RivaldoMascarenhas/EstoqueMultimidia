@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSession } from "@/lib/api-guard";
+import { assertEventAccess } from "@/lib/event-access";
+import { Role } from "@prisma/client";
 
 export interface PresentationAuthResult {
   isAuthorized: boolean;
@@ -30,9 +31,12 @@ export async function requirePresentationToken(
 ): Promise<PresentationAuthResult> {
   // 1. Permite acesso se o usuário logado possuir perfil administrativo/operacional autorizado
   try {
-    const session = await getServerSession(authOptions);
-    const authorizedRoles = ["ADMIN", "GESTOR", "OPERADOR", "EVENTOS"];
-    if (session?.user?.id && authorizedRoles.includes(session.user.role)) {
+    const { session } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR, Role.EVENTOS], { req });
+    if (session) {
+      const access = await assertEventAccess(eventId, session.user);
+      if (!access.authorized) {
+        return { isAuthorized: false, errorResponse: access.errorResponse };
+      }
       const event = await prisma.event.findUnique({
         where: { id: eventId },
         include: {

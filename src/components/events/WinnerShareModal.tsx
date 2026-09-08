@@ -80,7 +80,7 @@ export function WinnerShareModal({
     if (typeof eventDate === "string" && eventDate.includes("-")) {
       return eventDate.split("T")[0].split("-").reverse().join("/");
     }
-    return new Date(eventDate).toLocaleDateString("pt-BR");
+    return new Date(eventDate).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" });
   })();
 
   // 1. Template para Ganhador Individual (Notificação Direta)
@@ -230,7 +230,7 @@ export function WinnerShareModal({
       ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
       ctx.font = "600 22px sans-serif";
       const dateStr = eventDate
-        ? ` • ${new Date(eventDate).toLocaleDateString("pt-BR")}`
+        ? ` • ${new Date(eventDate).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}`
         : "";
       ctx.fillText(`Evento: ${eventName}${dateStr}`, width / 2, 260);
 
@@ -403,7 +403,7 @@ export function WinnerShareModal({
                 </h4>
                 <p className="text-xs text-slate-300 font-medium">
                   Evento: <strong className="text-white">{eventName}</strong>
-                  {eventDate && ` • ${new Date(eventDate).toLocaleDateString("pt-BR")}`}
+                  {eventDate && ` • ${new Date(eventDate).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}`}
                 </p>
                 <div className="w-full h-px bg-amber-500/30 my-2" />
               </div>

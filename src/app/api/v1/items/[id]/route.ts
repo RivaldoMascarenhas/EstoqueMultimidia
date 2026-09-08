@@ -11,7 +11,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
 
     if (!id) {
@@ -48,7 +48,7 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR], { req: req });
     if (error) return error;
 
     if (!id) {
@@ -82,7 +82,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR], { req: req });
     if (error) return error;
 
     if (!id) {

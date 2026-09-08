@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { 
@@ -21,12 +22,17 @@ import { StockEntryModal } from "@/components/inventory/stock-entry-modal";
 import { ItemFormModal } from "@/components/inventory/item-form-modal";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
-import { toast } from "sonner";
 
 export default function EstoquePage() {
+  return <Suspense fallback={<p role="status">Carregando estoque...</p>}><EstoqueContent /></Suspense>;
+}
+
+function EstoqueContent() {
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams.get("search") || "";
   const { data: session } = useSession();
-  const userRole = session?.user?.role || "OPERADOR";
-  const isReadOnly = userRole === "CONSULTA";
+  const userRole = session?.user?.role;
+  const isReadOnly = !userRole || !["ADMIN", "GESTOR", "OPERADOR"].includes(userRole);
   const canEditItem = userRole === "ADMIN" || userRole === "GESTOR";
 
   const [items, setItems] = useState<any[]>([]);
@@ -35,7 +41,12 @@ export default function EstoquePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Filtros
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
+  const [appliedSearch, setAppliedSearch] = useState(urlSearch);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ totalCount: 0, totalPages: 0 });
+  const [loadError, setLoadError] = useState(false);
+  const requestId = useRef(0);
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedBox, setSelectedBox] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState<"ALL" | "CRITICAL" | "LOW" | "NORMAL">("ALL");
@@ -46,11 +57,13 @@ export default function EstoquePage() {
   const [selectedItemForExit, setSelectedItemForExit] = useState<any | null>(null);
   const [selectedItemForEntry, setSelectedItemForEntry] = useState<any | null>(null);
 
-  const fetchData = async (isInitial: boolean | unknown = false) => {
+  const fetchData = useCallback(async (showLoading: unknown = true) => {
+    const currentRequest = ++requestId.current;
     try {
-      if (isInitial === true) setIsLoading(true);
+      if (showLoading !== false) setIsLoading(true);
       const params = new URLSearchParams();
-      if (searchTerm) params.append("search", searchTerm);
+      if (appliedSearch) params.append("search", appliedSearch);
+      params.set("page", String(page));
       if (selectedCategory !== "ALL") params.append("categoryId", selectedCategory);
       if (selectedBox !== "ALL") params.append("boxId", selectedBox);
       if (selectedStatus !== "ALL") params.append("status", selectedStatus);
@@ -65,29 +78,60 @@ export default function EstoquePage() {
       const catJson = await catRes.json();
       const boxesJson = await boxesRes.json();
 
-      if (itemsJson.success) setItems(itemsJson.data);
+      if (currentRequest !== requestId.current) return;
+      if (!itemsRes.ok || !itemsJson.success || !catRes.ok || !catJson.success || !boxesRes.ok || !boxesJson.success) {
+        throw new Error("Falha ao consultar estoque");
+      }
+      setLoadError(false);
+      setItems(itemsJson.data);
+      setPagination(itemsJson.pagination);
+      if (page > Math.max(1, itemsJson.pagination.totalPages)) {
+        setPage(Math.max(1, itemsJson.pagination.totalPages));
+      }
       if (catJson.success) setCategories(catJson.data);
       if (boxesJson.success) setAllBoxes(boxesJson.data);
     } catch (err: any) {
-      if (isInitial === true) toast.error("Erro ao carregar dados de estoque.");
+      if (currentRequest === requestId.current) {
+        setLoadError(true);
+        setItems([]);
+      }
     } finally {
-      if (isInitial === true) setIsLoading(false);
+      if (currentRequest === requestId.current) setIsLoading(false);
     }
-  };
+  }, [appliedSearch, selectedCategory, selectedBox, selectedStatus, page]);
 
   useEffect(() => {
-    fetchData(true);
-  }, [selectedCategory, selectedBox, selectedStatus]);
+    setSearchTerm(urlSearch);
+    setAppliedSearch(urlSearch);
+    setPage(1);
+  }, [urlSearch]);
+
+  useEffect(() => {
+    const requests = requestId;
+    fetchData();
+    return () => { requests.current++; };
+  }, [fetchData]);
 
   // Sincronização automática em segundo plano a cada 10s
   useAutoRefresh(() => fetchData(false), {
     intervalMs: 10000,
-    enabled: !isItemFormOpen && !selectedItemForExit && !selectedItemForEntry,
+    enabled: !isItemFormOpen && !selectedItemForEdit && !selectedItemForExit && !selectedItemForEntry,
   });
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchData();
+    setPage(1);
+    setAppliedSearch(searchTerm.trim());
+    if (page === 1 && appliedSearch === searchTerm.trim()) fetchData();
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setAppliedSearch("");
+    setSelectedCategory("ALL");
+    setSelectedBox("ALL");
+    setSelectedStatus("ALL");
+    setPage(1);
   };
 
   // Contagens para os KPIs rápidos
@@ -105,9 +149,6 @@ export default function EstoquePage() {
               <Package className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
               <span>Estoque & Insumos</span>
             </h1>
-            <Badge variant="normal" className="text-[11px] font-semibold px-2 py-0.5">
-              SSOT Ativa
-            </Badge>
             {isReadOnly && (
               <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
                 Modo Consulta
@@ -134,32 +175,33 @@ export default function EstoquePage() {
       </div>
 
       {/* KPI Cards Rápidos */}
+      <p className="text-sm text-muted-foreground">Indicadores dos itens desta página, conforme os filtros aplicados.</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
         <Card className="p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs">
-          <span className="text-xs font-semibold text-muted-foreground">Itens no Catálogo</span>
+          <span className="text-xs font-semibold text-muted-foreground">Itens nesta página</span>
           <div className="text-xl font-bold font-mono text-foreground mt-0.5">
-            {items.length}
+            {isLoading || loadError ? "—" : items.length}
           </div>
         </Card>
 
         <Card className="p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs">
           <span className="text-xs font-semibold text-muted-foreground">Total de Unidades</span>
           <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
-            {totalStockItems}
+            {isLoading || loadError ? "—" : totalStockItems}
           </div>
         </Card>
 
         <Card className={`p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs ${criticalItemsCount > 0 ? "border-rose-500/40 bg-rose-500/5" : ""}`}>
           <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Estoque Crítico</span>
           <div className="text-xl font-bold font-mono text-rose-600 dark:text-rose-400 mt-0.5">
-            {criticalItemsCount}
+            {isLoading || loadError ? "—" : criticalItemsCount}
           </div>
         </Card>
 
         <Card className={`p-3.5 sm:p-4 rounded-2xl border-border/80 shadow-xs ${lowItemsCount > 0 ? "border-amber-500/40 bg-amber-500/5" : ""}`}>
           <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Estoque Baixo</span>
           <div className="text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">
-            {lowItemsCount}
+            {isLoading || loadError ? "—" : lowItemsCount}
           </div>
         </Card>
       </div>
@@ -170,6 +212,7 @@ export default function EstoquePage() {
           <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
             <div className="relative flex-1">
               <Input
+                aria-label="Buscar itens por nome, SKU, modelo ou fabricante"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar por nome, SKU, modelo ou fabricante..."
@@ -191,8 +234,9 @@ export default function EstoquePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {/* Filtro por Caixa */}
             <select
+              aria-label="Filtrar por caixa"
               value={selectedBox}
-              onChange={(e) => setSelectedBox(e.target.value)}
+              onChange={(e) => { setSelectedBox(e.target.value); setPage(1); }}
               className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full"
             >
               <option value="ALL">📦 Todas as Caixas</option>
@@ -205,8 +249,9 @@ export default function EstoquePage() {
 
             {/* Filtro por Categoria */}
             <select
+              aria-label="Filtrar por categoria"
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+              onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
               className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary w-full"
             >
               <option value="ALL">Todas as Categorias</option>
@@ -220,8 +265,9 @@ export default function EstoquePage() {
             {/* Filtro por Status + Limpar */}
             <div className="flex items-center gap-1.5">
               <select
+                aria-label="Filtrar por nível de estoque"
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as any)}
+                onChange={(e) => { setSelectedStatus(e.target.value as any); setPage(1); }}
                 className="h-10 px-3 text-xs bg-background border border-input rounded-xl text-foreground font-medium outline-none focus:ring-2 focus:ring-primary flex-1"
               >
                 <option value="ALL">Todos os Níveis</option>
@@ -230,17 +276,12 @@ export default function EstoquePage() {
                 <option value="NORMAL">🟢 Normal</option>
               </select>
 
-              {(searchTerm || selectedCategory !== "ALL" || selectedBox !== "ALL" || selectedStatus !== "ALL") && (
+              {(searchTerm || appliedSearch || selectedCategory !== "ALL" || selectedBox !== "ALL" || selectedStatus !== "ALL") && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setSelectedCategory("ALL");
-                    setSelectedBox("ALL");
-                    setSelectedStatus("ALL");
-                  }}
+                  onClick={clearFilters}
                   className="h-10 px-2 text-xs text-muted-foreground hover:text-foreground rounded-xl shrink-0"
                   title="Limpar filtros"
                 >
@@ -260,16 +301,21 @@ export default function EstoquePage() {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
               <p className="text-xs text-muted-foreground">Consultando estoque em tempo real...</p>
             </div>
+          ) : loadError ? (
+            <div role="alert" className="p-12 text-center space-y-3">
+              <p>Não foi possível carregar o estoque. Tente novamente.</p>
+              <Button onClick={fetchData}>Tentar novamente</Button>
+            </div>
           ) : items.length === 0 ? (
             <div className="p-12 text-center space-y-3">
               <Package className="w-10 h-10 text-muted-foreground mx-auto" />
               <h3 className="text-sm font-semibold text-foreground">Nenhum item encontrado</h3>
               <p className="text-xs text-muted-foreground">
-                Tente alterar os filtros de busca ou cadastre um novo item.
+                Tente alterar ou limpar os filtros de busca.
               </p>
-              <Button size="sm" onClick={() => setIsItemFormOpen(true)} className="rounded-xl">
+              {!isReadOnly && <Button size="sm" onClick={() => setIsItemFormOpen(true)} className="rounded-xl">
                 Cadastrar Item
-              </Button>
+              </Button>}
             </div>
           ) : (
             <Table>
@@ -484,6 +530,18 @@ export default function EstoquePage() {
           )}
         </CardContent>
       </Card>
+
+      {!loadError && pagination.totalPages > 0 && (
+        <nav aria-label="Paginação do estoque" className="flex flex-wrap items-center justify-between gap-3">
+          <p role="status" className="text-sm text-muted-foreground">
+            Página {page} de {pagination.totalPages} • {pagination.totalCount} itens encontrados
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={isLoading || page <= 1} onClick={() => setPage(page - 1)}>Anterior</Button>
+            <Button variant="outline" disabled={isLoading || page >= pagination.totalPages} onClick={() => setPage(page + 1)}>Próxima</Button>
+          </div>
+        </nav>
+      )}
 
       {/* Modais de Operação */}
       {(isItemFormOpen || selectedItemForEdit) && (

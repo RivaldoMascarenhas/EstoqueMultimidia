@@ -154,27 +154,27 @@ function EmprestimosContent() {
   const getStatusBadge = (loan: any) => {
     if (loan.status === "RETURNED") {
       return (
-        <Badge variant="available" dot className="text-[10px]">
+        <Badge variant="available" dot className="text-xs">
           Devolvido
         </Badge>
       );
     }
     if (loan.status === "RETURNED_DAMAGED") {
       return (
-        <Badge variant="damaged" dot className="text-[10px]">
+        <Badge variant="damaged" dot className="text-xs">
           Devolvido c/ Avaria
         </Badge>
       );
     }
     if (loan.isOverdue) {
       return (
-        <Badge variant="damaged" dot className="text-[10px] animate-pulse">
+        <Badge variant="damaged" dot className="text-xs animate-pulse">
           Atrasado
         </Badge>
       );
     }
     return (
-      <Badge variant="loaned" dot className="text-[10px]">
+      <Badge variant="loaned" dot className="text-xs">
         Em Andamento
       </Badge>
     );
@@ -215,11 +215,11 @@ function EmprestimosContent() {
               <Handshake className="w-5 h-5 sm:w-6 sm:h-6 text-primary shrink-0" />
               <span>Empréstimos</span>
             </h1>
-            <Badge variant="loaned" className="text-[11px] font-semibold px-2 py-0.5">
+            <Badge variant="loaned" className="text-xs font-semibold px-2 py-0.5">
               {metrics.activeLoans} Ativos
             </Badge>
             {isReadOnly && (
-              <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
+              <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
                 Modo Consulta
               </Badge>
             )}
@@ -245,7 +245,7 @@ function EmprestimosContent() {
             variant="outline"
             size="sm"
             onClick={fetchData}
-            className="rounded-xl h-10 sm:h-9 text-xs px-3"
+            className="rounded-xl h-10 sm:h-9 text-sm px-3"
             title="Atualizar dados"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
@@ -270,7 +270,7 @@ function EmprestimosContent() {
             <div className="text-2xl font-bold text-foreground">
               {metrics.activeLoans}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <span className="text-emerald-600 font-semibold">{metrics.onTimeActiveLoans}</span> dentro do prazo previsto
             </p>
           </CardContent>
@@ -295,7 +295,7 @@ function EmprestimosContent() {
             <div className={`text-2xl font-bold ${metrics.overdueLoans > 0 ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>
               {metrics.overdueLoans}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {metrics.overdueLoans > 0 ? "Requer cobrança via WhatsApp ou contato" : "Nenhum equipamento atrasado"}
             </p>
           </CardContent>
@@ -315,7 +315,7 @@ function EmprestimosContent() {
             <div className="text-2xl font-bold text-foreground">
               {metrics.returnedLoans}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {metrics.monthLoans} empréstimos realizados neste mês
             </p>
           </CardContent>
@@ -335,7 +335,7 @@ function EmprestimosContent() {
             <div className="text-2xl font-bold text-foreground">
               {metrics.returnedDamagedLoans}
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Itens retidos para manutenção técnica
             </p>
           </CardContent>
@@ -354,7 +354,7 @@ function EmprestimosContent() {
               className="rounded-xl text-xs h-8 gap-1.5"
             >
               <span>Ativos</span>
-              <Badge variant={statusTab === "ACTIVE" ? "outline" : "loaned"} className="text-[10px] px-1.5 py-0">
+              <Badge variant={statusTab === "ACTIVE" ? "outline" : "loaned"} className="text-xs px-1.5 py-0">
                 {metrics.activeLoans}
               </Badge>
             </Button>
@@ -370,7 +370,7 @@ function EmprestimosContent() {
               <AlertTriangle className="w-3 h-3" />
               <span>Atrasados</span>
               {metrics.overdueLoans > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-500 text-white animate-pulse">
+                <span className="px-1.5 py-0.2 rounded-full text-xs font-bold bg-rose-500 text-white animate-pulse">
                   {metrics.overdueLoans}
                 </span>
               )}
@@ -415,7 +415,7 @@ function EmprestimosContent() {
                 className="pl-9 h-9 text-xs rounded-xl"
               />
             </div>
-            <Button type="submit" size="sm" variant="secondary" className="rounded-xl h-9 text-xs">
+            <Button type="submit" size="sm" variant="secondary" className="rounded-xl h-9 text-sm">
               Buscar
             </Button>
           </form>
@@ -478,7 +478,7 @@ function EmprestimosContent() {
                     <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
                       <Handshake className="w-8 h-8 text-muted-foreground/50" />
                       <p className="font-semibold text-foreground">Nenhum empréstimo encontrado</p>
-                      <p className="text-[11px]">Não há registros correspondentes aos filtros selecionados.</p>
+                      <p className="text-xs">Não há registros correspondentes aos filtros selecionados.</p>
                       <Button
                         size="sm"
                         variant="outline"
@@ -504,10 +504,10 @@ function EmprestimosContent() {
                       <TableCell className="py-3.5 pl-6">
                         <div className="space-y-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[10px] font-bold text-muted-foreground">
+                            <span className="font-mono text-xs font-bold text-muted-foreground">
                               {protocolNumber}
                             </span>
-                            <Badge variant="outline" className="font-mono text-[10px]">
+                            <Badge variant="outline" className="font-mono text-xs">
                               #{loan.asset?.assetTag}
                             </Badge>
                           </div>
@@ -516,7 +516,7 @@ function EmprestimosContent() {
                             <span className="truncate max-w-[200px]">{loan.asset?.item?.name}</span>
                           </p>
                           {loan.asset?.model && (
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
                               Mod: {loan.asset.model}
                             </p>
                           )}
@@ -531,13 +531,13 @@ function EmprestimosContent() {
                             <span>{loan.borrowerName}</span>
                           </p>
                           {loan.borrowerDepartment && (
-                            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <Building2 className="w-3 h-3 text-muted-foreground/70" />
                               <span>{loan.borrowerDepartment}</span>
                             </p>
                           )}
                           {loan.borrowerPhone && (
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
                               <Phone className="w-3 h-3 text-emerald-500" />
                               <span>{loan.borrowerPhone}</span>
                             </p>
@@ -552,7 +552,7 @@ function EmprestimosContent() {
                           <span className="font-medium">{loan.destination}</span>
                         </div>
                         {loan.notes && (
-                          <p className="text-[10px] text-muted-foreground truncate max-w-[150px] mt-0.5" title={loan.notes}>
+                          <p className="text-xs text-muted-foreground truncate max-w-[150px] mt-0.5" title={loan.notes}>
                             {loan.notes}
                           </p>
                         )}
@@ -561,17 +561,17 @@ function EmprestimosContent() {
                       {/* Datas & Prazo */}
                       <TableCell className="py-3.5 px-4">
                         <div className="space-y-1">
-                          <div className="text-[11px] text-muted-foreground">
+                          <div className="text-xs text-muted-foreground">
                             <span>Saída: </span>
                             <span className="text-foreground font-medium">{formatDate(loan.loanDate)}</span>
                           </div>
-                          <div className="text-[11px]">
+                          <div className="text-xs">
                             <span className="text-muted-foreground">Retorno: </span>
                             <span className={`font-bold ${loan.isOverdue ? "text-rose-600 dark:text-rose-400" : "text-foreground"}`}>
                               {formatDateTime(loan.expectedReturnDate)}
                             </span>
                           </div>
-                          <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                          <span className={`inline-block text-xs font-semibold px-1.5 py-0.5 rounded ${
                             loan.isOverdue
                               ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
                               : isActive

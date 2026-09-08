@@ -55,7 +55,7 @@ export async function GET(
       if (format === "html") {
         const html = ExportService.generateWinnersReportHtml({
           eventName: event.name,
-          eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
+          eventDate: event.date ? event.date.toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : null,
           winners: winners.map((w) => ({
             prizeName: w.prize.name,
             winnerName: w.person.name,
@@ -130,7 +130,7 @@ export async function GET(
     if (format === "html") {
       const html = ExportService.generateParticipantsReportHtml({
         eventName: event.name,
-        eventDate: event.date ? event.date.toLocaleDateString("pt-BR") : null,
+        eventDate: event.date ? event.date.toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : null,
         eventTime: event.time || null,
         eventLocation: event.location || null,
         filterLabel: type === "presences" ? "Lista de Presenças Confirmadas" : type === "absent" ? "Lista de Ausentes" : "Lista Oficial de Inscritos",

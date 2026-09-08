@@ -241,8 +241,8 @@ export class EventService {
     const now = new Date();
 
     if (now.getTime() < openAt.getTime()) {
-      const timeFormatted = openAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const dateFormatted = openAt.toLocaleDateString("pt-BR");
+      const timeFormatted = openAt.toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" });
+      const dateFormatted = openAt.toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" });
       
       let windowDesc = `${minutesBefore} min antes`;
       if (minutesBefore === 60) windowDesc = "1 hora antes";

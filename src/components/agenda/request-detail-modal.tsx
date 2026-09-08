@@ -244,7 +244,7 @@ export function RequestDetailModal({
     }
     try {
       setIsSaving(true);
-      const nowStr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const nowStr = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" });
       const authorName = session?.user?.name || "Operador";
       const reasonPrefix = problemReason.trim() ? `[${problemReason.trim()}] ` : "";
       const descText = problemDetails.trim();
@@ -533,7 +533,7 @@ export function RequestDetailModal({
                     <Calendar className="w-3.5 h-3.5 text-primary" /> Data & Horário:
                   </span>
                   <p className="font-bold text-foreground mt-0.5 font-mono">
-                    {formatDate(request.date)} • {new Date(request.startTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} às {new Date(request.endTime).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {formatDate(request.date)} • {new Date(request.startTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })} às {new Date(request.endTime).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
 

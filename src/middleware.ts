@@ -33,6 +33,7 @@ export function middlewareHandler(req: any) {
         pathname.startsWith("/presenca") ||
         pathname.startsWith("/sorteios") ||
         pathname.startsWith("/scanner") ||
+        pathname.startsWith("/tarefas") ||
         pathname.startsWith("/totem"))
     ) {
       return NextResponse.redirect(new URL("/agenda", req.url));
@@ -51,6 +52,7 @@ export function middlewareHandler(req: any) {
         pathname.startsWith("/agenda") ||
         pathname.startsWith("/salas") ||
         pathname.startsWith("/scanner") ||
+        pathname.startsWith("/tarefas") ||
         pathname.startsWith("/usuarios") ||
         pathname.startsWith("/configuracoes") ||
         pathname.startsWith("/auditoria") ||
@@ -105,6 +107,7 @@ export const config = {
     "/salas/:path*",
     "/scanner/:path*",
     "/sorteios/:path*",
+    "/tarefas/:path*",
     "/totem/:path*",
     "/usuarios/:path*",
   ],

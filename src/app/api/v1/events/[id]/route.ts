@@ -62,7 +62,7 @@ export async function PATCH(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {
@@ -116,7 +116,7 @@ export async function DELETE(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: _req });
   if (error) {
     return NextResponse.json(
       { success: false, error: "Acesso não autorizado para excluir eventos." },

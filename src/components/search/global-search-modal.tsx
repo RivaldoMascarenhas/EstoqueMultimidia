@@ -73,14 +73,14 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
       url: `/biometria/pessoas?search=${encodeURIComponent(person.name)}`,
       data: person,
     })),
-    ...(!isEventosRole
+    ...(!isEventosRole && !isAcademicRole
       ? (results.assets || []).map((asset) => ({
           type: "ASSET" as const,
           url: `/patrimonio?search=${encodeURIComponent(asset.assetTag)}`,
           data: asset,
         }))
       : []),
-    ...(!isEventosRole
+    ...(!isEventosRole && !isAcademicRole
       ? (results.items || []).map((item) => ({
           type: "ITEM" as const,
           url: `/estoque?search=${encodeURIComponent(item.sku || item.name)}`,
@@ -366,7 +366,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                               </span>
                               {event.date && (
                                 <span className={`text-xs ${isHighlighted ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                                  • {new Date(event.date).toLocaleDateString("pt-BR")}
+                                  • {new Date(event.date).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}
                                 </span>
                               )}
                             </div>

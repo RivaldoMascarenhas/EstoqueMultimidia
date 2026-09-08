@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ImportLimitError, readZipEntry } from "@/lib/zip-limits";
 import { safeAuditLog } from "@/lib/audit";
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
@@ -361,6 +362,10 @@ export class ImportService {
   }): Promise<ZipImportResult> {
     const { buffer, eventId, operatorUserId } = params;
     const loadedZip = await JSZip.loadAsync(buffer);
+    if (Object.keys(loadedZip.files).length > 2000) {
+      throw new ImportLimitError("O pacote ZIP deve conter no máximo 2.000 entradas.");
+    }
+    let remainingBytes = 250 * 1024 * 1024;
 
     let spreadsheetFile: { name: string; buffer: Buffer } | null = null;
     const imageFiles: Array<{ name: string; buffer: Buffer }> = [];
@@ -374,7 +379,8 @@ export class ImportService {
       if (lower.includes("__macosx") || lower.endsWith(".ds_store") || lower.startsWith(".")) continue;
 
       if (lower.endsWith(".csv") || lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
-        const fileBuf = await file.async("nodebuffer");
+        const fileBuf = await readZipEntry(file, Math.min(25 * 1024 * 1024, remainingBytes));
+        remainingBytes -= fileBuf.length;
         spreadsheetFile = { name: relativePath, buffer: fileBuf };
       } else if (
         lower.endsWith(".jpg") ||
@@ -382,7 +388,8 @@ export class ImportService {
         lower.endsWith(".png") ||
         lower.endsWith(".webp")
       ) {
-        const fileBuf = await file.async("nodebuffer");
+        const fileBuf = await readZipEntry(file, Math.min(10 * 1024 * 1024, remainingBytes));
+        remainingBytes -= fileBuf.length;
         imageFiles.push({ name: relativePath, buffer: fileBuf });
       }
     }

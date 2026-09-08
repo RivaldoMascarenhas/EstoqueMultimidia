@@ -456,7 +456,7 @@ export function EventFormModal({
                                   try {
                                     const d = new Date(`${date}T${time || "19:00"}:00`);
                                     const op = new Date(d.getTime() - checkinOpenMinutesBefore * 60 * 1000);
-                                    return op.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                                    return op.toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza", hour: "2-digit", minute: "2-digit" });
                                   } catch {
                                     return "18:00";
                                   }

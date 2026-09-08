@@ -76,7 +76,7 @@ export class ExportService {
               ${w.delivered ? "ENTREGUE" : "PENDENTE"}
             </span>
           </td>
-          <td style="padding: 10px 12px; font-size: 12px; color: #64748b;">${new Date(w.drawDate).toLocaleString("pt-BR")}</td>
+          <td style="padding: 10px 12px; font-size: 12px; color: #64748b;">${new Date(w.drawDate).toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}</td>
         </tr>`
       )
       .join("");
@@ -111,7 +111,7 @@ export class ExportService {
             <div style="display: inline-block; padding: 4px 10px; border-radius: 6px; background: #002B49; color: white; font-size: 10px; font-weight: bold; text-transform: uppercase;">
               Ata Oficial
             </div>
-            <div class="sub" style="margin-top: 4px; font-size: 10px; color: #64748b;">Emitido em: ${new Date().toLocaleString("pt-BR")}</div>
+            <div class="sub" style="margin-top: 4px; font-size: 10px; color: #64748b;">Emitido em: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}</div>
           </div>
         </div>
 
@@ -170,7 +170,7 @@ export class ExportService {
         let timeFormatted = "—";
         if (p.capturedAt) {
           try {
-            timeFormatted = new Date(p.capturedAt).toLocaleTimeString("pt-BR", {
+            timeFormatted = new Date(p.capturedAt).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
               hour: "2-digit",
               minute: "2-digit",
             });
@@ -326,7 +326,7 @@ export class ExportService {
       <div style="display: inline-block; padding: 4px 10px; border-radius: 6px; background: #002B49; color: white; font-size: 10px; font-weight: bold; text-transform: uppercase;">
         ${filterLabel || "Lista Oficial de Frequência"}
       </div>
-      <div class="header-sub" style="margin-top: 4px;">Emitido em: ${new Date().toLocaleString("pt-BR")}</div>
+      <div class="header-sub" style="margin-top: 4px;">Emitido em: ${new Date().toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}</div>
     </div>
   </div>
 

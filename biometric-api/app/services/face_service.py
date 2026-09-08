@@ -145,6 +145,11 @@ class FaceService:
         Extracts 128-dimensional face embedding for full image enrollment.
         Enforces that EXACTLY ONE face is present and quality checks pass.
         """
+        if not HAS_FACE_RECOGNITION:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Motor de reconhecimento facial indisponível.",
+            )
         rgb_array = cls.bytes_to_rgb_array(image_bytes)
         cls.validate_quality_and_anti_replay(rgb_array, is_crop=False)
 
@@ -169,30 +174,29 @@ class FaceService:
                 )
 
             return [float(x) for x in encodings[0]]
-        else:
-            # Deterministic fallback for dev/test without dlib
-            h, w, _ = rgb_array.shape
-            resized = np.array(Image.fromarray(rgb_array).resize((16, 8))).flatten().astype(np.float32)
-            norm = np.linalg.norm(resized)
-            if norm > 0:
-                resized = resized / norm
-            return [float(x) for x in resized[:128]]
 
     @classmethod
     def extract_crop_face_encoding(cls, crop_bytes: bytes) -> List[float]:
         """
         Extracts 128-dimensional face embedding from a pre-cropped face sent by client-side MediaPipe.
         """
+        if not HAS_FACE_RECOGNITION:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Motor de reconhecimento facial indisponível.",
+            )
         rgb_array = cls.bytes_to_rgb_array(crop_bytes)
         cls.validate_quality_and_anti_replay(rgb_array, is_crop=True)
 
         if HAS_FACE_RECOGNITION:
-            encodings = face_recognition.face_encodings(rgb_array)
-            if encodings and len(encodings) > 0:
-                return [float(x) for x in encodings[0]]
-
             h, w, _ = rgb_array.shape
-            locations = [(0, w, h, 0)]
+            detected_locations = face_recognition.face_locations(rgb_array)
+            # Background faces are expected at events. Encode only the largest
+            # face, matching the client's nearest-person selection.
+            locations = [max(
+                detected_locations,
+                key=lambda box: max(0, box[2] - box[0]) * max(0, box[1] - box[3]),
+            )] if detected_locations else [(0, w, h, 0)]
             encodings = face_recognition.face_encodings(rgb_array, known_face_locations=locations)
             if encodings and len(encodings) > 0:
                 return [float(x) for x in encodings[0]]
@@ -201,9 +205,3 @@ class FaceService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Não foi possível extrair a biometria facial do recorte recebido.",
             )
-        else:
-            resized = np.array(Image.fromarray(rgb_array).resize((16, 8))).flatten().astype(np.float32)
-            norm = np.linalg.norm(resized)
-            if norm > 0:
-                resized = resized / norm
-            return [float(x) for x in resized[:128]]

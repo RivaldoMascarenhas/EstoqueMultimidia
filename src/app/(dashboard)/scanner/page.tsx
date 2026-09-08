@@ -895,7 +895,7 @@ function ScannerContent() {
                             {item.code}
                           </strong>
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(item.timestamp).toLocaleTimeString("pt-BR")}
+                            {new Date(item.timestamp).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza" })}
                           </span>
                         </div>
                       </div>
@@ -959,7 +959,7 @@ function ScannerContent() {
                               : item.code}
                           </strong>
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(item.timestamp).toLocaleTimeString("pt-BR")}
+                            {new Date(item.timestamp).toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza" })}
                           </span>
                         </div>
                       </div>

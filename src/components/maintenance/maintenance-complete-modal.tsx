@@ -216,7 +216,7 @@ export function MaintenanceCompleteModal({
             </div>
             <div className="text-right">
               <Badge variant="outline" className="text-xs">
-                Entrada: {new Date(maintenance.entryDate).toLocaleDateString("pt-BR")}
+                Entrada: {new Date(maintenance.entryDate).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" })}
               </Badge>
             </div>
           </div>

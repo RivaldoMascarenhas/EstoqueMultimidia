@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     const cleanQuery = q.replace(/^#/, ""); // Remove '#' se o usuário digitou #123458 ou #OS-2026-0001
 
     // Determinar escopo de busca por Role (RBAC)
-    const canSearchStock = userRole !== Role.EVENTOS;
-    const canSearchPatrimony = userRole !== Role.EVENTOS;
+    const canSearchStock = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR || userRole === Role.CONSULTA;
+    const canSearchPatrimony = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR || userRole === Role.CONSULTA;
     const canSearchBoxes = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR || userRole === Role.CONSULTA;
     const canSearchLoans = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR;
     const canSearchMaintenance = userRole === Role.ADMIN || userRole === Role.GESTOR || userRole === Role.OPERADOR;
@@ -176,13 +176,19 @@ export async function GET(req: NextRequest) {
       canSearchEvents
         ? prisma.event.findMany({
             where: {
+              ...(userRole === Role.EVENTOS ? { managers: { some: { userId: session!.user.id } } } : {}),
               OR: [
                 { name: { contains: q, mode: "insensitive" } },
                 { description: { contains: q, mode: "insensitive" } },
                 { location: { contains: q, mode: "insensitive" } },
               ],
             },
-            include: {
+            select: {
+              id: true,
+              name: true,
+              date: true,
+              location: true,
+              status: true,
               _count: {
                 select: {
                   participants: true,

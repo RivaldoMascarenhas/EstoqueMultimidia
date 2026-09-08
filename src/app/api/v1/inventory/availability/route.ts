@@ -5,7 +5,7 @@ import { AssetStatus, ItemLogisticsType } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA", "ACADEMIC_SUPPORT"]);
     if (error) return error;
 
     const { searchParams } = new URL(req.url);

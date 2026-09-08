@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { code } = await params;
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
 
     if (!code) {

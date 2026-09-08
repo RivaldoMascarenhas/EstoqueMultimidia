@@ -4,19 +4,27 @@ import { InventoryService } from "@/services/inventory.service";
 import { itemCreateSchema } from "@/schemas/inventory.schema";
 import { requireSession } from "@/lib/api-guard";
 import { Role } from "@prisma/client";
+import { z } from "zod";
+
+const querySchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  categoryId: z.string().max(100).optional(),
+  boxId: z.string().max(100).optional(),
+  status: z.enum(["ALL", "CRITICAL", "LOW", "NORMAL"]).optional(),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
 
 export async function GET(req: NextRequest) {
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
 
-    const searchParams = req.nextUrl.searchParams;
-    const search = searchParams.get("search") || undefined;
-    const categoryId = searchParams.get("categoryId") || undefined;
-    const boxId = searchParams.get("boxId") || undefined;
-    const statusFilter = (searchParams.get("status") as any) || undefined;
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const query = querySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams));
+    if (!query.success) {
+      return NextResponse.json({ success: false, error: "Filtros ou paginação inválidos." }, { status: 400 });
+    }
+    const { search, categoryId, boxId, status: statusFilter, page, limit } = query.data;
 
     const result = await InventoryService.getItems({
       search,
@@ -47,7 +55,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR]);
+    const { session, error } = await requireSession([Role.ADMIN, Role.GESTOR, Role.OPERADOR], { req: req });
     if (error) return error;
 
     const body = await req.json();

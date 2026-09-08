@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateInput, formatTimeInTimezone } from "@/lib/utils";
 import React, { useState, useEffect } from "react";
 import { 
   CalendarClock, 
@@ -39,15 +40,7 @@ export function LoanRenewModal({
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const formatDateTimeForInput = (date: Date) => {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const year = date.getFullYear();
-    const month = pad(date.getMonth() + 1);
-    const day = pad(date.getDate());
-    const hours = pad(date.getHours());
-    const minutes = pad(date.getMinutes());
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
+  const formatDateTimeForInput = (date: Date) => `${formatDateInput(date)}T${formatTimeInTimezone(date)}`;
 
   useEffect(() => {
     if (isOpen && loan) {
@@ -106,7 +99,7 @@ export function LoanRenewModal({
     try {
       setIsSubmitting(true);
       const payload = {
-        newExpectedReturnDate: new Date(newExpectedReturnDate).toISOString(),
+        newExpectedReturnDate: new Date(`${newExpectedReturnDate}:00-03:00`).toISOString(),
         reason: reason.trim(),
       };
 

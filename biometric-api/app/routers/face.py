@@ -18,7 +18,7 @@ ALLOWED_IMAGE_TYPES = {
     "image/png",
     "image/webp",
 }
-MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10MB
 
 
 async def read_limited_upload(upload: UploadFile) -> bytes:
@@ -33,7 +33,7 @@ async def read_limited_upload(upload: UploadFile) -> bytes:
     if len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Arquivo de imagem excede o limite máximo seguro de 5 MB.",
+            detail="Arquivo de imagem excede o limite máximo seguro de 10 MB.",
         )
     if len(data) < 100:
         raise HTTPException(

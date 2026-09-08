@@ -46,7 +46,7 @@ export async function PATCH(
     Role.GESTOR,
     Role.OPERADOR,
     Role.EVENTOS,
-  ]);
+  ], { req: req });
   if (error) return error;
 
   try {
@@ -80,7 +80,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { session, error } = await requireSession([Role.ADMIN]);
+  const { session, error } = await requireSession([Role.ADMIN], { req: _req });
   if (error) return error;
 
   try {

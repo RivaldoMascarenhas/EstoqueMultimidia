@@ -1,5 +1,6 @@
 "use client";
 
+import { isFaceInsideGuide } from "@/lib/face-framing";
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { FilesetResolver, FaceDetector } from "@mediapipe/tasks-vision";
 import {
@@ -152,6 +153,7 @@ export function FaceAttendanceCamera({
   className = "",
   isKioskMode = false,
 }: FaceAttendanceCameraProps) {
+  const guideRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const faceDetectorRef = useRef<FaceDetector | null>(null);
@@ -624,16 +626,8 @@ export function FaceAttendanceCamera({
 
                 // Primary Face (Center / Closest)
                 const { box } = primaryFace;
-                const faceCenterX = box.originX + box.width / 2;
-                const faceCenterY = box.originY + box.height / 2;
-                const frameCenterX = vWidth / 2;
-                const frameCenterY = vHeight / 2;
-
-                const toleranceX = vWidth * 0.26;
-                const toleranceY = vHeight * 0.26;
-                const isCentered =
-                  Math.abs(faceCenterX - frameCenterX) <= toleranceX &&
-                  Math.abs(faceCenterY - frameCenterY) <= toleranceY;
+                const guide = guideRef.current?.getBoundingClientRect();
+                const isCentered = !!guide && isFaceInsideGuide(box, vWidth, vHeight, video.getBoundingClientRect(), guide);
                 const isAdequateSize = box.width >= vWidth * 0.14 && box.height >= vHeight * 0.16;
 
                 const isWellFramed = isCentered && isAdequateSize;
@@ -870,6 +864,7 @@ export function FaceAttendanceCamera({
         {/* HUD Center Target Outline - Proporcional, Limpo e Elegante */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <div
+            ref={guideRef}
             className={`rounded-3xl border-[2.5px] border-dashed border-white/85 shadow-[0_0_30px_rgba(255,255,255,0.25)] transition-all duration-300 relative ${
               isFullscreen
                 ? "h-[62vh] w-[26vw] min-w-[340px] max-w-[500px] min-h-[440px] max-h-[640px]"
@@ -954,7 +949,7 @@ export function FaceAttendanceCamera({
                       : "ROSTO NÃO RECONHECIDO"}
                   </span>
                   <span className="text-xs font-mono text-slate-400 font-semibold">
-                    {new Date().toLocaleTimeString("pt-BR", {
+                    {new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Fortaleza",
                       hour: "2-digit",
                       minute: "2-digit",
                       second: "2-digit",

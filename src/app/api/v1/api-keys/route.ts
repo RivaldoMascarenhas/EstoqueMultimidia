@@ -46,7 +46,7 @@ export async function GET() {
 // POST /api/v1/api-keys - Gerar nova chave de API com alta entropia e hash SHA-256
 export async function POST(req: NextRequest) {
   try {
-    const { session, error } = await requireSession([Role.ADMIN]);
+    const { session, error } = await requireSession([Role.ADMIN], { req: req });
     if (error) return error;
 
     const body = await req.json();

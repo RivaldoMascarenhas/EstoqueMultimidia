@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -167,9 +168,9 @@ class RecognitionService:
                             pass
                     
                     try:
-                        event_dt = datetime(d.year, d.month, d.day, h, m, 0)
+                        event_dt = datetime(d.year, d.month, d.day, h, m, 0, tzinfo=ZoneInfo("America/Fortaleza"))
                         open_at = event_dt - timedelta(minutes=minutes_before)
-                        now = datetime.now()
+                        now = datetime.now(ZoneInfo("America/Fortaleza"))
                         if now < open_at:
                             time_str = open_at.strftime("%H:%M")
                             date_str = open_at.strftime("%d/%m")
@@ -188,7 +189,7 @@ class RecognitionService:
         except HTTPException as e:
             return RecognizeResponse(
                 success=False,
-                status="NOT_RECOGNIZED",
+                status="ERROR" if e.status_code >= 500 else "NOT_RECOGNIZED",
                 message=f"Falha na detecção facial: {e.detail}",
             )
         except Exception as e:
@@ -373,6 +374,17 @@ class RecognitionService:
                 db.commit()
             except IntegrityError:
                 db.rollback()
+                confirmed_presence = (
+                    db.query(Presence)
+                    .filter(Presence.eventId == event_id, Presence.personId == person.id)
+                    .first()
+                )
+                if not confirmed_presence:
+                    return RecognizeResponse(
+                        success=False,
+                        status="ERROR",
+                        message="Não foi possível gravar a presença. Tente novamente.",
+                    )
                 return RecognizeResponse(
                     success=True,
                     status="ALREADY_REGISTERED",
@@ -387,8 +399,8 @@ class RecognitionService:
                     similarityScore=confidence,
                     matchScore=confidence,
                     distance=round(min_distance, 4),
-                    method="FACE",
-                    capturedAt=now,
+                    method=confirmed_presence.method,
+                    capturedAt=confirmed_presence.capturedAt,
                 )
 
             AuditService.log(

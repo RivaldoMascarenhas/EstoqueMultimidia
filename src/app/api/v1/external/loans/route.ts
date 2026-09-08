@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       `🏷️ *Equipamento:* ${asset.item.name} (#${asset.assetTag})`,
       `👤 *Responsável:* ${borrowerName}`,
       `📍 *Destino:* ${destination}`,
-      `⏰ *Devolução Prevista:* ${returnDate.toLocaleString("pt-BR")}`,
+      `⏰ *Devolução Prevista:* ${returnDate.toLocaleString("pt-BR", { timeZone: "America/Fortaleza" })}`,
       ``,
       `_Por favor, devolva o item no prazo para garantir a disponibilidade aos demais professores._`,
     ].join("\n");

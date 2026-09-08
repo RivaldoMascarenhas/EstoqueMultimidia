@@ -1,37 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireSession } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { validatePasswordPolicy } from "@/lib/password-policy";
+import { z } from "zod";
 
-// GET /api/v1/auth/profile - Obter dados completos do usuário logado
+const profileSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  avatarUrl: z.string().max(750000).nullable().optional(),
+  currentPassword: z.string().max(128).optional(),
+  newPassword: z.string().max(128).optional(),
+});
+
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireSession(undefined, { allowPendingPasswordChange: true });
+    if (error) return error;
 
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Não autenticado." },
-        { status: 401 }
-      );
-    }
-
-    const searchConditions: any[] = [];
-    if (session.user.id) searchConditions.push({ id: session.user.id });
-    if (session.user.email) searchConditions.push({ email: session.user.email.toLowerCase().trim() });
-
-    if (searchConditions.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Sessão inválida." },
-        { status: 401 }
-      );
-    }
-
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: searchConditions,
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
       select: {
         id: true,
         name: true,
@@ -85,34 +72,25 @@ export async function GET(req: NextRequest) {
 // PUT /api/v1/auth/profile - Atualizar dados do próprio usuário (nome, avatar, senha)
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const { session, error } = await requireSession(undefined, { req });
+    if (error) return error;
 
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { success: false, error: "Não autenticado." },
-        { status: 401 }
-      );
-    }
-
-    const searchConditions: any[] = [];
-    if (session.user.id) searchConditions.push({ id: session.user.id });
-    if (session.user.email) searchConditions.push({ email: session.user.email.toLowerCase().trim() });
-
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: searchConditions,
-      },
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
     });
 
-    if (!user) {
+    if (!user || !user.active) {
       return NextResponse.json(
         { success: false, error: "Usuário não encontrado." },
         { status: 404 }
       );
     }
 
-    const body = await req.json();
-    const { name, avatarUrl, currentPassword, newPassword } = body;
+    const parsed = profileSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: "Dados de perfil inválidos." }, { status: 400 });
+    }
+    const { name, avatarUrl, currentPassword, newPassword } = parsed.data;
 
     const updateData: any = {};
 

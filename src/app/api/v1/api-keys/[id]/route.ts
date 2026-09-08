@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN]);
+    const { session, error } = await requireSession([Role.ADMIN], { req: req });
     if (error) return error;
 
     
@@ -79,7 +79,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const { session, error } = await requireSession([Role.ADMIN]);
+    const { session, error } = await requireSession([Role.ADMIN], { req: req });
     if (error) return error;
 
     

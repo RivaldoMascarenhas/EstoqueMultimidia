@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateInput, formatTimeInTimezone } from "@/lib/utils";
 import React, { useState, useEffect } from "react";
 import { 
   Handshake, 
@@ -78,15 +79,8 @@ export function LoanFormModal({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const getLocalDateString = (d: Date) => {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-
-  const getLocalTimeString = (d: Date) => {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
+  const getLocalDateString = (d: Date) => formatDateInput(d);
+  const getLocalTimeString = (d: Date) => formatTimeInTimezone(d);
 
   // Carregar ativos disponíveis
   useEffect(() => {
@@ -103,6 +97,7 @@ export function LoanFormModal({
       const defaultTime = new Date();
       defaultTime.setHours(defaultTime.getHours() + 4);
       setReturnTime(getLocalTimeString(defaultTime));
+      setReturnDate(getLocalDateString(defaultTime));
     }
   }, [isOpen, preSelectedAssetId]);
 
@@ -138,7 +133,7 @@ export function LoanFormModal({
         setReturnTime(getLocalTimeString(d));
         break;
       case "end_of_day":
-        d.setHours(18, 0, 0, 0);
+        d.setTime(new Date(`${getLocalDateString(d)}T18:00:00-03:00`).getTime());
         if (d < new Date()) {
           d.setDate(d.getDate() + 1);
         }
@@ -146,7 +141,7 @@ export function LoanFormModal({
         setReturnTime("18:00");
         break;
       case "night":
-        d.setHours(22, 30, 0, 0);
+        d.setTime(new Date(`${getLocalDateString(d)}T22:30:00-03:00`).getTime());
         if (d < new Date()) {
           d.setDate(d.getDate() + 1);
         }
@@ -215,7 +210,7 @@ export function LoanFormModal({
       return;
     }
 
-    const combinedDateTime = new Date(`${returnDate}T${returnTime}:00`);
+    const combinedDateTime = new Date(`${returnDate}T${returnTime}:00-03:00`);
     if (combinedDateTime <= new Date()) {
       toast.error("A data prevista de retorno deve ser no futuro.");
       return;

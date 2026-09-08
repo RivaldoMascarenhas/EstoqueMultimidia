@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/api-guard";
 
 export async function GET() {
   try {
-    const { error } = await requireSession();
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
     if (error) return error;
 
     const metrics = await AssetService.getAssetMetrics();

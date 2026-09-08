@@ -241,7 +241,7 @@ describe("Comprehensive Security Remediation Tests (SEC-01 to SEC-07)", () => {
       expect(error?.status).toBe(403);
     });
 
-    it("deve permitir requisições com API Key sem validação de browser origin", () => {
+    it("não deve aceitar cabeçalho de API Key como bypass da origem de uma sessão", () => {
       const req = new NextRequest("http://localhost:3000/api/v1/external/webhooks/test", {
         method: "POST",
         headers: {
@@ -251,7 +251,7 @@ describe("Comprehensive Security Remediation Tests (SEC-01 to SEC-07)", () => {
       });
 
       const error = validateRequestOrigin(req);
-      expect(error).toBeNull();
+      expect(error?.status).toBe(403);
     });
   });
 
