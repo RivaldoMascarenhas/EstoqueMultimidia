@@ -11,6 +11,7 @@ import {
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -26,7 +27,7 @@ async function main() {
     );
   }
 
-  const seedPasswordRaw = process.env.SEED_DEFAULT_PASSWORD || `UniFAP@${Math.floor(100000 + Math.random() * 900000)}!`;
+  const seedPasswordRaw = process.env.SEED_DEFAULT_PASSWORD || `UniFAP@${crypto.randomInt(100000, 1000000)}!`;
   const defaultPassword = await bcrypt.hash(seedPasswordRaw, 10);
 
   // 2. Criação / Upsert de Usuários Iniciais (sem sobrescrever senhas de usuários existentes)

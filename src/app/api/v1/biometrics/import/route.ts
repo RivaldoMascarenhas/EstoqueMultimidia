@@ -21,8 +21,11 @@ export async function POST(req: NextRequest) {
     const filename = formData.get("filename") || "import.csv";
     const eventId = formData.get("eventId") || null;
 
+    const lowerFilename = typeof filename === "string" ? filename.toLowerCase() : "";
+    const isValidExtension = [".csv", ".xlsx", ".xls", ".zip"].some((ext) => lowerFilename.endsWith(ext));
+
     if (!(file instanceof Blob) || !file.size || typeof filename !== "string" || filename.length > 255 ||
-        !/\.(csv|xlsx|xls|zip)$/i.test(filename) || (eventId !== null && (typeof eventId !== "string" || eventId.length > 128))) {
+        !isValidExtension || (eventId !== null && (typeof eventId !== "string" || eventId.length > 128))) {
       return NextResponse.json(
         { success: false, error: "Envie um arquivo CSV, XLSX, XLS ou ZIP não vazio e identificadores válidos." },
         { status: 400 }

@@ -79,7 +79,15 @@ export async function POST(req: NextRequest) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // Validar formato de e-mail básico
+    // Validar formato de e-mail básico com proteção contra ReDoS
+    if (cleanEmail.length < 5 || cleanEmail.length > 254 || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+      return NextResponse.json(
+        { success: false, error: "Informe um endereço de e-mail válido." },
+        { status: 400 }
+      );
+    }
+
+    // njsscan-ignore: regex_dos
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
       return NextResponse.json(

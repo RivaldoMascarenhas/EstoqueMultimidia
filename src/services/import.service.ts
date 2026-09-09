@@ -53,9 +53,9 @@ export class ImportService {
   public static sanitizeField(value: any): string {
     if (value === null || value === undefined) return "";
     let str = String(value).trim();
-    if (/^[=+\-@\t\r]/.test(str)) {
+    while (str.length > 0 && "=+-@\t\r".includes(str[0])) {
       // Remove or neutralize the dangerous prefix
-      str = str.replace(/^[=+\-@\t\r]+/, "");
+      str = str.substring(1).trimStart();
     }
     return str;
   }

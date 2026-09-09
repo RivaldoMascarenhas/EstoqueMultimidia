@@ -21,9 +21,12 @@ async function main() {
       const matches = u.avatarUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
       if (matches) {
         const ext = matches[1] === 'png' ? 'png' : 'jpg';
-        const buffer = Buffer.from(matches[2], 'base64');
-        const fileName = `${u.id}.${ext}`;
-        const filePath = path.join(uploadsDir, fileName);
+        const safeId = path.basename(String(u.id).replace(/[^a-zA-Z0-9_-]/g, ''));
+        const fileName = `${safeId}.${ext}`;
+        const filePath = path.resolve(uploadsDir, fileName);
+        if (!filePath.startsWith(uploadsDir)) {
+          throw new Error(`Caminho de arquivo inválido para usuário: ${u.id}`);
+        }
         fs.writeFileSync(filePath, buffer);
         
         const shortUrl = `/uploads/avatars/${fileName}?v=${Date.now()}`;

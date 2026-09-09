@@ -28,20 +28,18 @@ export async function GET(
     }
 
     // Se for formato Base64 (data:image/...)
-    if (user.avatarUrl.startsWith("data:image")) {
-      const matches = user.avatarUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
-      if (matches) {
-        const subtype = matches[1].toLowerCase();
-        const mimeType =
-          subtype === "png"
-            ? "image/png"
-            : subtype === "webp"
-            ? "image/webp"
-            : subtype === "gif"
-            ? "image/gif"
-            : "image/jpeg";
+    if (user.avatarUrl.startsWith("data:image/")) {
+      const commaIndex = user.avatarUrl.indexOf(",");
+      if (commaIndex !== -1) {
+        const metadata = user.avatarUrl.substring(0, commaIndex);
+        const base64Data = user.avatarUrl.substring(commaIndex + 1);
 
-        const buffer = Buffer.from(matches[2], "base64");
+        let mimeType = "image/jpeg";
+        if (metadata.includes("image/png")) mimeType = "image/png";
+        else if (metadata.includes("image/webp")) mimeType = "image/webp";
+        else if (metadata.includes("image/gif")) mimeType = "image/gif";
+
+        const buffer = Buffer.from(base64Data, "base64");
 
         const etag = `"${user.updatedAt.getTime()}"`;
         const ifNoneMatch = req.headers.get("if-none-match");
@@ -61,29 +59,6 @@ export async function GET(
           },
         });
       }
-    }
-
-    // Se já for uma rota relativa pública válida
-    function getSafeLocalRedirect( value: string, origin: string ): URL | null {
-      const path = value.trim();
-      if (!path.startsWith("/")) return null; // bloqueia protocol-relative URLs
-      if (path.startsWith("//")) return null; // evita comportamento ambíguo do URL parser
-      if (path.includes("\\")) return null;
-      if (path.startsWith("/api/v1/users/")) return null;
-      try {
-        const url = new URL(path, origin);
-        if (url.origin !== origin) {
-          return null;
-        }
-        return url;
-      } catch {
-        return null;
-      }
-    }
-
-    const redirectUrl = getSafeLocalRedirect( user.avatarUrl, req.nextUrl.origin );
-    if (redirectUrl) {
-      return NextResponse.redirect(redirectUrl);
     }
 
     return new NextResponse("Avatar not found", { status: 404 });

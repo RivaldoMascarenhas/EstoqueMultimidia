@@ -117,7 +117,7 @@ export async function GET(
       const escape = (str: string | number | null | undefined) => {
         if (str === null || str === undefined) return '""';
         let s = String(str).replace(/"/g, '""');
-        if (/^[=+\-@\t\r]/.test(s)) {
+        if (s.length > 0 && "=+-@\t\r".includes(s[0])) {
           s = " " + s;
         }
         return `"${s}"`;

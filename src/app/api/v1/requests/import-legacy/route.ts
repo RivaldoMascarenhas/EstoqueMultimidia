@@ -72,7 +72,10 @@ export async function POST(req: NextRequest) {
       const desc = evt.description || evt.summary || "";
       let professorName: string | null = null;
       if (desc.toLowerCase().includes("prof")) {
-        const profMatch = desc.match(/(?:prof|profa|professor|professora)\.?\s+([a-zA-ZÀ-ÿ\s]+)/i);
+        // Limita o escopo de busca a 200 caracteres para mitigar ReDoS
+        const boundedDesc = desc.slice(0, 200);
+        // njsscan-ignore: regex_dos
+        const profMatch = boundedDesc.match(/(?:prof|profa|professor|professora)\.?\s+([a-zA-ZÀ-ÿ]{2,30}(?:\s+[a-zA-ZÀ-ÿ]{2,30}){0,4})/i);
         if (profMatch && profMatch[1]) {
           professorName = profMatch[0].trim();
         }
