@@ -544,7 +544,7 @@ x-api-key: <sua_chave_ou_token_de_api>
 
 O sistema foi rigorosamente auditado contra os padrões do **OWASP Top 10** e a **Lei Geral de Proteção de Dados (Lei nº 13.709/2018)**. Para conferir a análise detalhada de cada vulnerabilidade remediada, consulte:
 
-📄 **[Relatório Técnico de Auditoria de Segurança & LGPD](file:///c:/Users/Rivaldo/.gemini/antigravity-ide/scratch/unifap-estoque/docs/RELATORIO_AUDITORIA_SEGURANCA.md)**
+📄 **[Relatório Técnico de Auditoria de Segurança & LGPD](docs/RELATORIO_AUDITORIA_SEGURANCA.md)**
 
 ### Principais Salvaguardas Implementadas:
 1. **Proteção Anti-SSRF**: Validação centralizada (`src/lib/ssrf.ts`) com bloqueio a redes internas e metadados de nuvem.
