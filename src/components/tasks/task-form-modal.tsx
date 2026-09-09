@@ -296,7 +296,6 @@ export function TaskFormModal({
                       }
                       setDueDate(date);
                     }}
-                    initialFocus
                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                   />
                   {dueDate && (
