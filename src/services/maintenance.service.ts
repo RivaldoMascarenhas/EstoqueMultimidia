@@ -11,9 +11,9 @@ export class MaintenanceService {
   /**
    * Gera o próximo número sequencial de OS: OS-YYYY-XXXX (ex: OS-2026-0001) usando sequência atômica
    */
-  private static async generateOrderNumber(): Promise<string> {
+  public static async generateOrderNumber(client: any = prisma): Promise<string> {
     const year = new Date().getFullYear();
-    const seqRecord = await prisma.maintenanceSequence.upsert({
+    const seqRecord = await client.maintenanceSequence.upsert({
       where: { year },
       update: { current: { increment: 1 } },
       create: { year, current: 1 },
@@ -238,7 +238,7 @@ export class MaintenanceService {
       }
 
       // 3. Gerar número de OS
-      const orderNumber = await this.generateOrderNumber();
+      const orderNumber = await this.generateOrderNumber(tx);
 
       // 4. Localização de origem para histórico
       const fromLocation = asset.currentBox
@@ -331,6 +331,16 @@ export class MaintenanceService {
 
       if (!existing) {
         throw new Error("Ordem de serviço não encontrada.");
+      }
+
+      if (existing.status === MaintenanceStatus.COMPLETED || existing.status === MaintenanceStatus.CANCELLED) {
+        throw new Error("Não é possível editar uma ordem de serviço que já foi concluída ou cancelada.");
+      }
+
+      if (input.status === MaintenanceStatus.COMPLETED || input.status === MaintenanceStatus.CANCELLED) {
+        throw new Error(
+          "Para concluir uma Ordem de Serviço utilize o fluxo formal de conclusão com laudo e alocação física de caixa. Para cancelamento, utilize o fluxo de cancelamento."
+        );
       }
 
       const updateData: any = {};
@@ -574,6 +584,30 @@ export class MaintenanceService {
         });
         if (returnBox) {
           targetLocation = `${returnBox.door.name} / ${returnBox.name} (${returnBox.code})`;
+        }
+      } else {
+        // Tentar recuperar a caixa de origem anterior do histórico (ENVIO_MANUTENCAO)
+        const lastDispatch = await tx.assetHistory.findFirst({
+          where: {
+            assetId: maintenance.assetId,
+            action: { in: ["ENVIO_MANUTENCAO", "MAINTENANCE_OPENED"] },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (lastDispatch?.fromLocation) {
+          // Extrair código da caixa do formato "... (C017)"
+          const match = lastDispatch.fromLocation.match(/\((C\d+)\)/i);
+          if (match && match[1]) {
+            const originalBox = await tx.box.findFirst({
+              where: { code: match[1].toUpperCase(), active: true },
+              include: { door: true },
+            });
+            if (originalBox) {
+              returnBox = originalBox;
+              targetLocation = `${returnBox.door.name} / ${returnBox.name} (${returnBox.code})`;
+            }
+          }
         }
       }
 

@@ -208,9 +208,10 @@ export function MaintenanceUpdateModal({
               >
                 <option value="PENDING">Pendente (Aguardando Análise)</option>
                 <option value="IN_PROGRESS">Em Andamento (Bancada/Oficina)</option>
-                <option value="COMPLETED">Concluído</option>
-                <option value="CANCELLED">Cancelado</option>
               </select>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Para concluir com laudo e alocação em caixa, utilize o botão <strong>Concluir</strong> na tabela.
+              </p>
             </div>
 
             <div className="space-y-1.5">

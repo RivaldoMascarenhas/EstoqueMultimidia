@@ -66,13 +66,15 @@ export class CabinetService {
   }
 
   /**
-   * Busca os detalhes completos de uma caixa pelo seu código único (ex: 'C017')
+   * Busca os detalhes completos de uma caixa pelo seu código único (ex: 'C017') ou ID
    */
-  static async getBoxByCode(code: string) {
-    const cleanCode = code.toUpperCase().trim();
+  static async getBoxByCode(codeOrId: string) {
+    const clean = codeOrId.toUpperCase().trim();
+    const isCuid = codeOrId.length > 20;
+    const queryWhere = isCuid ? { id: codeOrId } : { code: clean };
 
     const box = await prisma.box.findUnique({
-      where: { code: cleanCode },
+      where: queryWhere as any,
       include: {
         door: true,
         inventories: {

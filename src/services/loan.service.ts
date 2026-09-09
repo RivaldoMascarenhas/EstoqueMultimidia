@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { AssetStatus, LoanStatus, MaintenanceStatus } from "@prisma/client";
 import { LoanCreateInput, LoanReturnInput, LoanRenewInput } from "@/schemas/loan.schema";
 import { formatTimeInTimezone } from "@/lib/utils";
+import { MaintenanceService } from "@/services/maintenance.service";
 
 export class LoanService {
   /**
@@ -413,15 +414,7 @@ export class LoanService {
 
       // 2.1 Se houver avaria, abrir OS corretiva automática
       if (isDamaged) {
-        const year = now.getFullYear();
-        const count = await tx.maintenance.count();
-        const candidateOS = `OS-${year}-${String(count + 1).padStart(4, "0")}`;
-        const existingOS = await tx.maintenance.findUnique({
-          where: { orderNumber: candidateOS },
-        });
-        autoMaintenanceOrderNumber = existingOS
-          ? `OS-${year}-${String(count + 1).padStart(4, "0")}-${Date.now().toString().slice(-4)}`
-          : candidateOS;
+        autoMaintenanceOrderNumber = await MaintenanceService.generateOrderNumber(tx);
 
         await tx.maintenance.create({
           data: {

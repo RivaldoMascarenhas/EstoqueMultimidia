@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const { code } = await params;
   try {
-    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"]);
+    const { error } = await requireSession(["ADMIN", "GESTOR", "OPERADOR", "CONSULTA"], { req });
     if (error) return error;
 
     if (!code) {
@@ -49,7 +49,6 @@ export async function DELETE(
     const { session, error } = await requireSession([
       Role.ADMIN,
       Role.GESTOR,
-      Role.OPERADOR,
     ], { req });
     if (error) return error;
 

@@ -396,9 +396,9 @@ export function MaintenanceCompleteModal({
             )}
           </div>
 
-          {/* Custo se for Projetor (já que o campo acima foi usado para lâmpada) */}
-          {isProjector && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Segunda linha: Custo (se projetor) e Observações Finais (sempre disponível para todas as categorias) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isProjector && (
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground flex items-center gap-1">
                   <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
@@ -414,20 +414,20 @@ export function MaintenanceCompleteModal({
                   className="h-10 rounded-xl text-xs"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  Observações Finais
-                </label>
-                <Input
-                  value={technicalNotes}
-                  onChange={(e) => setTechnicalNotes(e.target.value)}
-                  placeholder="Ex: Garantia de 90 dias com fornecedor"
-                  className="h-10 rounded-xl text-xs"
-                />
-              </div>
+            )}
+            <div className={`space-y-1.5 ${isProjector ? "" : "sm:col-span-2"}`}>
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                Observações Finais & Garantia
+              </label>
+              <Input
+                value={technicalNotes}
+                onChange={(e) => setTechnicalNotes(e.target.value)}
+                placeholder="Ex: Garantia de 90 dias com fornecedor, equipamento pronto para uso em sala..."
+                className="h-10 rounded-xl text-xs"
+              />
             </div>
-          )}
+          </div>
         </form>
 
         {/* Footer Fixo */}

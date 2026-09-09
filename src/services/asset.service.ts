@@ -434,6 +434,28 @@ export class AssetService {
         );
       }
 
+      // Regra de validação: Se estiver em manutenção com OS aberta, não pode alterar para AVAILABLE diretamente sem concluir a OS
+      if (asset.status === AssetStatus.IN_MAINTENANCE && mappedStatus === AssetStatus.AVAILABLE) {
+        const activeMaint = await tx.maintenance.findFirst({
+          where: {
+            assetId: id,
+            status: { in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS] },
+          },
+        });
+        if (activeMaint) {
+          throw new Error(
+            `Este equipamento possui uma Ordem de Serviço em aberto (${activeMaint.orderNumber || "OS"}). Realize a conclusão formal no módulo de Manutenção para reintegrá-lo.`
+          );
+        }
+      }
+
+      // Regra de validação: Para colocar em manutenção, deve-se abrir uma OS formal
+      if (mappedStatus === AssetStatus.IN_MAINTENANCE && asset.status !== AssetStatus.IN_MAINTENANCE) {
+        throw new Error(
+          "Para colocar um equipamento em manutenção, abra uma Ordem de Serviço formal no módulo de Manutenção."
+        );
+      }
+
       const prevStatus = asset.status;
 
       const updatedAsset = await tx.asset.update({
@@ -718,6 +740,19 @@ export class AssetService {
 
       if (asset.reservations.length > 0) {
         throw new Error("Não é possível descartar um patrimônio com reserva ativa agendada.");
+      }
+
+      const activeMaintenance = await tx.maintenance.findFirst({
+        where: {
+          assetId: id,
+          status: { in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS] },
+        },
+      });
+
+      if (asset.status === AssetStatus.IN_MAINTENANCE || activeMaintenance) {
+        throw new Error(
+          `Não é possível descartar ou excluir um patrimônio com chamado técnico ativo em andamento (${activeMaintenance?.orderNumber || "OS ativa"}). Conclua o laudo com baixa ou cancele a OS antes de descartar.`
+        );
       }
 
       // Baixa lógica (WRITTEN_OFF + active: false)

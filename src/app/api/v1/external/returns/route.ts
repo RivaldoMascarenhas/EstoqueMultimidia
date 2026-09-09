@@ -67,12 +67,48 @@ export async function POST(req: NextRequest) {
     }
 
     // Buscar caixa de devolução
-    let returnBoxId = loan.asset.currentBoxId;
+    let returnBoxId: string | null = null;
     if (returnBoxCode) {
       const box = await prisma.box.findFirst({
-        where: { code: { equals: returnBoxCode, mode: "insensitive" } },
+        where: {
+          OR: [
+            { code: { equals: returnBoxCode, mode: "insensitive" } },
+            { id: returnBoxCode },
+          ],
+          active: true,
+        },
       });
       if (box) returnBoxId = box.id;
+    }
+
+    // Se não informada, tenta restaurar a caixa física original de onde o item saiu antes do empréstimo
+    if (!returnBoxId && !isDamaged) {
+      const lastCheckout = await prisma.assetHistory.findFirst({
+        where: {
+          assetId: loan.assetId,
+          action: "EMPRESTADO",
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (lastCheckout?.fromLocation) {
+        const match = lastCheckout.fromLocation.match(/\((C\d+)\)/i);
+        if (match && match[1]) {
+          const originalBox = await prisma.box.findFirst({
+            where: { code: match[1].toUpperCase(), active: true },
+          });
+          if (originalBox) returnBoxId = originalBox.id;
+        }
+      }
+
+      // Se não havia caixa no histórico, alocar na primeira caixa ativa disponível
+      if (!returnBoxId) {
+        const fallbackBox = await prisma.box.findFirst({
+          where: { active: true },
+          orderBy: { code: "asc" },
+        });
+        if (fallbackBox) returnBoxId = fallbackBox.id;
+      }
     }
 
     const userId = auth.user?.id || (await prisma.user.findFirst({ where: { role: "ADMIN" } }))?.id || "";

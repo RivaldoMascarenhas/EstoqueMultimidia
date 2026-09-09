@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Edit2, AlertCircle, Info } from "lucide-react";
+import { Loader2, Plus, Edit2, AlertCircle, Info, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { BoardTaskItem, BoardTaskPriority, BoardTaskStatus } from "./task-card";
 
 export interface AssignableUser {
@@ -48,7 +53,7 @@ export function TaskFormModal({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<BoardTaskStatus>(defaultStatus);
   const [priority, setPriority] = useState<BoardTaskPriority>("MEDIUM");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState<Date>();
   const [assignedToId, setAssignedToId] = useState<string>("");
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
@@ -71,21 +76,16 @@ export function TaskFormModal({
         setPriority(taskToEdit.priority);
         setAssignedToId(taskToEdit.assignedToId || "");
         if (taskToEdit.dueDate) {
-          const d = new Date(taskToEdit.dueDate);
-          // format YYYY-MM-DDTHH:mm for datetime-local
-          const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-            .toISOString()
-            .slice(0, 16);
-          setDueDate(iso);
+          setDueDate(new Date(taskToEdit.dueDate));
         } else {
-          setDueDate("");
+          setDueDate(undefined);
         }
       } else {
         setTitle("");
         setDescription("");
         setStatus(defaultStatus);
         setPriority("MEDIUM");
-        setDueDate("");
+        setDueDate(undefined);
         // Na criação, sugere atribuir ao próprio usuário
         setAssignedToId(currentUserId || "");
       }
@@ -127,7 +127,7 @@ export function TaskFormModal({
         description: description.trim() || null,
         status,
         priority,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+        dueDate: dueDate ? dueDate.toISOString() : null,
       };
 
       if (isEditing) {
@@ -263,12 +263,61 @@ export function TaskFormModal({
               <label className="text-xs font-semibold text-foreground">
                 Data / Horário Limite (opcional)
               </label>
-              <Input
-                type="datetime-local"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="bg-background/50 text-xs"
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal bg-background/50 text-xs h-9",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? (
+                      format(dueDate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                    ) : (
+                      <span>Selecione uma data limite</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        // Preserve existing time if any, else default to 23:59
+                        if (dueDate) {
+                          date.setHours(dueDate.getHours());
+                          date.setMinutes(dueDate.getMinutes());
+                        } else {
+                          date.setHours(23, 59, 0, 0);
+                        }
+                      }
+                      setDueDate(date);
+                    }}
+                    initialFocus
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  />
+                  {dueDate && (
+                    <div className="p-3 border-t border-border/50">
+                      <label className="text-xs font-medium mb-1 block">Horário Limite</label>
+                      <Input 
+                        type="time" 
+                        value={format(dueDate, "HH:mm")}
+                        onChange={(e) => {
+                          const [hours, minutes] = e.target.value.split(":");
+                          const newDate = new Date(dueDate);
+                          newDate.setHours(parseInt(hours, 10));
+                          newDate.setMinutes(parseInt(minutes, 10));
+                          setDueDate(newDate);
+                        }}
+                        className="h-8 text-xs bg-background"
+                      />
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
 
             {!isEditing && (
