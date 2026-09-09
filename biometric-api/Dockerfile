@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir setuptools==69.5.1 wheel && \
+RUN pip install --no-cache-dir setuptools==84.0.0 wheel && \
     pip install --no-cache-dir face_recognition_models && \
     pip wheel --no-cache-dir --wheel-dir=/build/wheels -r requirements.txt
 
@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Instala dependências a partir dos wheels pré-compilados do estágio builder
 COPY --from=builder /build/wheels /wheels
-RUN pip install --no-cache-dir setuptools==69.5.1 wheel && \
+RUN pip install --no-cache-dir setuptools==84.0.0 wheel && \
     pip install --no-cache-dir face_recognition_models && \
     pip install --no-cache-dir --no-index --find-links=/wheels /wheels/* && \
     rm -rf /wheels

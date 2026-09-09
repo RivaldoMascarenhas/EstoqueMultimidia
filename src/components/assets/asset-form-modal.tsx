@@ -1,5 +1,7 @@
 "use client";
 
+import { secureRandomInt } from "@/lib/random";
+
 import React, { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { 
@@ -72,7 +74,7 @@ interface AssetFormModalProps {
 }
 
 function generateRandomTag(prefix = "PAT-"): string {
-  const rand = Math.floor(100000 + Math.random() * 900000);
+  const rand = 100000 + secureRandomInt(900000);
   return `${prefix.toUpperCase()}${rand}`;
 }
 

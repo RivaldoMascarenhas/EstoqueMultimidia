@@ -28,17 +28,17 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
 
       - name: Gitleaks Secret Scanner
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 20
           cache: "npm"
@@ -76,3 +76,29 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/estoque_multimidia_test
           NEXTAUTH_SECRET: ci_test_only_secret_key_not_for_production_use
           BIOMETRIC_INTERNAL_TOKEN: ci_test_only_biometric_token_not_for_production
+
+  biometric-api:
+    name: Biometric API Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@f677139bbe775cee9372d84742a73b313da82be1
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        working-directory: biometric-api
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Tests
+        working-directory: biometric-api
+        run: pytest -q
+      - name: Dependency audit
+        working-directory: biometric-api
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+      - name: Docker Build & Trivy Scan
+        working-directory: biometric-api
+        run: |
+          docker build -t estoque-biometric-security .
